@@ -86,12 +86,15 @@
                         {
                             <div class="space-y-4 border-t border-border bg-card/50 px-5 py-4">
                                 <div>
+                                    @* Deliberately not labelled optional, even though a promotion
+                                       does not need it: the Suspend button shares this field and
+                                       always does. The exception is stated where it applies. *@
                                     <label class="eyebrow text-muted-foreground" for="@($"why-{account.Id}")">
                                         Reason
                                     </label>
                                     <input id="@($"why-{account.Id}")" value="@_rationale"
                                            @oninput='e => _rationale = e.Value?.ToString() ?? ""'
-                                           placeholder="Required. Goes in the log with your name on it."
+                                           placeholder="Goes in the log with your name on it."
                                            class="@Cx.Of(InputClass, _panelError is not null ? "border-severity-error" : null)" />
 
                                     @* Next to the field it is about. At the top of the page this
@@ -162,6 +165,20 @@
                                             role it was issued with. Only an admin can do this - a
                                             moderator who could promote could grant themselves an
                                             accomplice.
+                                            @if (Rank(_role) < Rank(account.SiteRole))
+                                            {
+                                                <text>
+                                                    Taking a role back needs a reason; they are
+                                                    losing something and will want to know why.
+                                                </text>
+                                            }
+                                            else
+                                            {
+                                                <text>
+                                                    Giving someone a role needs no reason - who did
+                                                    it and when is recorded either way.
+                                                </text>
+                                            }
                                         </p>
                                     </div>
                                 }
@@ -267,9 +284,18 @@
         }
     }
 
+    /// <summary>Orders the roles so "is this a demotion" is a comparison, matching the API.</summary>
+    private static int Rank(string role) => role switch
+    {
+        "admin" => 2,
+        "moderator" => 1,
+        _ => 0,
+    };
+
     private async Task SetRoleAsync(AdminAccount account)
     {
-        if (!Explained()) return;
+        // Mirrors the API: a demotion owes the person an explanation, a promotion does not.
+        if (Rank(_role) < Rank(account.SiteRole) && !Explained()) return;
 
         _saving = true;
 

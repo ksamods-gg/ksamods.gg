@@ -22,8 +22,11 @@ public sealed record ClearReviewBody(string? Notes);
 /// neither, because the log is the only account of what staff did and it is exported so it outlives
 /// this service (§13.4).</para>
 ///
-/// <para><b>Every action carries a rationale.</b> The text is not validated, but a moderation log
-/// full of blank reasons is the same as no log at all.</para>
+/// <para><b>Anything done to someone carries a rationale.</b> Withdrawing a listing, closing a
+/// report, suspending an account, taking a role back - all of them owe the person on the other end
+/// an explanation, and a log full of blank reasons is the same as no log. Granting a role is the
+/// exception: nobody is owed a justification for being given something, and requiring one there
+/// buys "helping out" rather than information.</para>
 ///
 /// <para><b>Withdrawing is delisting, never deleting.</b> Nothing in here removes a listing.
 /// Modlists pin releases and dependency graphs name ids, so a hole in the graph is a worse failure
@@ -407,7 +410,6 @@ public static class AdminEndpoints
             SessionStore sessions, CancellationToken ct) =>
         {
             if (Deny(http, Capability.ManageSiteRoles) is { } denied) return denied;
-            if (Blank(body.Rationale) is { } missing) return missing;
 
             if (body.Role is not (SiteRole.User or SiteRole.Moderator or SiteRole.Admin))
             {
@@ -432,18 +434,32 @@ public static class AdminEndpoints
             await using (connection)
             await using (transaction)
             {
-                var handle = await connection.ExecuteScalarAsync<string?>(
-                    "select handle::text from account where id = @id and deleted_at is null",
+                var target = await connection.QuerySingleOrDefaultAsync<TargetAccountRow>(
+                    "select handle::text as Handle, site_role as SiteRole from account "
+                    + "where id = @id and deleted_at is null",
                     new { id }, transaction);
 
-                if (handle is null) return Results.NotFound();
+                if (target is null) return Results.NotFound();
+
+                // A reason is owed to someone who is losing something. Taking powers away is a
+                // thing done *to* a person, and they will want to know why; handing them out is
+                // not, and demanding a sentence for it only fills the log with "helping out".
+                // The entry itself is written either way - who promoted whom is the audit trail,
+                // and that is never optional.
+                var lowering = Rank(body.Role) < Rank(target.SiteRole);
+
+                if (lowering && Blank(body.Rationale) is { } missing) return missing;
 
                 await connection.ExecuteAsync(
                     "update account set site_role = @role where id = @id",
                     new { id, role = body.Role }, transaction);
 
+                var rationale = string.IsNullOrWhiteSpace(body.Rationale)
+                    ? $"Given the {body.Role} role."
+                    : body.Rationale;
+
                 await LogAsync(connection, transaction, principal.AccountId,
-                    $"role_{body.Role}", "account", handle, body.Rationale);
+                    $"role_{body.Role}", "account", target.Handle, rationale);
 
                 await transaction.CommitAsync(ct);
             }
@@ -605,6 +621,16 @@ public static class AdminEndpoints
 
     private static IResult Invalid(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
+
+    /// <summary>
+    /// Orders the roles so "is this a demotion" is a comparison rather than a list of pairs.
+    /// </summary>
+    private static int Rank(string role) => role switch
+    {
+        SiteRole.Admin => 2,
+        SiteRole.Moderator => 1,
+        _ => 0,
+    };
 
     private static IResult Forbidden(string detail) =>
         Results.Json(new { error = "forbidden", detail }, statusCode: StatusCodes.Status403Forbidden);

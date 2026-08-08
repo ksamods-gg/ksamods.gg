@@ -342,6 +342,67 @@ public sealed class AdminEndpointTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task Giving_someone_a_role_needs_no_reason_but_is_still_logged()
+    {
+        // Nobody is owed a justification for being handed something, and demanding a sentence
+        // buys "helping out" rather than information. What is never optional is the record of
+        // who did it.
+        var target = await NewAccountAsync("user");
+
+        using var client = await SignedInAsync("admin");
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/v1/admin/accounts/{target}/role", new { role = "moderator", rationale = "" });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var connection = await Db.OpenAsync(CancellationToken.None);
+
+        var handle = await connection.ExecuteScalarAsync<string>(
+            "select handle::text from account where id = @target", new { target });
+
+        var entry = await connection.QuerySingleAsync<(string Action, string Rationale)>("""
+            select action, rationale from moderation_action
+            where subject_kind = 'account' and subject_id = @handle
+            order by id desc limit 1
+            """,
+            new { handle });
+
+        Assert.Equal("role_moderator", entry.Action);
+        Assert.False(string.IsNullOrWhiteSpace(entry.Rationale));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Taking_a_role_back_does_need_a_reason()
+    {
+        // The other direction is something done *to* somebody. They lose powers they had, and
+        // they are owed an explanation in the same log everyone else can read.
+        var target = await NewAccountAsync("moderator");
+
+        using var client = await SignedInAsync("admin");
+
+        using var refused = await client.PostAsJsonAsync(
+            $"/api/v1/admin/accounts/{target}/role", new { role = "user", rationale = "  " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+        using var connection = await Db.OpenAsync(CancellationToken.None);
+
+        // Refused entirely, rather than done-but-unexplained.
+        Assert.Equal("moderator", await connection.ExecuteScalarAsync<string>(
+            "select site_role from account where id = @target", new { target }));
+
+        using var accepted = await client.PostAsJsonAsync(
+            $"/api/v1/admin/accounts/{target}/role",
+            new { role = "user", rationale = "Inactive for a year and asked to be taken off." });
+
+        Assert.Equal(HttpStatusCode.NoContent, accepted.StatusCode);
+
+        Assert.Equal("user", await connection.ExecuteScalarAsync<string>(
+            "select site_role from account where id = @target", new { target }));
+    }
+
+    [RequiresPostgresFact]
     public async Task An_admin_cannot_change_their_own_role()
     {
         // Demoting yourself could leave the site with no admin at all.
