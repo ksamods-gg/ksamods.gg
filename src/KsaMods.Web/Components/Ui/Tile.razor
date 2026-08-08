@@ -1,0 +1,41 @@
+@namespace KsaMods.Web.Components.Ui
+
+@* A single number with its name under it. A link when there is somewhere to go, a plain block when
+   the number is only context - so a hover that leads nowhere never appears. *@
+
+@if (Href is not null)
+{
+    <a href="@Href" class="@Cx.Of(Base, "transition-colors hover:border-foreground/30 hover:bg-accent/40")">
+        @Body
+    </a>
+}
+else
+{
+    <div class="@Base">@Body</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public int Value { get; set; }
+
+    /// <summary>One line saying what the number means. Worth writing for anything non-obvious.</summary>
+    [Parameter] public string? Note { get; set; }
+
+    [Parameter] public string? Href { get; set; }
+
+    /// <summary>Colours the number when it is non-zero. Zero is never urgent.</summary>
+    [Parameter] public bool Urgent { get; set; }
+
+    private const string Base =
+        "block rounded-lg border border-border bg-card px-4 py-3 text-card-foreground";
+
+    private RenderFragment Body => @<text>
+        <p class="eyebrow text-muted-foreground">@Label</p>
+        <p class="@Cx.Of("mt-1 font-mono text-2xl leading-none",
+                         Urgent && Value > 0 ? "text-severity-error" : null)">@Value</p>
+        @if (!string.IsNullOrWhiteSpace(Note))
+        {
+            <p class="mt-2 text-xs leading-snug text-muted-foreground">@Note</p>
+        }
+    </text>;
+}

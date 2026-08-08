@@ -138,6 +138,60 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
             : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
     }
 
+    // ── moderation ──
+    //
+    // Every read here comes back null when the caller is not staff, because the API answers 404
+    // rather than 403 - /admin does not confirm to a stranger that it exists. The pages treat null
+    // as "there is nothing here for you", which is the same thing.
+
+    public Task<AdminOverview?> GetAdminOverviewAsync(CancellationToken ct = default) =>
+        GetAsync<AdminOverview>("/api/v1/admin/overview", ct);
+
+    public Task<IReadOnlyList<AdminReport>?> GetReportsAsync(string? state = "open", CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdminReport>>(
+            string.IsNullOrEmpty(state) ? "/api/v1/admin/reports" : $"/api/v1/admin/reports?state={state}", ct);
+
+    public Task<ApiOutcome> ResolveReportAsync(
+        long id, string state, string rationale, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/reports/{id}/resolve", new { state, rationale }, ct);
+
+    public Task<IReadOnlyList<AdminReview>?> GetReviewQueueAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdminReview>>("/api/v1/admin/reviews", ct);
+
+    public Task<ApiOutcome> ClearReviewAsync(long releaseId, string? notes, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/reviews/{releaseId}/clear", new { notes }, ct);
+
+    public Task<IReadOnlyList<AdminListing>?> GetAdminListingsAsync(
+        string? q = null, string? state = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdminListing>>($"/api/v1/admin/listings{Query(("q", q), ("state", state))}", ct);
+
+    public Task<ApiOutcome> SetListingStateAsync(
+        string modId, string state, string rationale, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/listings/{Uri.EscapeDataString(modId)}/state",
+            new { state, rationale }, ct);
+
+    public Task<IReadOnlyList<AdminAccount>?> GetAdminAccountsAsync(
+        string? q = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdminAccount>>($"/api/v1/admin/accounts{Query(("q", q))}", ct);
+
+    public Task<ApiOutcome> SuspendAccountAsync(
+        long id, bool suspended, string rationale, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/accounts/{id}/suspend", new { suspended, rationale }, ct);
+
+    public Task<ApiOutcome> SetSiteRoleAsync(
+        long id, string role, string rationale, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/accounts/{id}/role", new { role, rationale }, ct);
+
+    public Task<IReadOnlyList<ModerationEntry>?> GetModerationLogAsync(
+        string? subjectId = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ModerationEntry>>($"/api/v1/admin/log{Query(("subjectId", subjectId))}", ct);
+
+    public Task<IReadOnlyList<AdminJob>?> GetJobsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdminJob>>("/api/v1/admin/jobs", ct);
+
+    public Task<ApiOutcome> RetryJobAsync(long id, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/jobs/{id}/retry", new { }, ct);
+
     public async Task<CreateModResult> CreateModAsync(CreateModRequest request, CancellationToken ct = default)
     {
         using var client = CreateClient();
@@ -228,6 +282,27 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
             new { reason }, Json, ct);
 
         return response.IsSuccessStatusCode;
+    }
+
+    private async Task<ApiOutcome> PostAsync(string path, object body, CancellationToken ct)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsJsonAsync(path, body, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    /// <summary>Builds a query string from the parameters that were actually given.</summary>
+    private static string Query(params (string Name, string? Value)[] parameters)
+    {
+        var given = parameters
+            .Where(p => !string.IsNullOrWhiteSpace(p.Value))
+            .Select(p => $"{p.Name}={Uri.EscapeDataString(p.Value!)}")
+            .ToList();
+
+        return given.Count == 0 ? "" : $"?{string.Join('&', given)}";
     }
 
     private async Task<T?> GetAsync<T>(string path, CancellationToken ct)
@@ -500,6 +575,109 @@ public sealed record GameBuild
     [JsonPropertyName("revision")] public int Revision { get; init; }
     [JsonPropertyName("build")] public string Build { get; init; } = "";
     [JsonPropertyName("date")] public DateTime? Date { get; init; }
+}
+
+// ── moderation ──
+
+public sealed record AdminOverview
+{
+    [JsonPropertyName("open_reports")] public int OpenReports { get; init; }
+    [JsonPropertyName("quarantined")] public int Quarantined { get; init; }
+    [JsonPropertyName("needs_review")] public int NeedsReview { get; init; }
+    [JsonPropertyName("dead_jobs")] public int DeadJobs { get; init; }
+    [JsonPropertyName("withdrawn")] public int Withdrawn { get; init; }
+    [JsonPropertyName("suspended")] public int Suspended { get; init; }
+    [JsonPropertyName("accounts")] public int Accounts { get; init; }
+    [JsonPropertyName("mods")] public int Mods { get; init; }
+    [JsonPropertyName("releases")] public int Releases { get; init; }
+}
+
+public sealed record AdminReport
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("subject_kind")] public string SubjectKind { get; init; } = "";
+    [JsonPropertyName("subject_id")] public string SubjectId { get; init; } = "";
+    [JsonPropertyName("category")] public string Category { get; init; } = "";
+    [JsonPropertyName("body")] public string? Body { get; init; }
+    [JsonPropertyName("state")] public string State { get; init; } = "open";
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("resolved_at")] public DateTimeOffset? ResolvedAt { get; init; }
+    [JsonPropertyName("reporter_handle")] public string? ReporterHandle { get; init; }
+    [JsonPropertyName("resolved_by")] public string? ResolvedBy { get; init; }
+
+    public bool IsOpen => State == "open";
+}
+
+public sealed record AdminReview
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("mod_id")] public string ModId { get; init; } = "";
+    [JsonPropertyName("mod_name")] public string ModName { get; init; } = "";
+    [JsonPropertyName("version")] public string Version { get; init; } = "";
+    [JsonPropertyName("released_at")] public DateTimeOffset ReleasedAt { get; init; }
+    [JsonPropertyName("availability")] public string Availability { get; init; } = "";
+    [JsonPropertyName("validation_state")] public string ValidationState { get; init; } = "";
+    [JsonPropertyName("ships_code")] public bool ShipsCode { get; init; }
+    [JsonPropertyName("runs_console")] public bool RunsConsole { get; init; }
+    [JsonPropertyName("quarantined")] public bool Quarantined { get; init; }
+    [JsonPropertyName("warnings")] public int Warnings { get; init; }
+    [JsonPropertyName("open_reports")] public int OpenReports { get; init; }
+}
+
+public sealed record AdminListing
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("listing_state")] public string ListingState { get; init; } = "listed";
+    [JsonPropertyName("status")] public string Status { get; init; } = "active";
+    [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
+    [JsonPropertyName("owner_handle")] public string? OwnerHandle { get; init; }
+    [JsonPropertyName("releases")] public int Releases { get; init; }
+    [JsonPropertyName("open_reports")] public int OpenReports { get; init; }
+
+    public bool IsWithdrawn => ListingState is "delisted" or "taken_down";
+}
+
+public sealed record AdminAccount
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("handle")] public string Handle { get; init; } = "";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
+    [JsonPropertyName("site_role")] public string SiteRole { get; init; } = "user";
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("suspended_at")] public DateTimeOffset? SuspendedAt { get; init; }
+    [JsonPropertyName("deleted_at")] public DateTimeOffset? DeletedAt { get; init; }
+    [JsonPropertyName("mods")] public int Mods { get; init; }
+    [JsonPropertyName("sessions")] public int Sessions { get; init; }
+
+    public bool IsSuspended => SuspendedAt is not null;
+    public bool IsDeleted => DeletedAt is not null;
+}
+
+public sealed record ModerationEntry
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("action")] public string Action { get; init; } = "";
+    [JsonPropertyName("subject_kind")] public string SubjectKind { get; init; } = "";
+    [JsonPropertyName("subject_id")] public string SubjectId { get; init; } = "";
+    [JsonPropertyName("rationale")] public string Rationale { get; init; } = "";
+    [JsonPropertyName("public")] public bool Public { get; init; }
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("supersedes")] public long? Supersedes { get; init; }
+    [JsonPropertyName("actor_handle")] public string? ActorHandle { get; init; }
+}
+
+public sealed record AdminJob
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "";
+    [JsonPropertyName("state")] public string State { get; init; } = "";
+    [JsonPropertyName("attempts")] public int Attempts { get; init; }
+    [JsonPropertyName("run_after")] public DateTimeOffset RunAfter { get; init; }
+    [JsonPropertyName("last_error")] public string? LastError { get; init; }
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+
+    public bool CanRetry => State is "dead" or "failed";
 }
 
 // ── requests ──

@@ -23,11 +23,19 @@
         }
         <span class="font-medium">@User.Handle</span>
 
-        @if (User.IsModerator)
-        {
-            <Badge Variant="info" Title="You can moderate listings.">staff</Badge>
-        }
     </a>
+
+    @* The staff badge is the way into moderation rather than a decoration: someone who has the
+       role needs somewhere to go with it, and a separate nav item would sit in the header for
+       everyone while meaning something for almost nobody. *@
+    @if (User.IsModerator)
+    {
+        <a href="/admin" title="Moderation"
+           class="hidden rounded-md px-1 py-1 focus-visible:outline-2 focus-visible:outline-offset-2
+                  focus-visible:outline-ring sm:block">
+            <Badge Variant="info">staff</Badge>
+        </a>
+    }
 
     @* The identity collapses away on small screens, so the account page needs its own way in. *@
     <a href="/account" class="text-sm text-muted-foreground hover:text-foreground sm:hidden">Account</a>

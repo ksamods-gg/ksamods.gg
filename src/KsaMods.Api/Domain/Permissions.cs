@@ -33,6 +33,7 @@ public sealed record Principal
     public string? ModlistRole { get; init; }
 
     public bool IsModerator => SiteRole is Domain.SiteRole.Moderator or Domain.SiteRole.Admin;
+    public bool IsAdmin => SiteRole == Domain.SiteRole.Admin;
     public bool IsModOwner => ModRole == Domain.ModRole.Owner;
     public bool IsModMaintainer => ModRole is Domain.ModRole.Owner or Domain.ModRole.Maintainer;
     public bool IsListOwner => ModlistRole == Domain.ModlistRole.Owner;
@@ -60,6 +61,8 @@ public enum Capability
     TransferModlistOwnership,
 
     Moderate,
+    SuspendAccount,
+    ManageSiteRoles,
 }
 
 /// <summary>
@@ -110,6 +113,16 @@ public static class Permissions
         Capability.TransferModlistOwnership => principal.IsListOwner || principal.IsModerator,
 
         Capability.Moderate => principal.IsModerator,
+
+        // Suspending someone stops them signing in. A moderator needs it to stop abuse in
+        // progress, and it is reversible, so it does not need to wait for an admin.
+        Capability.SuspendAccount => principal.IsModerator,
+
+        // Granting moderator is the one action that hands out the power to do everything else on
+        // this list, so it sits a level above them all. A moderator who could promote could grant
+        // themselves an admin accomplice; an admin doing it is at least a deliberate choice by
+        // someone who already had the keys.
+        Capability.ManageSiteRoles => principal.IsAdmin,
 
         _ => false,
     };

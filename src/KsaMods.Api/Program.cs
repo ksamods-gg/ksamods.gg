@@ -148,6 +148,7 @@ app.MapReadEndpoints();
 app.MapModEndpoints();
 app.MapModlistEndpoints();
 app.MapAccountEndpoints();
+app.MapAdminEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
