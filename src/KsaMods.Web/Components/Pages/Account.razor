@@ -1,0 +1,462 @@
+@page "/account"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+@inject AuthAvailability Auth
+@inject NavigationManager Nav
+
+<PageTitle>Your account | ksamods.gg</PageTitle>
+
+@if (_loading)
+{
+    <p class="text-sm text-muted-foreground">Loading…</p>
+}
+else if (_profile is null)
+{
+    @* Reachable by typing the URL, and the session may also have expired while the page sat
+       open. Either way this is "sign in", not an error. *@
+    <div class="mx-auto max-w-md py-8">
+        <h1 class="text-2xl font-semibold tracking-tight">Your account</h1>
+        <Alert Variant="info" Title="You are not signed in" Class="mt-6">
+            Sign in to manage your profile, connected accounts and sessions.
+        </Alert>
+        <Button Href="/signin?returnTo=%2Faccount" Class="mt-6">Sign in</Button>
+    </div>
+}
+else
+{
+    <div class="mx-auto max-w-2xl">
+        <header class="flex items-center gap-4">
+            @if (!string.IsNullOrWhiteSpace(_profile.AvatarUrl))
+            {
+                <img src="@_profile.AvatarUrl" alt="" width="48" height="48"
+                     class="size-12 rounded-full border border-border object-cover"
+                     referrerpolicy="no-referrer" />
+            }
+            <div class="min-w-0">
+                <h1 class="text-2xl font-semibold tracking-tight">@_profile.DisplayName</h1>
+                <p class="text-sm text-muted-foreground">
+                    <span class="font-mono">@@@_profile.Handle</span>
+                    · joined @_profile.CreatedAt.ToString("MMMM yyyy")
+                    @if (_profile.IsModerator)
+                    {
+                        <span> · <Badge Variant="info">staff</Badge></span>
+                    }
+                </p>
+            </div>
+        </header>
+
+        @if (_notice is not null)
+        {
+            <Alert Variant="ok" Class="mt-6">@_notice</Alert>
+        }
+
+        <!-- ── profile ─────────────────────────────────────────────── -->
+        <Card Class="mt-8" Header="@(b => b.AddContent(0, "Profile"))">
+            @if (_profileError is not null)
+            {
+                <Alert Variant="error" Class="mb-4">@_profileError</Alert>
+            }
+
+            <div class="space-y-5">
+                <Field Id="displayName" Label="Display name"
+                       Hint="Shown on your mods and modlists. Any characters you like.">
+                    <input id="displayName" @bind="_form.DisplayName" class="@InputClass" />
+                </Field>
+
+                <Field Id="handle" Label="Handle"
+                       Hint="How other people refer to you — a collaborator invite asks for this. Letters, digits, '-' and '_'. Capitalisation is ignored when checking it is free.">
+                    <input id="handle" @bind="_form.Handle" class="@Cx.Of(InputClass, "font-mono")"
+                           autocomplete="off" spellcheck="false" />
+                </Field>
+
+                <Field Id="forums" Label="KSA forums thread" Required="false"
+                       Hint="Your thread on the KSA forums. Not needed to use the site, but a mod of yours needs one before it appears in the exported index other clients read.">
+                    <input id="forums" type="url" @bind="_form.ForumsUrl"
+                           placeholder="https://forums.ahwoo.com/members/…" class="@InputClass" />
+                </Field>
+            </div>
+
+            <div class="mt-5 flex items-center gap-3">
+                <Button Type="button" Disabled="_saving" Pending="_saving" @onclick="SaveProfileAsync">
+                    Save changes
+                </Button>
+                @if (_handleChanged)
+                {
+                    <span class="text-xs text-muted-foreground">
+                        Changing your handle frees the old one for someone else to take.
+                    </span>
+                }
+            </div>
+        </Card>
+
+        <!-- ── connected accounts ──────────────────────────────────── -->
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "Connected accounts"))"
+              Description="@(b => b.AddContent(0, "How you sign in"))">
+
+            @if (_identityError is not null)
+            {
+                <Alert Variant="error" Class="mb-4">@_identityError</Alert>
+            }
+
+            <ul class="divide-y divide-border">
+                @foreach (var identity in _profile.Identities)
+                {
+                    <li class="flex items-center gap-3 py-3 first:pt-0">
+                        <ProviderMark Provider="@identity.Provider" Class="shrink-0" />
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium">@DisplayName(identity.Provider)</p>
+                            <p class="text-xs text-muted-foreground">
+                                Connected @Presentation.Ago(identity.LinkedAt)
+                            </p>
+                        </div>
+
+                        <div class="ml-auto">
+                            @if (_profile.Identities.Count > 1)
+                            {
+                                <Button Type="button" Variant="ghost" Size="sm"
+                                        @onclick="() => UnlinkAsync(identity.Provider)">
+                                    Disconnect
+                                </Button>
+                            }
+                            else
+                            {
+                                @* Disconnecting the only one leaves an account nobody can sign
+                                   into — there is no password and no email to recover through. *@
+                                <span class="text-xs text-muted-foreground">Only way in</span>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+
+            @{
+                var unlinked = _available.Where(p => !_profile.Identities.Any(i => i.Provider == p)).ToList();
+            }
+            @if (unlinked.Count > 0)
+            {
+                <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+                    <span class="text-sm text-muted-foreground">Also connect:</span>
+                    @foreach (var provider in unlinked)
+                    {
+                        <Button Href="@($"/auth/{provider}/start?returnTo=%2Faccount")"
+                                Variant="outline" Size="sm">
+                            @DisplayName(provider)
+                        </Button>
+                    }
+                </div>
+            }
+        </Card>
+
+        <!-- ── your content ────────────────────────────────────────── -->
+        @if (_profile.Mods.Count > 0 || _profile.Modlists.Count > 0)
+        {
+            <Card Class="mt-6" Header="@(b => b.AddContent(0, "Your content"))">
+                @if (_profile.Mods.Count > 0)
+                {
+                    <h3 class="eyebrow text-muted-foreground">Mods</h3>
+                    <ul class="mt-2 divide-y divide-border">
+                        @foreach (var mod in _profile.Mods)
+                        {
+                            <li class="flex items-center gap-3 py-2 text-sm">
+                                <a href="@($"/mods/{mod.Id}")" class="font-medium underline-offset-4 hover:underline">
+                                    @mod.Name
+                                </a>
+                                <code class="font-mono text-xs text-muted-foreground">@mod.Id</code>
+                                <Badge Variant="outline" Class="ml-auto">@mod.Role</Badge>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @if (_profile.Modlists.Count > 0)
+                {
+                    <h3 class="@Cx.Of("eyebrow text-muted-foreground", _profile.Mods.Count > 0 ? "mt-5" : null)">
+                        Modlists
+                    </h3>
+                    <ul class="mt-2 divide-y divide-border">
+                        @foreach (var list in _profile.Modlists)
+                        {
+                            <li class="flex items-center gap-3 py-2 text-sm">
+                                <a href="@($"/modlists/{list.Id}")" class="font-medium underline-offset-4 hover:underline">
+                                    @list.Name
+                                </a>
+                                @if (list.Visibility != "public")
+                                {
+                                    <Badge Variant="outline">@list.Visibility</Badge>
+                                }
+                                <Badge Variant="outline" Class="ml-auto">@list.Role</Badge>
+                            </li>
+                        }
+                    </ul>
+                }
+            </Card>
+        }
+
+        <!-- ── sessions ────────────────────────────────────────────── -->
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "Where you are signed in"))"
+              Description="@(b => b.AddContent(0, $"{_sessions.Count} active"))">
+
+            <ul class="divide-y divide-border">
+                @foreach (var session in _sessions)
+                {
+                    <li class="flex items-center gap-3 py-3 text-sm first:pt-0">
+                        <div class="min-w-0">
+                            <p class="truncate">@Describe(session.UserAgent)</p>
+                            <p class="text-xs text-muted-foreground">
+                                Signed in @Presentation.Ago(session.IssuedAt)
+                                · expires @session.ExpiresAt.ToString("d MMM yyyy")
+                            </p>
+                        </div>
+                        @if (session.Current)
+                        {
+                            <Badge Variant="ok" Class="ml-auto">this device</Badge>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (_sessions.Count > 1)
+            {
+                <div class="mt-4 border-t border-border pt-4">
+                    <Button Type="button" Variant="outline" Size="sm" @onclick="RevokeOthersAsync">
+                        Sign out everywhere else
+                    </Button>
+                    <p class="mt-2 text-xs text-muted-foreground">
+                        Ends every session except this one. Do this if you signed in somewhere you
+                        no longer trust.
+                    </p>
+                </div>
+            }
+        </Card>
+
+        <!-- ── danger zone ─────────────────────────────────────────── -->
+        <Card Class="mt-6 border-severity-error/30" Header="@(b => b.AddContent(0, "Delete account"))">
+            @if (!_confirmingDelete)
+            {
+                <p class="text-sm text-muted-foreground">
+                    Your mods and modlists stay published — people have them installed, and modlists
+                    point at them. What goes is the account: your name, your avatar, your sign-in
+                    links, and every session. It cannot be undone, and you cannot sign back in.
+                </p>
+                <Button Type="button" Variant="outline" Size="sm" Class="mt-4"
+                        @onclick="() => _confirmingDelete = true">
+                    Delete my account
+                </Button>
+            }
+            else
+            {
+                <Alert Variant="error" Title="This cannot be undone">
+                    Type your handle <code class="font-mono">@_profile.Handle</code> to confirm.
+                </Alert>
+
+                <input @bind="_deleteConfirmation" @bind:event="oninput"
+                       class="@Cx.Of(InputClass, "mt-4 font-mono")" autocomplete="off" />
+
+                <div class="mt-4 flex items-center gap-3">
+                    <Button Type="button" Variant="destructive" Disabled="!DeleteConfirmed || _deleting"
+                            Pending="_deleting" @onclick="DeleteAsync">
+                        Delete permanently
+                    </Button>
+                    <Button Type="button" Variant="ghost" @onclick="CancelDelete">Cancel</Button>
+                </div>
+            }
+        </Card>
+    </div>
+}
+
+@code {
+    private const string InputClass =
+        "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    private AccountProfile? _profile;
+    private IReadOnlyList<AccountSession> _sessions = [];
+    private IReadOnlyList<string> _available = [];
+
+    private readonly Form _form = new();
+    private string _originalHandle = "";
+
+    private bool _loading = true;
+    private bool _saving;
+    private bool _deleting;
+    private bool _confirmingDelete;
+    private string _deleteConfirmation = "";
+
+    private string? _notice;
+    private string? _profileError;
+    private string? _identityError;
+
+    private bool _handleChanged =>
+        !string.Equals(_form.Handle?.Trim(), _originalHandle, StringComparison.Ordinal);
+
+    // Case-insensitive, because the handle itself is: asking someone to match capitalisation they
+    // cannot see would be a puzzle, not a safeguard.
+    private bool DeleteConfirmed =>
+        string.Equals(_deleteConfirmation.Trim(), _profile?.Handle, StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _profile = await Api.GetProfileAsync();
+
+            if (_profile is not null)
+            {
+                _sessions = await Api.GetSessionsAsync() ?? [];
+                _available = await Auth.ProvidersAsync();
+
+                _form.DisplayName = _profile.DisplayName;
+                _form.Handle = _profile.Handle;
+                _form.ForumsUrl = _profile.ForumsUrl ?? "";
+                _originalHandle = _profile.Handle;
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _profile = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _saving = true;
+        _profileError = null;
+        _notice = null;
+
+        try
+        {
+            var result = await Api.UpdateProfileAsync(new UpdateProfileRequest(
+                _form.DisplayName?.Trim(),
+                _form.Handle?.Trim(),
+                // Empty string means "clear it"; null means "leave it alone". The API tells them
+                // apart, so the form must too.
+                _form.ForumsUrl?.Trim() ?? ""));
+
+            if (result.Success)
+            {
+                _notice = "Profile saved.";
+                await LoadAsync();
+            }
+            else if (result.NeedsSignIn)
+            {
+                Nav.NavigateTo("/signin?returnTo=%2Faccount", forceLoad: true);
+            }
+            else
+            {
+                _profileError = result.Error ?? "Could not save your profile.";
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task UnlinkAsync(string provider)
+    {
+        _identityError = null;
+        _notice = null;
+
+        var result = await Api.UnlinkIdentityAsync(provider);
+
+        if (result.Success)
+        {
+            _notice = $"{DisplayName(provider)} disconnected.";
+            await LoadAsync();
+        }
+        else
+        {
+            _identityError = result.Error ?? "Could not disconnect that account.";
+        }
+    }
+
+    private async Task RevokeOthersAsync()
+    {
+        var revoked = await Api.RevokeOtherSessionsAsync();
+
+        _notice = revoked switch
+        {
+            0 => "There were no other sessions to end.",
+            1 => "One other session ended.",
+            _ => $"{revoked} other sessions ended.",
+        };
+
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!DeleteConfirmed) return;
+
+        _deleting = true;
+
+        try
+        {
+            var result = await Api.DeleteAccountAsync();
+
+            // forceLoad, because the session is gone: a soft navigation would keep rendering from
+            // a circuit whose account no longer exists.
+            if (result.Success) Nav.NavigateTo("/", forceLoad: true);
+            else _profileError = result.Error ?? "Could not delete the account.";
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
+
+    private void CancelDelete()
+    {
+        _confirmingDelete = false;
+        _deleteConfirmation = "";
+    }
+
+    private static string DisplayName(string provider) => provider switch
+    {
+        "github" => "GitHub",
+        "discord" => "Discord",
+        _ => provider,
+    };
+
+    /// <summary>
+    /// A readable device name from the user agent. The point of the session list is "is anything
+    /// here not me", and a raw UA string answers that worse than three words do.
+    /// </summary>
+    private static string Describe(string? userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent)) return "Unknown device";
+
+        var browser =
+            userAgent.Contains("Edg/", StringComparison.Ordinal) ? "Edge"
+            : userAgent.Contains("Firefox/", StringComparison.Ordinal) ? "Firefox"
+            : userAgent.Contains("Chrome/", StringComparison.Ordinal) ? "Chrome"
+            : userAgent.Contains("Safari/", StringComparison.Ordinal) ? "Safari"
+            : "Browser";
+
+        var platform =
+            userAgent.Contains("Windows", StringComparison.Ordinal) ? "Windows"
+            : userAgent.Contains("Android", StringComparison.Ordinal) ? "Android"
+            : userAgent.Contains("iPhone", StringComparison.Ordinal) ? "iPhone"
+            : userAgent.Contains("Mac OS X", StringComparison.Ordinal) ? "macOS"
+            : userAgent.Contains("Linux", StringComparison.Ordinal) ? "Linux"
+            : "unknown platform";
+
+        return $"{browser} on {platform}";
+    }
+
+    private sealed class Form
+    {
+        public string? DisplayName { get; set; }
+        public string? Handle { get; set; }
+        public string? ForumsUrl { get; set; }
+    }
+}

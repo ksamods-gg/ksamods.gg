@@ -147,6 +147,7 @@ else if (siteOptions.Normalised is { } publicUrl)
 app.MapReadEndpoints();
 app.MapModEndpoints();
 app.MapModlistEndpoints();
+app.MapAccountEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 

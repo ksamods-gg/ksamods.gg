@@ -9,7 +9,12 @@
    carry it and the request would be a no-op for the victim. *@
 
 <div class="flex items-center gap-2">
-    <span class="hidden items-center gap-2 text-sm sm:flex" title="@User.DisplayName">
+    @* The identity itself is the way into the account page. A separate "Settings" item would be
+       one more thing in a header that already has enough in it. *@
+    <a href="/account" title="@($"{User.DisplayName} — manage your account")"
+       class="hidden items-center gap-2 rounded-md px-1.5 py-1 text-sm transition-colors
+              hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2
+              focus-visible:outline-ring sm:flex">
         @if (!string.IsNullOrWhiteSpace(User.AvatarUrl))
         {
             <img src="@User.AvatarUrl" alt="" width="22" height="22"
@@ -22,7 +27,10 @@
         {
             <Badge Variant="info" Title="You can moderate listings.">staff</Badge>
         }
-    </span>
+    </a>
+
+    @* The identity collapses away on small screens, so the account page needs its own way in. *@
+    <a href="/account" class="text-sm text-muted-foreground hover:text-foreground sm:hidden">Account</a>
 
     <form method="post" action="@($"/auth/logout?returnTo={ReturnTo}")" class="contents">
         <Button Type="submit" Variant="ghost" Size="sm">Sign out</Button>

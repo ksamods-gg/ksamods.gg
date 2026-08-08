@@ -88,6 +88,56 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         }
     }
 
+    // ── account management ──
+
+    public Task<AccountProfile?> GetProfileAsync(CancellationToken ct = default) =>
+        GetAsync<AccountProfile>("/api/v1/me/profile", ct);
+
+    public Task<IReadOnlyList<AccountSession>?> GetSessionsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AccountSession>>("/api/v1/me/sessions", ct);
+
+    public async Task<ApiOutcome> UpdateProfileAsync(UpdateProfileRequest request, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PatchAsJsonAsync("/api/v1/me/profile", request, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    public async Task<int> RevokeOtherSessionsAsync(CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsync("/api/v1/me/sessions/revoke-others", null, ct);
+
+        if (!response.IsSuccessStatusCode) return 0;
+
+        var body = await response.Content.ReadFromJsonAsync<RevokedResponse>(Json, ct);
+        return body?.Revoked ?? 0;
+    }
+
+    public async Task<ApiOutcome> UnlinkIdentityAsync(string provider, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.DeleteAsync(
+            $"/api/v1/me/identities/{Uri.EscapeDataString(provider)}", ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    public async Task<ApiOutcome> DeleteAccountAsync(CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsync("/api/v1/me/delete", null, ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
     public async Task<CreateModResult> CreateModAsync(CreateModRequest request, CancellationToken ct = default)
     {
         using var client = CreateClient();
@@ -330,6 +380,68 @@ public sealed record CollisionOwner
     [JsonPropertyName("id")] public string Id { get; init; } = "";
     [JsonPropertyName("version")] public string Version { get; init; } = "";
     [JsonPropertyName("xml_path")] public string XmlPath { get; init; } = "";
+}
+
+/// <summary>Outcome of a write, carrying the API's own explanation rather than a generic one.</summary>
+public sealed record ApiOutcome(bool Success, string? Error, HttpStatusCode? Status)
+{
+    public static ApiOutcome Ok() => new(true, null, null);
+    public static ApiOutcome Failed(string? error, HttpStatusCode status) => new(false, error, status);
+
+    /// <summary>True when the session expired mid-page — the caller should send them to sign in.</summary>
+    public bool NeedsSignIn => Status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+}
+
+public sealed record AccountProfile
+{
+    [JsonPropertyName("handle")] public string Handle { get; init; } = "";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
+    [JsonPropertyName("avatar_url")] public string? AvatarUrl { get; init; }
+    [JsonPropertyName("forums_url")] public string? ForumsUrl { get; init; }
+    [JsonPropertyName("site_role")] public string SiteRole { get; init; } = "user";
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("identities")] public IReadOnlyList<LinkedIdentity> Identities { get; init; } = [];
+    [JsonPropertyName("mods")] public IReadOnlyList<OwnedMod> Mods { get; init; } = [];
+    [JsonPropertyName("modlists")] public IReadOnlyList<OwnedModlist> Modlists { get; init; } = [];
+
+    public bool IsModerator => SiteRole is "moderator" or "admin";
+}
+
+public sealed record LinkedIdentity
+{
+    [JsonPropertyName("provider")] public string Provider { get; init; } = "";
+    [JsonPropertyName("linked_at")] public DateTimeOffset LinkedAt { get; init; }
+}
+
+public sealed record OwnedMod
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("role")] public string Role { get; init; } = "maintainer";
+}
+
+public sealed record OwnedModlist
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("role")] public string Role { get; init; } = "editor";
+    [JsonPropertyName("visibility")] public string Visibility { get; init; } = "private";
+}
+
+public sealed record AccountSession
+{
+    [JsonPropertyName("id")] public Guid Id { get; init; }
+    [JsonPropertyName("issued_at")] public DateTimeOffset IssuedAt { get; init; }
+    [JsonPropertyName("expires_at")] public DateTimeOffset ExpiresAt { get; init; }
+    [JsonPropertyName("user_agent")] public string? UserAgent { get; init; }
+    [JsonPropertyName("current")] public bool Current { get; init; }
+}
+
+public sealed record UpdateProfileRequest(string? DisplayName, string? Handle, string? ForumsUrl);
+
+internal sealed record RevokedResponse
+{
+    [JsonPropertyName("revoked")] public int Revoked { get; init; }
 }
 
 public sealed record GameBuild
