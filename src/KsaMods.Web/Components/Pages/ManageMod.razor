@@ -1,0 +1,436 @@
+@page "/mods/{Id}/manage"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+@inject NavigationManager Nav
+
+<PageTitle>Manage @Id | ksamods.gg</PageTitle>
+
+@if (_loading)
+{
+    <p class="font-mono text-xs text-muted-foreground">Loading…</p>
+}
+else if (_mod is null)
+{
+    <Alert Variant="error" Title="Could not load this listing">
+        @(_loadError ?? "No listing with that id.")
+    </Alert>
+}
+else if (!_mod.CanManage)
+{
+    @* Reachable by typing the URL. Say why rather than showing an empty page. *@
+    <Alert Variant="info" Title="This isn't your listing">
+        Only the people who maintain a mod can manage it. If it's yours and you're signed in with
+        a different account, that's the one to sign in with.
+    </Alert>
+    <Button Href="@($"/mods/{Id}")" Variant="outline" Size="sm" Class="mt-6">Back to the listing</Button>
+}
+else
+{
+    <div class="mx-auto max-w-3xl">
+        <div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+            <div class="min-w-0">
+                <p class="eyebrow text-muted-foreground">Manage</p>
+                <h1 class="mt-2 truncate text-2xl font-bold tracking-tight">@_mod.Name</h1>
+                <code class="mt-1 block font-mono text-xs text-muted-foreground">@_mod.Id</code>
+            </div>
+            <Button Href="@($"/mods/{Id}")" Variant="outline" Size="sm">View listing</Button>
+        </div>
+
+        @if (_message is not null)
+        {
+            <Alert Variant="ok" Title="Saved" Class="mt-6">@_message</Alert>
+        }
+        @if (_error is not null)
+        {
+            <Alert Variant="error" Title="That didn't work" Class="mt-6">@_error</Alert>
+        }
+
+        @*
+            Visibility first: it is the question an author has after creating a listing, and the
+            answer decides whether anything else on this page matters yet.
+        *@
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "Visibility"))">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="min-w-0">
+                    @if (_mod.IsDraft)
+                    {
+                        <p class="text-sm font-medium">This is a draft</p>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            It doesn't appear in browse or search. Anyone with the link can still
+                            open it, so treat the link as semi-public.
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="text-sm font-medium">Published</p>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            It shows up in browse and search, and in the exported index other
+                            clients read.
+                        </p>
+                    }
+                </div>
+
+                <Button Size="sm" Variant="@(_mod.IsDraft ? "primary" : "outline")"
+                        Disabled="_busy" Pending="_busy" @onclick="ToggleVisibilityAsync">
+                    @(_mod.IsDraft ? "Publish" : "Make it a draft again")
+                </Button>
+            </div>
+        </Card>
+
+        @* The thing the listing page tells you to do, with somewhere to actually do it. *@
+        <Card Class="mt-6"
+              Header="@(b => b.AddContent(0, "Connected repository"))"
+              Description="@(b => b.AddContent(0, "Where releases come from"))">
+            <p class="text-sm text-muted-foreground">
+                Releases aren't uploaded here. You tag them in your own repository, and we read
+                the archive you attached to the tag. Connecting the repository is also what proves
+                the listing is yours.
+            </p>
+
+            <div class="mt-5 space-y-4">
+                <Field Id="provider" Label="Forge">
+                    <select id="provider" @bind="_repo.Provider" class="@InputClass">
+                        <option value="github">GitHub</option>
+                        <option value="gitlab">GitLab</option>
+                        <option value="codeberg">Codeberg</option>
+                    </select>
+                </Field>
+
+                <Field Id="repoFullName" Label="Repository" Hint="Owner and name, like yourname/YourMod.">
+                    <input id="repoFullName" @bind="_repo.RepoFullName" placeholder="yourname/YourMod"
+                           autocomplete="off" spellcheck="false" class="@InputClass" />
+                </Field>
+
+                <Field Id="repoId" Label="Repository id"
+                       Hint="The forge's own numeric id for the repository. On GitHub it's in the URL of the repository's API page, or under Settings.">
+                    <input id="repoId" @bind="_repo.RepoId" placeholder="123456789"
+                           autocomplete="off" spellcheck="false" class="@InputClass" />
+                </Field>
+
+                <Field Id="assetGlob" Label="Asset pattern" Required="false"
+                       Hint="Which attached file to read, if a tag carries more than one. Leave it empty and we'll take the only archive.">
+                    <input id="assetGlob" @bind="_repo.AssetGlob" placeholder="*.zip" class="@InputClass" />
+                </Field>
+            </div>
+
+            <div class="mt-5 flex flex-wrap items-center gap-3">
+                <Button Size="sm" Disabled="_busy || !CanConnect" Pending="_busy"
+                        @onclick="ConnectRepositoryAsync">
+                    Connect repository
+                </Button>
+                <Button Size="sm" Variant="outline" Disabled="_busy" Pending="_busy"
+                        @onclick="ImportReleasesAsync">
+                    Import releases now
+                </Button>
+            </div>
+        </Card>
+
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "Listing details"))">
+            <div class="space-y-5">
+                <Field Id="name" Label="Display name">
+                    <input id="name" @bind="_edit.Name" class="@InputClass" />
+                </Field>
+
+                <Field Id="abstract" Label="Short description" Hint="One or two sentences, shown in search results.">
+                    <textarea id="abstract" @bind="_edit.Abstract" rows="2" class="@InputClass"></textarea>
+                </Field>
+
+                <Field Id="description" Label="Full description" Required="false"
+                       Hint="Shown on the listing page. Plain text.">
+                    <textarea id="description" @bind="_edit.Description" rows="5" class="@InputClass"></textarea>
+                </Field>
+
+                <Field Id="license" Label="License" Hint="An SPDX identifier such as MIT, Apache-2.0 or CC-BY-4.0.">
+                    <input id="license" @bind="_edit.License" class="@InputClass" />
+                </Field>
+
+                <Field Id="tags" Label="Tags" Required="false" Hint="Comma separated, like parts, planets, ui.">
+                    <input id="tags" @bind="_edit.Tags" class="@InputClass" />
+                </Field>
+
+                <Field Id="banner" Label="Banner image" Required="false"
+                       Hint="An https link to a wide image, roughly 3:1. We only store the link, so leave the file where it is.">
+                    <input id="banner" type="url" @bind="_edit.BannerUrl" placeholder="https://…/banner.png"
+                           class="@InputClass" />
+                </Field>
+            </div>
+
+            <Button Size="sm" Class="mt-5" Disabled="_busy" Pending="_busy" @onclick="SaveAsync">
+                Save changes
+            </Button>
+        </Card>
+
+        @*
+            Deletion is offered only while nothing points at the listing. Once it has a release,
+            or a modlist pins it, the honest option is unlisting: ids stay resolvable so other
+            people's modlists keep working, and the site promises exactly that.
+        *@
+        @if (_mod.IsOwner)
+        {
+            <Card Class="mt-6 border-severity-error/30" Header="@(b => b.AddContent(0, "Delete this listing"))">
+                @if (_mod.Releases.Count > 0)
+                {
+                    <p class="text-sm text-muted-foreground">
+                        This listing has published releases, so it can't be deleted. Other people's
+                        modlists may pin it, and the id has to keep resolving for those to work.
+                        Make it a draft instead and it drops out of browse and search.
+                    </p>
+                }
+                else
+                {
+                    <p class="text-sm text-muted-foreground">
+                        Nothing points at this listing yet, so it can go for good. The id becomes
+                        free for anyone to claim again. This can't be undone.
+                    </p>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-3">
+                        @if (!_confirmDelete)
+                        {
+                            <Button Size="sm" Variant="destructive" Disabled="_busy"
+                                    @onclick="() => _confirmDelete = true">
+                                Delete listing
+                            </Button>
+                        }
+                        else
+                        {
+                            <span class="text-sm font-medium">Delete @_mod.Id for good?</span>
+                            <Button Size="sm" Variant="destructive" Disabled="_busy" Pending="_busy"
+                                    @onclick="DeleteAsync">
+                                Yes, delete it
+                            </Button>
+                            <Button Size="sm" Variant="ghost" Disabled="_busy"
+                                    @onclick="() => _confirmDelete = false">
+                                Cancel
+                            </Button>
+                        }
+                    </div>
+                }
+            </Card>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+
+    private ModDetail? _mod;
+    private bool _loading = true;
+    private bool _busy;
+    private bool _confirmDelete;
+    private string? _loadError;
+    private string? _error;
+    private string? _message;
+
+    private readonly EditForm _edit = new();
+    private readonly RepoForm _repo = new();
+
+    private const string InputClass =
+        "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    private bool CanConnect =>
+        !string.IsNullOrWhiteSpace(_repo.RepoFullName) && !string.IsNullOrWhiteSpace(_repo.RepoId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Managing anything needs a session, so send signed-out visitors to sign in rather than
+        // letting them read a page of controls that would all fail.
+        if (await Api.GetCurrentUserAsync() is null)
+        {
+            Nav.NavigateTo($"/signin?returnTo={Uri.EscapeDataString($"/mods/{Id}/manage")}");
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _mod = await Api.GetModAsync(Id);
+            _loadError = _mod is null ? "No listing with that id." : null;
+
+            if (_mod is not null)
+            {
+                _edit.Name = _mod.Name ?? "";
+                _edit.Abstract = _mod.Abstract ?? "";
+                _edit.Description = _mod.Description ?? "";
+                _edit.License = _mod.License ?? "";
+                _edit.Tags = string.Join(", ", _mod.Tags);
+                _edit.BannerUrl = _mod.BannerUrl ?? "";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _loadError = "The API isn't responding.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RunAsync(Func<Task<CreateModResult>> action, string success)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+
+        try
+        {
+            var result = await action();
+
+            if (result.NeedsSignIn)
+            {
+                Nav.NavigateTo($"/signin?returnTo={Uri.EscapeDataString($"/mods/{Id}/manage")}");
+                return;
+            }
+
+            if (result.Success)
+            {
+                _message = success;
+                await LoadAsync();
+            }
+            else
+            {
+                _error = result.Error ?? $"The API refused that (HTTP {(int?)result.Status}).";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task ToggleVisibilityAsync() => RunAsync(
+        () => Api.SetModVisibilityAsync(Id, listed: _mod!.IsDraft),
+        _mod!.IsDraft ? "Published. It's in browse and search now." : "Back to a draft. It's out of browse and search.");
+
+    private Task SaveAsync() => RunAsync(
+        () => Api.EditModAsync(Id, new EditModRequest(
+            Name: _edit.Name.Trim(),
+            Abstract: _edit.Abstract.Trim(),
+            Description: string.IsNullOrWhiteSpace(_edit.Description) ? null : _edit.Description.Trim(),
+            License: _edit.License.Trim(),
+            Tags: _edit.Tags
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            BannerUrl: string.IsNullOrWhiteSpace(_edit.BannerUrl) ? null : _edit.BannerUrl.Trim())),
+        "Listing updated.");
+
+    private async Task ConnectRepositoryAsync()
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+
+        try
+        {
+            var ok = await Api.ConnectRepositoryAsync(Id, new ConnectRepoRequest(
+                _repo.Provider, _repo.RepoId.Trim(), _repo.RepoFullName.Trim(),
+                AssetGlob: string.IsNullOrWhiteSpace(_repo.AssetGlob) ? null : _repo.AssetGlob.Trim()));
+
+            if (ok)
+            {
+                _message = "Repository connected. Import releases when you've tagged one.";
+                await LoadAsync();
+            }
+            else
+            {
+                _error = "The API refused that repository. It may already be connected to another listing.";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ImportReleasesAsync()
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+
+        try
+        {
+            _message = await Api.ImportReleasesAsync(Id)
+                ? "Import started. Releases appear once validation finishes."
+                : null;
+
+            if (_message is null)
+            {
+                _error = "Nothing to import. Connect a repository and tag a release first.";
+            }
+            else
+            {
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        try
+        {
+            var result = await Api.DeleteModAsync(Id);
+
+            if (result.Success)
+            {
+                Nav.NavigateTo("/mods");
+                return;
+            }
+
+            _error = result.Error ?? "That listing could not be deleted.";
+            _confirmDelete = false;
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class EditForm
+    {
+        public string Name { get; set; } = "";
+        public string Abstract { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string License { get; set; } = "";
+        public string Tags { get; set; } = "";
+        public string BannerUrl { get; set; } = "";
+    }
+
+    private sealed class RepoForm
+    {
+        public string Provider { get; set; } = "github";
+        public string RepoFullName { get; set; } = "";
+        public string RepoId { get; set; } = "";
+        public string AssetGlob { get; set; } = "";
+    }
+}

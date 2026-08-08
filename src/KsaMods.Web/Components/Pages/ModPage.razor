@@ -26,9 +26,9 @@ else if (_mod.IsWithdrawn)
        it — but the download is not offered and the reason is stated plainly. *@
     <Card Header="@(builder => { builder.AddContent(0, _mod.Id); })">
         <Alert Variant="warning" Title="This listing has been withdrawn">
-            @(_mod.Message ?? "Moderators have withdrawn this listing. Its releases are not offered here.")
+            @(_mod.Message ?? "Moderators have withdrawn this listing, so we're not offering its releases.")
             <p class="mt-2">
-                Withdrawal removes it from this index only. It does not remove anything from the
+                That only removes it from this index. Nothing is touched in the
                 author's own repository.
             </p>
         </Alert>
@@ -60,6 +60,10 @@ else
                 {
                     <Badge Variant="outline">@_mod.License</Badge>
                 }
+                @if (_mod.CanManage)
+                {
+                    <Button Href="@($"/mods/{_mod.Id}/manage")" Variant="outline" Size="sm">Manage</Button>
+                }
                 @if (_latest is not null)
                 {
                     <Button Href="@($"/mods/{_mod.Id}/releases/{_latest.Version}")" Size="sm">
@@ -68,6 +72,19 @@ else
                 }
             </div>
         </header>
+
+        @* Only maintainers get told it is a draft. To anyone else who has the link it is simply
+           a page, and announcing "this is unlisted" to a stranger tells them nothing useful. *@
+        @if (_mod.IsDraft && _mod.CanManage)
+        {
+            <Alert Variant="info" Title="This listing is a draft" Class="mt-4">
+                It doesn't appear in browse or search yet, though anyone with the link can open it.
+                <a href="@($"/mods/{_mod.Id}/manage")" class="ml-1 underline underline-offset-4">
+                    Publish it
+                </a>
+                when you're ready.
+            </Alert>
+        }
 
         @if (_mod.IsDeprecated)
         {
@@ -78,12 +95,12 @@ else
                         It is replaced by
                         <a href="@($"/mods/{_mod.SupersededBy}")" class="underline underline-offset-4">
                             @_mod.SupersededBy
-                        </a>. Installing this one still works.
+                        </a>, though installing this one still works.
                     </span>
                 }
                 else
                 {
-                    <span>It is no longer maintained. Installing it still works.</span>
+                    <span>It isn't maintained any more, though installing it still works.</span>
                 }
             </Alert>
         }
@@ -142,7 +159,7 @@ else
                             {
                                 @* A yank is the author's statement about one build — distinct from
                                    deprecation and from a moderator delisting. *@
-                                <Badge Variant="error" Title="Retracted by the author. Already-installed copies are unaffected.">
+                                <Badge Variant="error" Title="Retracted by the author. Copies you already installed are fine.">
                                     Yanked
                                 </Badge>
                             }
@@ -187,7 +204,7 @@ else
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
-            _error = "The API did not respond.";
+            _error = "The API didn't respond.";
         }
     }
 }

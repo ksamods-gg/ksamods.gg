@@ -11,6 +11,14 @@ public sealed record CreateModBody(
     string? Description, string[]? Tags, Dictionary<string, string>? Links,
     string? BannerUrl = null);
 
+/// <summary>
+/// Every field optional: a caller sending one field changes one field. No id, because the id is
+/// the folder name the game loads and cannot move.
+/// </summary>
+public sealed record EditModBody(
+    string? Name, string? Abstract, string? Description, string? License,
+    string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl);
+
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
 public sealed record YankBody(string Reason);
@@ -69,7 +77,12 @@ public static class ModEndpoints
                 Tags = body.Tags ?? [],
                 Links = System.Text.Json.JsonSerializer.Serialize(links),
                 Status = "active",
-                ListingState = "listed",
+
+                // Created as a draft. A listing is useless until it has a repository and a
+                // release, and publishing the empty shell straight into browse means every
+                // half-finished idea shows up in search. The author publishes it when it is
+                // worth looking at.
+                ListingState = "unlisted",
                 BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
                 CreatedBy = user.AccountId,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -87,6 +100,83 @@ public static class ModEndpoints
             });
         });
 
+        // Editing a listing. The id is absent on purpose: it is the folder name the game loads
+        // the mod under, so it cannot change without breaking every install of it.
+        api.MapPatch("/mods/{id}", async (
+            string id, EditModBody body, HttpContext http, ModRepository mods, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.EditModListing)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            if (!string.IsNullOrWhiteSpace(body.BannerUrl) && !IsUsableBannerUrl(body.BannerUrl))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["bannerUrl"] = ["A banner must be an https:// link to an image, under 2048 characters."],
+                });
+            }
+
+            // Absent fields keep their current value, so a caller sending only one field does not
+            // silently blank the rest.
+            await mods.UpdateAsync(mod with
+            {
+                Name = body.Name ?? mod.Name,
+                Abstract = body.Abstract ?? mod.Abstract,
+                Description = body.Description ?? mod.Description,
+                License = body.License ?? mod.License,
+                Tags = body.Tags ?? mod.Tags,
+                Links = body.Links is null
+                    ? mod.Links
+                    : System.Text.Json.JsonSerializer.Serialize(body.Links),
+                BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
+            }, ct);
+
+            return Results.NoContent();
+        });
+
+        // Publish and unlist are two endpoints rather than a state field on the patch above.
+        // "Make this visible to everyone" is a decision, not a property edit, and it carries a
+        // different permission.
+        api.MapPost("/mods/{id}/publish", (string id, HttpContext http, ModRepository mods, CancellationToken ct) =>
+            SetVisibilityAsync(id, "listed", http, mods, ct));
+
+        api.MapPost("/mods/{id}/unlist", (string id, HttpContext http, ModRepository mods, CancellationToken ct) =>
+            SetVisibilityAsync(id, "unlisted", http, mods, ct));
+
+        // Delete, but only while nothing points at the listing.
+        //
+        // The site tells people ids stay resolvable so their modlists do not break, and that has
+        // to hold even when an author changes their mind. Once a listing has a release, or
+        // anything pins or depends on it, the answer is unlisting instead. A listing created by
+        // mistake has none of that, and removing it costs nobody anything.
+        api.MapDelete("/mods/{id}", async (
+            string id, HttpContext http, ModRepository mods, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.DeleteMod)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            var references = await mods.ReferencesAsync(mod.Id, ct);
+            if (!references.IsUnused)
+            {
+                return Results.Conflict(new
+                {
+                    error = "mod_in_use",
+                    detail = references.Explain(),
+                });
+            }
+
+            await mods.DeleteAsync(mod.Id, ct);
+            return Results.NoContent();
+        });
+
         api.MapPost("/mods/{id}/repo-link", async (
             string id, ConnectRepoBody body, HttpContext http,
             ModRepository mods, Database database, CancellationToken ct) =>
@@ -96,7 +186,7 @@ public static class ModEndpoints
 
             // Only the owner. A maintainer who could re-point the repository could quietly take
             // over the listing, since the repository link is the ownership proof.
-            if (!Permissions.Allows(principal, Capability.ConnectRepository)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.ConnectRepository)) return ApiResults.Forbidden();
 
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
@@ -148,7 +238,7 @@ public static class ModEndpoints
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.ImportRelease)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.ImportRelease)) return ApiResults.Forbidden();
 
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
@@ -166,7 +256,7 @@ public static class ModEndpoints
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.YankRelease)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.YankRelease)) return ApiResults.Forbidden();
 
             if (string.IsNullOrWhiteSpace(body.Reason))
             {
@@ -198,7 +288,7 @@ public static class ModEndpoints
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.AmendRelease)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.AmendRelease)) return ApiResults.Forbidden();
 
             var releases = await mods.ReleasesAsync(id, ct);
             var release = releases.FirstOrDefault(r =>
@@ -256,6 +346,32 @@ public static class ModEndpoints
 
             return Results.NoContent();
         });
+    }
+
+    /// <summary>
+    /// Shared by publish and unlist. Only ever moves between 'listed' and 'unlisted', so a
+    /// moderator's delisting cannot be cleared by the author it was applied to.
+    /// </summary>
+    private static async Task<IResult> SetVisibilityAsync(
+        string id, string state, HttpContext http, ModRepository mods, CancellationToken ct)
+    {
+        var principal = await http.PrincipalForModAsync(mods, id, ct);
+        if (principal is null) return Results.Unauthorized();
+        if (!Permissions.Allows(principal, Capability.SetModVisibility)) return ApiResults.Forbidden();
+
+        var mod = await mods.FindAsync(id, ct);
+        if (mod is null) return Results.NotFound();
+
+        if (!await mods.SetListingStateAsync(mod.Id, state, ct))
+        {
+            return Results.Conflict(new
+            {
+                error = "listing_locked",
+                detail = "This listing has been withdrawn by moderators, so its visibility is not yours to change.",
+            });
+        }
+
+        return Results.NoContent();
     }
 
     /// <summary>

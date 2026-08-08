@@ -126,7 +126,7 @@ public static class ModlistEndpoints
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return ApiResults.Forbidden();
 
             var expected = ReadIfMatch(http);
             if (expected is null) return MissingIfMatch();
@@ -175,7 +175,7 @@ public static class ModlistEndpoints
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return ApiResults.Forbidden();
 
             var expected = ReadIfMatch(http);
             if (expected is null) return MissingIfMatch();
@@ -209,7 +209,7 @@ public static class ModlistEndpoints
 
             // Editors edit; admins publish. Publishing mints an immutable version other people
             // will install, which is a meaningfully different act.
-            if (!Permissions.Allows(principal, Capability.PublishModlistVersion)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.PublishModlistVersion)) return ApiResults.Forbidden();
 
             if (!SemVer.TryParse(body.Version, out var version))
             {
@@ -318,7 +318,7 @@ public static class ModlistEndpoints
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.ManageCollaborators)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.ManageCollaborators)) return ApiResults.Forbidden();
 
             if (body.Role is not (ModlistRole.Admin or ModlistRole.Editor))
             {
@@ -366,7 +366,7 @@ public static class ModlistEndpoints
             string id, HttpContext http, ModlistRepository modlists, Database database, CancellationToken ct) =>
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
-            if (principal?.IsListEditor != true) return Results.Forbid();
+            if (principal?.IsListEditor != true) return ApiResults.Forbidden();
 
             using var connection = await database.OpenAsync(ct);
 

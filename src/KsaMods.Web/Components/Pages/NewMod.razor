@@ -34,7 +34,7 @@
 
         <Card>
             <Field Id="id" Label="Mod id" Error="@_idError"
-                   Hint="The folder name the game will see, exactly. This is the mod's identity and cannot be changed later.">
+                   Hint="The folder name the game will see, exactly. This is the mod's identity, and you can't change it later.">
                 <input id="id" @bind="_form.Id" @bind:event="oninput" @bind:after="ValidateId"
                        autocomplete="off" spellcheck="false"
                        aria-describedby="@(_idError is not null ? "id-error" : null)"
@@ -71,13 +71,13 @@
                 </Field>
 
                 <Field Id="banner" Label="Banner image" Required="false"
-                       Hint="An https link to a wide image, roughly 3:1. It shows at the top of your mod page and on your card when people browse. We only store the link, so keep the file where it is.">
+                       Hint="An https link to a wide image, roughly 3:1. It shows at the top of your mod page and on your card when people browse. We only store the link, so leave the file where it is.">
                     <input id="banner" type="url" @bind="_form.BannerUrl"
                            placeholder="https://…/banner.png" class="@InputClass" />
                 </Field>
 
                 <Field Id="forums" Label="KSA forums thread" Required="false"
-                       Hint="You do not need this to create the listing, since connecting your repository is what proves you own it. You do need it before the listing shows up in the exported index that other clients read.">
+                       Hint="You don't need this to create the listing: connecting your repository is what proves it's yours. You do need it before the listing shows up in the exported index other clients read.">
                     <input id="forums" type="url" @bind="_form.Forums"
                            placeholder="https://forums.ahwoo.com/threads/…" class="@InputClass" />
                 </Field>
@@ -195,7 +195,7 @@
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
-            _serverError = "The API did not respond. Nothing was created.";
+            _serverError = "The API didn't respond. Nothing was created.";
         }
         finally
         {

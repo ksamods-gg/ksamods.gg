@@ -21,25 +21,25 @@ public static class Presentation
         if (min is null)
         {
             return new Pill("Unknown", "outline",
-                "This release declares no minimum game build, so compatibility cannot be evaluated.");
+                "This release doesn't declare a minimum game build, so we can't tell you whether it fits.");
         }
 
         if (installedRevision is null)
         {
             return new Pill($"Needs {min}+", "outline",
-                "Tell us your game build to see whether this release is compatible.");
+                "Tell us your game build and we'll say whether this one fits.");
         }
 
         if (installedRevision < min)
         {
             return new Pill("Incompatible", "error",
-                $"Needs game revision {min} or newer; you are on {installedRevision}.");
+                $"Needs revision {min} or newer. You're on {installedRevision}.");
         }
 
         if (max is not null && installedRevision > max)
         {
             return new Pill("Untested", "warning",
-                $"Tested up to revision {max}; you are on {installedRevision}. It may still work.");
+                $"Only tested up to revision {max}, and you're on {installedRevision}. It might still work.");
         }
 
         return new Pill("Compatible", "ok", $"Tested against your game build ({installedRevision}).");
@@ -54,21 +54,21 @@ public static class Presentation
         "verified" => new Pill(
             lastVerified is null ? "Verified" : $"Verified {Ago(lastVerified.Value)}",
             "ok",
-            "The file at this link still matches the hash recorded when it was imported."),
+            "The file at this link still matches the hash we recorded when we imported it."),
 
         "unavailable" => new Pill("Download gone", "error",
-            "The link no longer resolves. The record is kept because modlists may still pin this version."),
+            "The link is dead. We keep the record because modlists might still pin this version."),
 
         "diverged" => new Pill("Bytes changed", "warning",
-            "The file at this link differs from the one imported, but looks like a re-pack rather than a "
-            + "material change. The recorded hash is unchanged; ask the author to cut a new version."),
+            "The file at this link isn't the one we imported, though it looks like a re-pack rather than a "
+            + "real change. The recorded hash hasn't moved. Ask the author to cut a new version."),
 
         "quarantined" => new Pill("Quarantined", "error",
-            "The file changed materially since import — different assemblies, console commands or asset ids. "
-            + "The download is hidden pending review."),
+            "The file has really changed since we imported it: different assemblies, console commands or asset ids. "
+            + "We've hidden the download until someone reviews it."),
 
         _ => new Pill("Not yet verified", "outline",
-            "This release has not been re-checked since it was imported."),
+            "We haven't re-checked this release since importing it."),
     };
 
     public static Pill Validation(string state) => state switch

@@ -23,6 +23,30 @@ public sealed record ModRow
     public required DateTimeOffset UpdatedAt { get; init; }
 }
 
+/// <summary>What currently points at a mod. All zero means nothing breaks if it goes away.</summary>
+public sealed record ModReferences
+{
+    public int Releases { get; init; }
+    public int PublishedPins { get; init; }
+    public int DraftEntries { get; init; }
+    public int Dependents { get; init; }
+    public int Successors { get; init; }
+
+    public bool IsUnused =>
+        Releases == 0 && PublishedPins == 0 && DraftEntries == 0 && Dependents == 0 && Successors == 0;
+
+    /// <summary>Why deletion was refused, in words an author can act on.</summary>
+    public string Explain() => this switch
+    {
+        { Releases: > 0 } => "It has published releases. Unlist it instead, so anything pinning it keeps working.",
+        { PublishedPins: > 0 } => "A published modlist pins this mod. Unlist it instead.",
+        { DraftEntries: > 0 } => "Someone has it in a modlist draft. Unlist it instead.",
+        { Dependents: > 0 } => "Another mod's release depends on it. Unlist it instead.",
+        { Successors: > 0 } => "Another listing names this one as its successor. Unlist it instead.",
+        _ => "It is still referenced.",
+    };
+}
+
 public sealed record ReleaseRow
 {
     public required long Id { get; init; }
@@ -108,6 +132,97 @@ public sealed class ModRepository(Database database)
             new { modId = mod.Id, accountId = ownerAccountId }, transaction);
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// Updates the parts of a listing an author is allowed to change after creation.
+    ///
+    /// <para>The id is not among them and never will be: it is the folder name the game loads
+    /// the mod under, so renaming it breaks every install and every modlist that pinned it.</para>
+    /// </summary>
+    public async Task UpdateAsync(ModRow mod, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        await connection.ExecuteAsync("""
+            update mod
+               set name        = @Name,
+                   abstract    = @Abstract,
+                   description = @Description,
+                   license     = @License,
+                   tags        = @Tags,
+                   links       = @Links::jsonb,
+                   banner_url  = @BannerUrl,
+                   updated_at  = now()
+             where id_lower = lower(@Id)
+            """,
+            mod);
+    }
+
+    /// <summary>
+    /// Moves a listing between 'listed' and 'unlisted'.
+    ///
+    /// <para>Deliberately cannot reach 'delisted' or 'taken_down': those are moderation states,
+    /// and an author who could set them could also clear one, which would undo a takedown.</para>
+    /// </summary>
+    public async Task<bool> SetListingStateAsync(string id, string state, CancellationToken ct)
+    {
+        if (state is not ("listed" or "unlisted")) return false;
+
+        using var connection = await database.OpenAsync(ct);
+
+        var rows = await connection.ExecuteAsync("""
+            update mod set listing_state = @state, updated_at = now()
+             where id_lower = lower(@id) and listing_state in ('listed', 'unlisted')
+            """,
+            new { id, state });
+
+        return rows > 0;
+    }
+
+    /// <summary>
+    /// Everything that would be left dangling if this listing vanished.
+    ///
+    /// <para>Deleting is only offered while all of these are zero. The site promises that ids stay
+    /// resolvable so other people's modlists do not break, and that promise is worth more than
+    /// the convenience of removing a listing somebody else already depends on. A listing nobody
+    /// has touched yet, which is what a mistaken 'test' entry is, has nothing pointing at it and
+    /// can go.</para>
+    /// </summary>
+    public async Task<ModReferences> ReferencesAsync(string id, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        return await connection.QuerySingleAsync<ModReferences>("""
+            -- count(*) is bigint in Postgres and these are int, and Dapper will not narrow that
+            -- for you: without the casts this throws at materialisation rather than at compile
+            -- time, which is a 500 on a path whose whole job is to explain a refusal politely.
+            select
+              (select count(*) from mod_release        where mod_id = m.id)::int                      as Releases,
+              (select count(*) from modlist_pin        where entry_kind = 'mod' and target_id = m.id)::int as PublishedPins,
+              (select count(*) from modlist_draft_entry where entry_kind = 'mod' and target_id = m.id)::int as DraftEntries,
+              (select count(*) from release_dependency where dep_id = m.id)::int                      as Dependents,
+              (select count(*) from mod                where superseded_by = m.id)::int               as Successors
+            from mod m
+            where m.id_lower = lower(@id)
+            """,
+            new { id });
+    }
+
+    /// <summary>
+    /// Removes a listing outright. Callers must have checked <see cref="ReferencesAsync"/> first.
+    ///
+    /// <para>Maintainers and the repository link cascade with it. Nothing else should exist, by
+    /// definition of the check that has to precede this.</para>
+    /// </summary>
+    public async Task<bool> DeleteAsync(string id, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        var rows = await connection.ExecuteAsync(
+            "delete from mod where id_lower = lower(@id)", new { id });
+
+        return rows > 0;
     }
 
     /// <summary>The caller's role on this mod, or null. Feeds <see cref="Permissions"/>.</summary>

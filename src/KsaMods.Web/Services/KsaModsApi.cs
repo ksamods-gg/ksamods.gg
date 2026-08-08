@@ -109,6 +109,48 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         return new CreateModResult(false, null, null, problem, response.StatusCode);
     }
 
+    public async Task<CreateModResult> EditModAsync(
+        string modId, EditModRequest request, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PatchAsJsonAsync(
+            $"/api/v1/mods/{Uri.EscapeDataString(modId)}", request, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? new CreateModResult(true, modId, null, null, response.StatusCode)
+            : new CreateModResult(false, null, null, await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    /// <summary>Publishes or unlists. <paramref name="listed"/> false means "take it back out of browse".</summary>
+    public async Task<CreateModResult> SetModVisibilityAsync(
+        string modId, bool listed, CancellationToken ct = default)
+    {
+        var action = listed ? "publish" : "unlist";
+
+        using var client = CreateClient();
+        using var response = await client.PostAsync(
+            $"/api/v1/mods/{Uri.EscapeDataString(modId)}/{action}", content: null, ct);
+
+        return response.IsSuccessStatusCode
+            ? new CreateModResult(true, modId, null, null, response.StatusCode)
+            : new CreateModResult(false, null, null, await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    /// <summary>
+    /// Deletes a listing. Fails with a 409 and a readable reason when something still points at
+    /// it, which is the normal answer for anything that has ever published a release.
+    /// </summary>
+    public async Task<CreateModResult> DeleteModAsync(string modId, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.DeleteAsync(
+            $"/api/v1/mods/{Uri.EscapeDataString(modId)}", ct);
+
+        return response.IsSuccessStatusCode
+            ? new CreateModResult(true, modId, null, null, response.StatusCode)
+            : new CreateModResult(false, null, null, await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
     public async Task<bool> ConnectRepositoryAsync(
         string modId, ConnectRepoRequest request, CancellationToken ct = default)
     {
@@ -231,6 +273,9 @@ public sealed record ModDetail
     [JsonPropertyName("superseded_by")] public string? SupersededBy { get; init; }
     [JsonPropertyName("listing_state")] public string ListingState { get; init; } = "listed";
     [JsonPropertyName("banner_url")] public string? BannerUrl { get; init; }
+
+    /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
+    [JsonPropertyName("your_role")] public string? YourRole { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
 
@@ -239,6 +284,12 @@ public sealed record ModDetail
 
     public bool IsWithdrawn => ListingState is "delisted" or "taken_down";
     public bool IsDeprecated => Status == "deprecated";
+
+    /// <summary>Not in browse or search. Still reachable by anyone with the link.</summary>
+    public bool IsDraft => ListingState == "unlisted";
+
+    public bool IsOwner => YourRole == "owner";
+    public bool CanManage => YourRole is "owner" or "maintainer";
 }
 
 public sealed record ReleaseSummary
@@ -344,6 +395,12 @@ public sealed record GameBuild
 public sealed record CreateModRequest(
     string Id, string Name, string Abstract, string License,
     string? Description = null, string[]? Tags = null,
+    Dictionary<string, string>? Links = null, string? BannerUrl = null);
+
+/// <summary>Null means "leave this one alone", so a partial edit stays partial.</summary>
+public sealed record EditModRequest(
+    string? Name = null, string? Abstract = null, string? Description = null,
+    string? License = null, string[]? Tags = null,
     Dictionary<string, string>? Links = null, string? BannerUrl = null);
 
 public sealed record ConnectRepoRequest(
