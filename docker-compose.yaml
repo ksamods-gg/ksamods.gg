@@ -31,46 +31,27 @@ services:
       retries: 20
       start_period: 20s
 
-  # One-shot: runs to completion before the API starts, and again on every deploy. Every file in
-  # db/migrations is applied in filename order, and each one is recorded once it succeeds, so a
-  # re-run is a no-op and adding 0003 later needs no change here.
+  # One-shot: runs to completion before the API starts, and again on every deploy. It tracks what
+  # it has applied in a schema_migration table, so re-running is a no-op rather than an error.
+  #
+  # Built rather than bind-mounted. A deployment tool that runs `docker compose` inside a helper
+  # container — Coolify does — resolves relative bind mounts against the helper's filesystem while
+  # the daemon resolves them against the host's. The paths do not match, the daemon creates an
+  # empty directory, and the migration file is silently absent. Baking it into the image makes
+  # this work identically everywhere.
   migrate:
-    image: postgres:17-alpine
+    build:
+      context: ./db
+      dockerfile: Dockerfile
     restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      - PGHOST=postgres
+      - PGUSER=ksamods
+      - PGDATABASE=ksamods
       - PGPASSWORD=${SERVICE_PASSWORD_POSTGRES}
-    volumes:
-      - ./db:/db:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        PSQL="psql -h postgres -U ksamods -d ksamods -v ON_ERROR_STOP=1"
-
-        $$PSQL -c "create table if not exists schema_migration (
-                     filename   text        primary key,
-                     applied_at timestamptz not null default now())"
-
-        # A database created before this ledger existed already has 0001 in it. Record that
-        # rather than replaying it, because 0001 is not idempotent.
-        if [ "$$($$PSQL -tAc "select to_regclass('public.mod') is not null")" = "t" ]; then
-          $$PSQL -c "insert into schema_migration (filename) values ('0001_initial.sql')
-                     on conflict do nothing"
-        fi
-
-        for file in /db/migrations/*.sql; do
-          name=$$(basename "$$file")
-          if [ "$$($$PSQL -tAc "select 1 from schema_migration where filename = '$$name'")" = "1" ]; then
-            echo "already applied: $$name"
-          else
-            echo "applying $$name"
-            $$PSQL -f "$$file"
-            $$PSQL -c "insert into schema_migration (filename) values ('$$name')"
-          fi
-        done
 
   api:
     build:

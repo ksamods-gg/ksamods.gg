@@ -8,7 +8,8 @@
 -- load. Length is capped so a pathological URL cannot bloat every search response that returns
 -- this row.
 
-begin;
+-- No BEGIN/COMMIT here: apply.sh runs each file under --single-transaction together with the
+-- insert that records it, so opening one in the file would commit that wrapper early.
 
 alter table mod add column banner_url text;
 
@@ -17,5 +18,3 @@ alter table mod add constraint mod_banner_url_valid
     banner_url is null
     or (banner_url ~ '^https://' and length(banner_url) <= 2048)
   );
-
-commit;
