@@ -1,0 +1,9 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+@using KsaMods.Web.Services
+
+<Badge Variant="@Value.Variant" Title="@Value.Explanation">@Value.Label</Badge>
+
+@code {
+    [Parameter, EditorRequired] public Pill Value { get; set; } = default!;
+}

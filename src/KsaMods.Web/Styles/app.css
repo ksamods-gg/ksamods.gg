@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+/*
+  Design tokens, shadcn-style: every colour is a CSS variable, components reference the
+  semantic name rather than a palette step. That indirection is what makes the dark theme a
+  token swap instead of a per-component `dark:` prefix on every element.
+
+  OKLCH rather than hex, so lightness is perceptually even across hues — a mid-grey and a
+  mid-blue at the same L actually look equally dark, which hex does not give you.
+*/
+@theme {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+
+  /* Validation severity. These are semantic on purpose: a finding's colour must not drift
+     between the listing page, the release page and the CLI's mental model. */
+  --color-severity-error: oklch(0.577 0.245 27.325);
+  --color-severity-warning: oklch(0.681 0.162 75.834);
+  --color-severity-info: oklch(0.6 0.118 244.5);
+  --color-severity-ok: oklch(0.596 0.145 155.0);
+
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+}
+
+/*
+  Dark theme. Only the tokens are redefined — no component knows the theme exists.
+
+  Two selectors deliberately: `.dark` for an explicit user choice, and the media query for
+  visitors who have never chosen. The media query is scoped with :not(.light) so an explicit
+  light choice still wins on a machine set to dark.
+*/
+@layer base {
+  .dark {
+    --color-background: oklch(0.145 0 0);
+    --color-foreground: oklch(0.985 0 0);
+
+    --color-card: oklch(0.205 0 0);
+    --color-card-foreground: oklch(0.985 0 0);
+
+    --color-popover: oklch(0.205 0 0);
+    --color-popover-foreground: oklch(0.985 0 0);
+
+    --color-primary: oklch(0.922 0 0);
+    --color-primary-foreground: oklch(0.205 0 0);
+
+    --color-secondary: oklch(0.269 0 0);
+    --color-secondary-foreground: oklch(0.985 0 0);
+
+    --color-muted: oklch(0.269 0 0);
+    --color-muted-foreground: oklch(0.708 0 0);
+
+    --color-accent: oklch(0.269 0 0);
+    --color-accent-foreground: oklch(0.985 0 0);
+
+    --color-destructive: oklch(0.704 0.191 22.216);
+    --color-destructive-foreground: oklch(0.985 0 0);
+
+    --color-severity-error: oklch(0.704 0.191 22.216);
+    --color-severity-warning: oklch(0.769 0.188 70.08);
+    --color-severity-info: oklch(0.696 0.136 244.5);
+    --color-severity-ok: oklch(0.696 0.155 155.0);
+
+    --color-border: oklch(1 0 0 / 12%);
+    --color-input: oklch(1 0 0 / 18%);
+    --color-ring: oklch(0.556 0 0);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      --color-background: oklch(0.145 0 0);
+      --color-foreground: oklch(0.985 0 0);
+      --color-card: oklch(0.205 0 0);
+      --color-card-foreground: oklch(0.985 0 0);
+      --color-popover: oklch(0.205 0 0);
+      --color-popover-foreground: oklch(0.985 0 0);
+      --color-primary: oklch(0.922 0 0);
+      --color-primary-foreground: oklch(0.205 0 0);
+      --color-secondary: oklch(0.269 0 0);
+      --color-secondary-foreground: oklch(0.985 0 0);
+      --color-muted: oklch(0.269 0 0);
+      --color-muted-foreground: oklch(0.708 0 0);
+      --color-accent: oklch(0.269 0 0);
+      --color-accent-foreground: oklch(0.985 0 0);
+      --color-destructive: oklch(0.704 0.191 22.216);
+      --color-destructive-foreground: oklch(0.985 0 0);
+      --color-severity-error: oklch(0.704 0.191 22.216);
+      --color-severity-warning: oklch(0.769 0.188 70.08);
+      --color-severity-info: oklch(0.696 0.136 244.5);
+      --color-severity-ok: oklch(0.696 0.155 155.0);
+      --color-border: oklch(1 0 0 / 12%);
+      --color-input: oklch(1 0 0 / 18%);
+      --color-ring: oklch(0.556 0 0);
+    }
+  }
+
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible focus everywhere, since this UI has no Radix to supply it. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /*
+    …except on programmatic focus targets. Blazor's <FocusOnNavigate Selector="h1" /> gives the
+    page heading tabindex="-1" and focuses it after navigation so a screen reader announces the
+    new page — behaviour worth keeping. Chrome then treats that as focus-visible and paints a ring
+    around the heading, which looks like a rendering bug to everyone else.
+
+    tabindex="-1" means "focusable only in code", so an element carrying it is never a keyboard
+    stop and a focus ring on it tells a keyboard user nothing.
+  */
+  [tabindex="-1"]:focus,
+  [tabindex="-1"]:focus-visible {
+    outline: none;
+  }
+}
+
+/* Blazor's own error UI, restyled to match rather than left as the framework default. */
+#blazor-error-ui {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: none;
+  padding: 0.75rem 1rem;
+  background: var(--color-destructive);
+  color: var(--color-destructive-foreground);
+  font-size: 0.875rem;
+}
+
+#blazor-error-ui .dismiss {
+  cursor: pointer;
+  float: right;
+  padding-inline: 0.5rem;
+}

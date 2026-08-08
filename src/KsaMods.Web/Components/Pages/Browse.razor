@@ -1,0 +1,107 @@
+@page "/mods"
+@inject KsaModsApi Api
+
+<PageTitle>Browse mods — ksamods.gg</PageTitle>
+
+<div class="flex items-baseline justify-between gap-4">
+    <h1 class="text-2xl font-semibold tracking-tight">
+        @(string.IsNullOrWhiteSpace(Q) ? "All mods" : $"Results for “{Q}”")
+    </h1>
+    <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
+</div>
+
+<form action="/mods" method="get" class="mt-4 flex gap-2">
+    <input name="q" type="search" value="@Q" placeholder="Search by name or description…"
+           aria-label="Search mods"
+           class="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm
+                  placeholder:text-muted-foreground focus-visible:outline-2
+                  focus-visible:outline-offset-2 focus-visible:outline-ring" />
+    @if (!string.IsNullOrWhiteSpace(Tag))
+    {
+        <input type="hidden" name="tag" value="@Tag" />
+    }
+    <Button Type="submit" Variant="secondary">Search</Button>
+</form>
+
+@if (!string.IsNullOrWhiteSpace(Tag))
+{
+    <p class="mt-3 text-sm text-muted-foreground">
+        Filtered by tag <Badge Variant="outline">@Tag</Badge>
+        <a href="@($"/mods{(string.IsNullOrWhiteSpace(Q) ? "" : $"?q={Uri.EscapeDataString(Q!)}")}")"
+           class="ml-2 underline underline-offset-4">clear</a>
+    </p>
+}
+
+<div class="mt-6">
+    @if (_error is not null)
+    {
+        <Alert Variant="error" Title="Search is unavailable">@_error</Alert>
+    }
+    else if (_page is null)
+    {
+        <p class="text-sm text-muted-foreground">Loading…</p>
+    }
+    else if (_page.Items.Count == 0)
+    {
+        <Card>
+            <p class="text-sm text-muted-foreground">
+                @(string.IsNullOrWhiteSpace(Q)
+                    ? "No mods are listed yet."
+                    : $"Nothing matched “{Q}”.")
+            </p>
+        </Card>
+    }
+    else
+    {
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach (var mod in _page.Items)
+            {
+                <ModCard Mod="mod" />
+            }
+        </div>
+
+        @if (_page.Next is not null)
+        {
+            @* Keyset pagination: the API hands back the last id rather than an offset, so a
+               listing published mid-scroll cannot make a row repeat or vanish. *@
+            <div class="mt-6 flex justify-center">
+                <Button Href="@NextPageUrl" Variant="outline">Next page</Button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Q { get; set; }
+    [SupplyParameterFromQuery] public string? Tag { get; set; }
+    [SupplyParameterFromQuery] public string? After { get; set; }
+
+    private ModSummaryPage? _page;
+    private string? _error;
+
+    private string NextPageUrl
+    {
+        get
+        {
+            var parameters = new List<string> { $"after={Uri.EscapeDataString(_page!.Next!)}" };
+            if (!string.IsNullOrWhiteSpace(Q)) parameters.Add($"q={Uri.EscapeDataString(Q)}");
+            if (!string.IsNullOrWhiteSpace(Tag)) parameters.Add($"tag={Uri.EscapeDataString(Tag)}");
+            return $"/mods?{string.Join('&', parameters)}";
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _error = null;
+        _page = null;
+
+        try
+        {
+            _page = await Api.SearchAsync(Q, Tag, after: After) ?? new ModSummaryPage();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API did not respond.";
+        }
+    }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "ksamods-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tailwind build for the ksamods.gg Blazor frontend",
+  "scripts": {
+    "build:css": "tailwindcss -i ./Styles/app.css -o ./wwwroot/app.css --minify",
+    "watch:css": "tailwindcss -i ./Styles/app.css -o ./wwwroot/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.11",
+    "tailwindcss": "^4.1.11"
+  }
+}

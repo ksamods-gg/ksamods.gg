@@ -31,7 +31,9 @@ src/
   KsaMods.Api/             ASP.NET Core. Everything user-facing.
   KsaMods.Exporter/        Builds the static index and pushes the git mirror.
   KsaMods.Cli/             `ksamods validate` — the rules authors run locally.
+  KsaMods.Web/             Blazor Web App frontend, Tailwind v4, shadcn-style components.
 db/migrations/             Postgres schema.
+db/seed-dev.sql            Development data, including the awkward states.
 tests/KsaMods.Tests/       Fixture corpus and the guard tests.
 ```
 
@@ -62,6 +64,41 @@ ConnectionStrings__Postgres='Host=127.0.0.1;Port=55432;Database=ksamods;Username
 Sign-in needs OAuth credentials; without them the auth routes are simply not mapped and
 everything else works. Set `OAuth__GitHub__ClientId` / `OAuth__GitHub__ClientSecret` (and the
 Discord equivalents) to enable them.
+
+Seed some data worth looking at, then start the frontend:
+
+```bash
+docker exec ksamods-pg psql -U ksamods -d ksamods -f /tmp/seed.sql   # db/seed-dev.sql
+
+Api__BaseUrl='http://127.0.0.1:5199' dotnet run --project src/KsaMods.Web
+```
+
+The seed deliberately includes a yanked release, a quarantined artifact, a dead download link, a
+deprecated listing with a successor, and an asset id collision between two mods. Those are the
+states the UI most needs to get right, and a seed of nothing but healthy mods lets every one of
+them ship broken.
+
+## The frontend
+
+Blazor Web App, server-rendered by default so mod pages are indexable, with interactive
+rendering only where a page needs it. Tailwind CSS v4 with a shadcn-style token layer: every
+colour is a CSS variable, so the dark theme is a token swap rather than a `dark:` prefix on every
+element. Components live in `Components/Ui` and are owned outright — there is no component
+dependency to track.
+
+**The browser only ever sees one origin.** `Services/ApiProxy.cs` forwards `/api` and `/auth` to
+the .NET API, so the API keeps its HttpOnly, `SameSite=Lax` session cookie with no CORS policy
+and no token handling in JavaScript.
+
+The `NewMod` form validates ids against `KsaMods.Metadata.ContentId` — literally the same code the
+API enforces, via a project reference, so the two cannot drift.
+
+Tailwind is built by an MSBuild target before compile, so a fresh clone never serves stale CSS:
+
+```bash
+cd src/KsaMods.Web && npm install     # once
+dotnet build src/KsaMods.Web          # runs `npm run build:css` automatically
+```
 
 ## Validate an archive locally
 
@@ -145,14 +182,25 @@ than the clock. A run that changes nothing produces no commit, or the history be
 
 ## Status
 
-Phases 1–5 of [backend.md §18](docs/backend.md) are implemented, with 220 tests passing.
+Phases 1–5 of [backend.md §18](docs/backend.md) are implemented, plus a frontend, with 247 tests
+passing.
 
 **Verified end-to-end:** the validation pipeline via the CLI and inside the hardened container;
 the migrations applied to a real Postgres 17 with every constraint checked individually
 (case-insensitive id uniqueness, single-owner-per-mod, the append-only moderation trigger,
-`superseded_by` requiring deprecation); and the API serving live reads, resolve, collisions,
-401 on unauthenticated writes, and its security headers.
+`superseded_by` requiring deprecation); the API serving live reads, resolve, collisions, 401 on
+unauthenticated writes, and its security headers; and the frontend rendering the full stack in a
+real browser, in both themes, with zero failed requests.
 
 **Not yet built:** the release-import worker loop that ties webhook → fetch → container →
 database together (its pieces all exist and are tested separately), the periodic re-verification
-job, forge adapters beyond GitHub, and the frontend.
+job, forge adapters beyond GitHub, sign-in wired to real OAuth apps, and the modlist editor.
+
+### One deployment note
+
+`CompressionEnabled` is `false` in `KsaMods.Web.csproj`, and it has to stay that way until the SDK
+bug it works around is fixed. The SDK writes precompressed static assets with a literal `{0}` left
+in the filename, so at runtime the app advertises a gzip variant, fails to find it, and answers a
+browser with an empty `200`. Stylesheets then parse to zero rules and `blazor.web.js` aborts — with
+nothing in any log, because the status is `200` and `curl` (which sends no `Accept-Encoding`) sees
+the correct file. Compression belongs at the CDN or reverse proxy anyway.

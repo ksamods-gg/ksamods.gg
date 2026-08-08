@@ -1,0 +1,75 @@
+@page "/"
+@inject KsaModsApi Api
+
+<PageTitle>ksamods.gg — Kitten Space Agency mods</PageTitle>
+
+<section class="mx-auto max-w-2xl py-8 text-center">
+    <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Mods for Kitten Space Agency</h1>
+    <p class="mt-3 text-muted-foreground">
+        Every listing is validated against how the game actually loads mods, so you find out about
+        a broken archive here rather than after installing it.
+    </p>
+
+    <form action="/mods" method="get" class="mt-6 flex gap-2">
+        <input name="q" type="search" placeholder="Search mods…" aria-label="Search mods"
+               class="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm
+                      placeholder:text-muted-foreground focus-visible:outline-2
+                      focus-visible:outline-offset-2 focus-visible:outline-ring" />
+        <Button Type="submit" Class="h-10">Search</Button>
+    </form>
+</section>
+
+<section class="mt-4">
+    <div class="mb-3 flex items-baseline justify-between">
+        <h2 class="text-sm font-semibold">Recently updated</h2>
+        <a href="/mods" class="text-sm text-muted-foreground hover:text-foreground">Browse all →</a>
+    </div>
+
+    @if (_error is not null)
+    {
+        <Alert Variant="error" Title="The catalogue is unavailable">@_error</Alert>
+    }
+    else if (_mods is null)
+    {
+        <p class="text-sm text-muted-foreground">Loading…</p>
+    }
+    else if (_mods.Count == 0)
+    {
+        <Card>
+            <p class="text-sm text-muted-foreground">
+                Nothing published yet. If you have a mod, it takes one form and a connected
+                repository to appear here.
+            </p>
+            <Button Href="/mods/new" Class="mt-4" Size="sm">Add a mod</Button>
+        </Card>
+    }
+    else
+    {
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach (var mod in _mods)
+            {
+                <ModCard Mod="mod" />
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<ModSummary>? _mods;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var page = await Api.SearchAsync(limit: 6);
+            _mods = page?.Items ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            // The API being down should degrade this page, not blank it: the header, the search
+            // box and the explanation are all still useful.
+            _error = "The API did not respond. This page will work again once it is back.";
+        }
+    }
+}

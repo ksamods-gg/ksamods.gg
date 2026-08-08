@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\src\KsaMods.Worker\KsaMods.Worker.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Exporter\KsaMods.Exporter.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Api\KsaMods.Api.csproj" />
+    <ProjectReference Include="..\..\src\KsaMods.Web\KsaMods.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

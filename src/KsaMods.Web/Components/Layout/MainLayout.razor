@@ -1,0 +1,49 @@
+@namespace KsaMods.Web.Components.Layout
+@inherits LayoutComponentBase
+@using KsaMods.Web.Components.Ui
+
+<div class="flex min-h-screen flex-col">
+    <header class="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
+        <div class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
+            <a href="/" class="flex items-baseline gap-1.5 font-semibold tracking-tight">
+                ksamods<span class="text-muted-foreground">.gg</span>
+            </a>
+
+            <nav class="hidden items-center gap-1 text-sm sm:flex">
+                <a href="/mods" class="rounded-md px-2.5 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+                    Browse
+                </a>
+                <a href="/collisions" class="rounded-md px-2.5 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+                    Asset ids
+                </a>
+            </nav>
+
+            <div class="ml-auto flex items-center gap-2">
+                <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
+                <Button Href="/auth/github/start?returnTo=/" Size="sm">Sign in</Button>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        @Body
+    </main>
+
+    <footer class="border-t border-border">
+        <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-muted-foreground">
+            <p>
+                ksamods.gg is an index, not a file host. Downloads come from each author's own
+                repository, and the site records a hash rather than the file.
+            </p>
+            <p class="mt-2">
+                Code mods are unsandboxed .NET assemblies with full process privileges. Validation
+                checks packaging; it cannot make an assembly safe.
+            </p>
+        </div>
+    </footer>
+</div>
+
+<div id="blazor-error-ui">
+    Something went wrong. Reload the page to continue.
+    <a href="" class="dismiss">✕</a>
+</div>

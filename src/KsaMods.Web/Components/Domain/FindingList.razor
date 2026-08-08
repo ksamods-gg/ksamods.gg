@@ -1,0 +1,49 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+@using KsaMods.Web.Services
+
+@if (Findings.Count == 0)
+{
+    <p class="text-sm text-muted-foreground">
+        Validation found nothing to report. Every declared path resolved and every declared XML parsed.
+    </p>
+}
+else
+{
+    <ul class="divide-y divide-border">
+        @foreach (var finding in Findings.OrderBy(SeverityRank).ThenBy(f => f.Stage))
+        {
+            <li class="flex gap-3 py-3 first:pt-0 last:pb-0">
+                <Badge Variant="@Presentation.SeverityVariant(finding.Severity)" Class="mt-0.5 shrink-0">
+                    @finding.Severity
+                </Badge>
+
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm">@finding.Message</p>
+
+                    <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        @* The code is the contract — it is what a filter or a script keys on, so it
+                           is shown rather than hidden behind the prose. *@
+                        <code class="font-mono">@finding.Code</code>
+                        <span>@Presentation.StageName(finding.Stage)</span>
+                        @if (finding.Path is not null)
+                        {
+                            <code class="font-mono break-all">@finding.Path</code>
+                        }
+                    </p>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<FindingInfo> Findings { get; set; } = [];
+
+    private static int SeverityRank(FindingInfo finding) => finding.Severity switch
+    {
+        "error" => 0,
+        "warning" => 1,
+        _ => 2,
+    };
+}

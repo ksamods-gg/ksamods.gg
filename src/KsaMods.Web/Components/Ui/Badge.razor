@@ -1,0 +1,30 @@
+@namespace KsaMods.Web.Components.Ui
+
+<span class="@Classes" title="@Title">@ChildContent</span>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>neutral | outline | error | warning | info | ok</summary>
+    [Parameter] public string Variant { get; set; } = "neutral";
+
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private const string Base =
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
+
+    private string Classes => Cx.Of(Base, VariantClasses, Class);
+
+    // Severity colours are tinted backgrounds rather than solid fills: a page can carry a dozen
+    // findings, and a dozen saturated blocks reads as an emergency regardless of what they say.
+    private string VariantClasses => Variant switch
+    {
+        "outline" => "border-border text-muted-foreground",
+        "error" => "border-severity-error/30 bg-severity-error/10 text-severity-error",
+        "warning" => "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
+        "info" => "border-severity-info/30 bg-severity-info/10 text-severity-info",
+        "ok" => "border-severity-ok/30 bg-severity-ok/10 text-severity-ok",
+        _ => "border-transparent bg-secondary text-secondary-foreground",
+    };
+}

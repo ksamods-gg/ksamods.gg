@@ -1,0 +1,181 @@
+@page "/mods/{Id}"
+@inject KsaModsApi Api
+
+<PageTitle>@(_mod?.Name ?? Id) — ksamods.gg</PageTitle>
+
+@if (_error is not null)
+{
+    <Alert Variant="error" Title="Could not load this listing">@_error</Alert>
+}
+else if (_notFound)
+{
+    <Card Class="text-center">
+        <p class="text-sm text-muted-foreground">
+            No listing with the id <code class="font-mono">@Id</code>.
+        </p>
+        <Button Href="/mods" Variant="outline" Size="sm" Class="mt-4">Browse mods</Button>
+    </Card>
+}
+else if (_mod is null)
+{
+    <p class="text-sm text-muted-foreground">Loading…</p>
+}
+else if (_mod.IsWithdrawn)
+{
+    @* Delisted content stays resolvable by id — modlists pin it and dependency graphs reference
+       it — but the download is not offered and the reason is stated plainly. *@
+    <Card Header="@(builder => { builder.AddContent(0, _mod.Id); })">
+        <Alert Variant="warning" Title="This listing has been withdrawn">
+            @(_mod.Message ?? "Moderators have withdrawn this listing. Its releases are not offered here.")
+            <p class="mt-2">
+                Withdrawal removes it from this index only. It does not remove anything from the
+                author's own repository.
+            </p>
+        </Alert>
+    </Card>
+}
+else
+{
+    <article>
+        <header class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0">
+                <h1 class="text-2xl font-semibold tracking-tight">@_mod.Name</h1>
+                <code class="mt-1 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
+            </div>
+
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+                @if (_mod.License is not null)
+                {
+                    <Badge Variant="outline">@_mod.License</Badge>
+                }
+                @if (_latest is not null)
+                {
+                    <Button Href="@($"/mods/{_mod.Id}/releases/{_latest.Version}")" Size="sm">
+                        Latest: @_latest.Version
+                    </Button>
+                }
+            </div>
+        </header>
+
+        @if (_mod.IsDeprecated)
+        {
+            <Alert Variant="warning" Title="The author has deprecated this mod" Class="mt-4">
+                @if (_mod.SupersededBy is not null)
+                {
+                    <span>
+                        It is replaced by
+                        <a href="@($"/mods/{_mod.SupersededBy}")" class="underline underline-offset-4">
+                            @_mod.SupersededBy
+                        </a>. Installing this one still works.
+                    </span>
+                }
+                else
+                {
+                    <span>It is no longer maintained. Installing it still works.</span>
+                }
+            </Alert>
+        }
+
+        <p class="mt-4 max-w-2xl text-muted-foreground">@_mod.Abstract</p>
+
+        @if (_mod.Tags.Count > 0)
+        {
+            <div class="mt-3 flex flex-wrap gap-1.5">
+                @foreach (var tag in _mod.Tags)
+                {
+                    <a href="@($"/mods?tag={Uri.EscapeDataString(tag)}")">
+                        <Badge Variant="outline">@tag</Badge>
+                    </a>
+                }
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_mod.Description))
+        {
+            <Card Class="mt-6" Header="@(b => b.AddContent(0, "About"))">
+                @* Rendered as plain text, not HTML. This is user input shown to other users, which
+                   makes it the most likely XSS vector on the site; Markdown rendering needs a
+                   sanitiser before it is worth it. *@
+                <p class="whitespace-pre-wrap text-sm leading-relaxed">@_mod.Description</p>
+            </Card>
+        }
+
+        <Card Class="mt-6" Padded="false"
+              Header="@(b => b.AddContent(0, "Releases"))"
+              Description="@(b => b.AddContent(0, $"{_mod.Releases.Count} published"))">
+
+            @if (_mod.Releases.Count == 0)
+            {
+                <p class="px-5 py-4 text-sm text-muted-foreground">
+                    No releases yet. Connect a repository and tag a release to publish one.
+                </p>
+            }
+            else
+            {
+                <ul class="divide-y divide-border">
+                    @foreach (var release in _mod.Releases)
+                    {
+                        <li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
+                            <a href="@($"/mods/{_mod.Id}/releases/{release.Version}")"
+                               class="font-mono text-sm font-medium underline-offset-4 hover:underline">
+                                @release.Version
+                            </a>
+
+                            @if (release.ReleaseStatus != "stable")
+                            {
+                                <Badge Variant="outline">@Presentation.ReleaseChannel(release.ReleaseStatus)</Badge>
+                            }
+
+                            @if (release.Yanked)
+                            {
+                                @* A yank is the author's statement about one build — distinct from
+                                   deprecation and from a moderator delisting. *@
+                                <Badge Variant="error" Title="Retracted by the author. Already-installed copies are unaffected.">
+                                    Yanked
+                                </Badge>
+                            }
+
+                            <PillBadge Value="@Presentation.Validation(release.ValidationState)" />
+                            <PillBadge Value="@Presentation.Availability(release.Availability, null)" />
+
+                            <span class="ml-auto text-xs text-muted-foreground">
+                                @Presentation.Ago(release.ReleasedAt)
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+        </Card>
+    </article>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = "";
+
+    private ModDetail? _mod;
+    private ReleaseSummary? _latest;
+    private bool _notFound;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _mod = null;
+        _error = null;
+        _notFound = false;
+
+        try
+        {
+            _mod = await Api.GetModAsync(Id);
+            _notFound = _mod is null;
+
+            // "Latest" deliberately skips yanked and non-stable builds: it is the version the
+            // page recommends, and recommending a retracted build would be actively harmful.
+            _latest = _mod?.Releases
+                .FirstOrDefault(r => !r.Yanked && r.ReleaseStatus == "stable");
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API did not respond.";
+        }
+    }
+}

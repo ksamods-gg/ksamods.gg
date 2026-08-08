@@ -1,0 +1,63 @@
+@namespace KsaMods.Web.Components.Ui
+
+@if (Href is not null)
+{
+    @* Rendered as a link when it navigates, as a button when it acts. A "button" that navigates
+       breaks middle-click, open-in-new-tab and the browser's own affordances. *@
+    <a href="@Href" class="@Classes" @attributes="Extra">@ChildContent</a>
+}
+else
+{
+    <button type="@Type" class="@Classes" disabled="@Disabled" @attributes="Extra">
+        @if (Pending)
+        {
+            <span class="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+                  aria-hidden="true"></span>
+        }
+        @ChildContent
+    </button>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>primary | secondary | outline | ghost | destructive | link</summary>
+    [Parameter] public string Variant { get; set; } = "primary";
+
+    /// <summary>sm | md | lg | icon</summary>
+    [Parameter] public string Size { get; set; } = "md";
+
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Pending { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Extra { get; set; }
+
+    private const string Base =
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm " +
+        "font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 " +
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+    private string Classes => Cx.Of(Base, VariantClasses, SizeClasses, Class);
+
+    private string VariantClasses => Variant switch
+    {
+        "secondary" => "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        "outline" => "border border-border bg-background hover:bg-accent hover:text-accent-foreground",
+        "ghost" => "hover:bg-accent hover:text-accent-foreground",
+        "destructive" => "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        "link" => "text-foreground underline-offset-4 hover:underline",
+        _ => "bg-primary text-primary-foreground hover:bg-primary/90",
+    };
+
+    private string SizeClasses => Size switch
+    {
+        "sm" => "h-8 px-3 text-xs",
+        "lg" => "h-11 px-6",
+        "icon" => "size-9",
+        _ => "h-9 px-4",
+    };
+}

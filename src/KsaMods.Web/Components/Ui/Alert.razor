@@ -1,0 +1,29 @@
+@namespace KsaMods.Web.Components.Ui
+
+<div class="@Classes" role="@(Variant is "error" ? "alert" : "note")">
+    @if (Title is not null)
+    {
+        <p class="text-sm font-semibold">@Title</p>
+    }
+    <div class="@Cx.Of("text-sm", Title is not null ? "mt-1" : null)">@ChildContent</div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>neutral | error | warning | info</summary>
+    [Parameter] public string Variant { get; set; } = "neutral";
+
+    [Parameter] public string? Class { get; set; }
+
+    private string Classes => Cx.Of("rounded-lg border px-4 py-3", VariantClasses, Class);
+
+    private string VariantClasses => Variant switch
+    {
+        "error" => "border-severity-error/30 bg-severity-error/10 text-severity-error",
+        "warning" => "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
+        "info" => "border-severity-info/30 bg-severity-info/10 text-severity-info",
+        _ => "border-border bg-muted/40 text-foreground",
+    };
+}

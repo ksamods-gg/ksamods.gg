@@ -1,0 +1,34 @@
+@namespace KsaMods.Web.Components.Ui
+
+<div class="@Cx.Of("space-y-1.5", Class)">
+    <label for="@Id" class="block text-sm font-medium">
+        @Label
+        @if (!Required)
+        {
+            <span class="ml-1 font-normal text-muted-foreground">optional</span>
+        }
+    </label>
+
+    @ChildContent
+
+    @if (Hint is not null && Error is null)
+    {
+        <p class="text-xs text-muted-foreground">@Hint</p>
+    }
+    @if (Error is not null)
+    {
+        @* Tied to the control by aria-describedby so a screen reader announces the reason, not
+           just that something is invalid. *@
+        <p id="@($"{Id}-error")" class="text-xs text-severity-error">@Error</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool Required { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+}
