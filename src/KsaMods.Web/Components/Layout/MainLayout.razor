@@ -28,19 +28,13 @@
             <div class="ml-auto flex items-center gap-2">
                 <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
 
-                @* Offered only when the API has credentials for it. A sign-in button that 404s is
-                   worse than none: the reader cannot tell a misconfiguration from an outage. *@
-                @if (_providers.Contains("github"))
+                @* Shown only when the API has credentials for at least one provider. A sign-in
+                   button that 404s is worse than none: the reader cannot tell a misconfiguration
+                   from an outage. Which providers exist is the sign-in page's problem, not the
+                   header's — that way adding Discord later changes one page, not every layout. *@
+                @if (_providers.Count > 0)
                 {
-                    <Button Href="@($"/auth/github/start?returnTo={ReturnTo}")" Size="sm">
-                        Sign in with GitHub
-                    </Button>
-                }
-                else if (_providers.Contains("discord"))
-                {
-                    <Button Href="@($"/auth/discord/start?returnTo={ReturnTo}")" Size="sm">
-                        Sign in with Discord
-                    </Button>
+                    <Button Href="@($"/signin?returnTo={ReturnTo}")" Size="sm">Sign in</Button>
                 }
             </div>
         </div>

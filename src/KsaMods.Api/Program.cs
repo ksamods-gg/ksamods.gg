@@ -28,6 +28,15 @@ builder.Services.AddScoped<SessionStore>();
 var sessionOptions = new SiteSessionOptions();
 builder.Services.AddSingleton(sessionOptions);
 
+// The address people actually type. Used to build the OAuth redirect_uri, which must match what
+// is registered with the provider exactly — see OAuthEndpoints.SiteOptions for why this is
+// configured rather than read off the request.
+var siteOptions = new OAuthEndpoints.SiteOptions
+{
+    PublicBaseUrl = builder.Configuration["Site:PublicBaseUrl"],
+};
+builder.Services.AddSingleton(siteOptions);
+
 builder.Services.AddHttpClient("oauth");
 builder.Services.AddProblemDetails();
 builder.Services.AddResponseCompression();
@@ -120,7 +129,21 @@ if (builder.Configuration["OAuth:Discord:ClientId"] is { Length: > 0 } discordId
     };
 }
 
-app.MapOAuth(providers, sessionOptions);
+app.MapOAuth(providers, sessionOptions, siteOptions);
+
+if (providers.Count > 0 && siteOptions.Normalised is null)
+{
+    app.Logger.LogWarning(
+        "Sign-in is configured but Site:PublicBaseUrl is not. The OAuth redirect_uri will be "
+        + "derived from the request host, which behind a proxy is an internal container name. "
+        + "Set Site__PublicBaseUrl to the address people use.");
+}
+else if (siteOptions.Normalised is { } publicUrl)
+{
+    app.Logger.LogInformation(
+        "Public base URL is {PublicBaseUrl}; OAuth callbacks will use {Callback}.",
+        publicUrl, $"{publicUrl}/auth/<provider>/callback");
+}
 app.MapReadEndpoints();
 app.MapModEndpoints();
 app.MapModlistEndpoints();

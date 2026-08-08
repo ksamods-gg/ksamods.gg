@@ -25,10 +25,43 @@ public static class OAuthEndpoints
 {
     private const string StateCookie = "ksamods_oauth_state";
 
+    /// <summary>
+    /// The site's public base URL, e.g. <c>https://ksamods.gg</c>.
+    ///
+    /// <para><b>Configured, not derived from the request.</b> The API sits behind two proxies —
+    /// Coolify's, then the frontend's — so <c>Request.Host</c> inside the container is
+    /// <c>api:8080</c>, and a redirect_uri built from it sends users to a hostname that only
+    /// exists on a Docker network. Forwarded headers can carry the real host, but the redirect_uri
+    /// must match what is registered with the provider <i>byte for byte</i>, and staking that on a
+    /// header surviving two hops intact is a bad trade for one setting.</para>
+    /// </summary>
+    public sealed record SiteOptions
+    {
+        public string? PublicBaseUrl { get; init; }
+
+        /// <summary>Normalised, with any trailing slash removed and a scheme guaranteed.</summary>
+        public string? Normalised
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(PublicBaseUrl)) return null;
+
+                var value = PublicBaseUrl.Trim().TrimEnd('/');
+
+                // Coolify's SERVICE_FQDN_* is sometimes a bare host and sometimes a full URL;
+                // accept either rather than making the operator care which.
+                if (!value.Contains("://", StringComparison.Ordinal)) value = $"https://{value}";
+
+                return value;
+            }
+        }
+    }
+
     public static void MapOAuth(
         this IEndpointRouteBuilder app,
         IReadOnlyDictionary<string, OAuthProviderOptions> providers,
-        SiteSessionOptions sessionOptions)
+        SiteSessionOptions sessionOptions,
+        SiteOptions siteOptions)
     {
         // Which providers actually have credentials. The frontend asks this so it can hide a
         // sign-in button that could only ever 404 — an operator who has not set the credentials
@@ -43,6 +76,7 @@ public static class OAuthEndpoints
         app.MapGet("/auth/{provider}/start", (string provider, HttpContext http, string? returnTo) =>
         {
             if (!providers.TryGetValue(provider, out var options)) return NotConfigured(provider);
+            if (PublicUrlMissing(siteOptions, http) is { } misconfigured) return misconfigured;
 
             // CSRF protection for the callback. Bound to the browser via a cookie so a state
             // value alone is not enough to complete somebody else's sign-in.
@@ -57,7 +91,7 @@ public static class OAuthEndpoints
                 Path = "/",
             });
 
-            var redirect = $"{http.Request.Scheme}://{http.Request.Host}/auth/{provider}/callback";
+            var redirect = CallbackUrl(siteOptions, http, provider);
             var url = QueryHelpers.AddQueryString(options.AuthorizeEndpoint, new Dictionary<string, string?>
             {
                 ["client_id"] = options.ClientId,
@@ -81,6 +115,7 @@ public static class OAuthEndpoints
             CancellationToken ct) =>
         {
             if (!providers.TryGetValue(provider, out var options)) return NotConfigured(provider);
+            if (PublicUrlMissing(siteOptions, http) is { } misconfigured) return misconfigured;
             if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state)) return Results.BadRequest();
 
             if (!http.Request.Cookies.TryGetValue(StateCookie, out var stored)) return Results.BadRequest();
@@ -99,7 +134,7 @@ public static class OAuthEndpoints
             var returnTo = parts.Length > 1 ? parts[1] : "/";
 
             using var client = clients.CreateClient("oauth");
-            var redirect = $"{http.Request.Scheme}://{http.Request.Host}/auth/{provider}/callback";
+            var redirect = CallbackUrl(siteOptions, http, provider);
 
             using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, options.TokenEndpoint)
             {
@@ -169,6 +204,47 @@ public static class OAuthEndpoints
             http.Response.Cookies.Delete(sessionOptions.CookieName);
             return Results.NoContent();
         });
+    }
+
+    /// <summary>
+    /// The provider callback URL, identical in both the authorize redirect and the token
+    /// exchange — providers compare the two and reject a mismatch.
+    ///
+    /// <para>Prefers configuration. Falls back to the request only for local development, where
+    /// there is no proxy in front and the host is genuinely what the browser used.</para>
+    /// </summary>
+    private static string CallbackUrl(SiteOptions site, HttpContext http, string provider)
+    {
+        var baseUrl = site.Normalised ?? $"{http.Request.Scheme}://{http.Request.Host}";
+        return $"{baseUrl}/auth/{provider}/callback";
+    }
+
+    /// <summary>
+    /// Names the exact setting when the site's public URL is missing behind a proxy.
+    ///
+    /// <para>Without it the flow does not fail — it succeeds into a redirect_uri pointing at an
+    /// internal container name, which the user only discovers when the provider shows them a
+    /// mismatch error naming a hostname they have never heard of.</para>
+    /// </summary>
+    private static IResult? PublicUrlMissing(SiteOptions site, HttpContext http)
+    {
+        if (site.Normalised is not null) return null;
+
+        // A host with no dot and no "localhost" is a container or service name, never something a
+        // browser reached directly.
+        var host = http.Request.Host.Host;
+        var looksInternal = !host.Contains('.', StringComparison.Ordinal)
+            && !host.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+
+        if (!looksInternal) return null;
+
+        return Results.Problem(
+            title: "The site's public URL is not configured",
+            detail: $"This request arrived with Host '{http.Request.Host}', which is an internal address. "
+                  + "Sign-in would send users to a redirect_uri pointing at that name. Set "
+                  + "Site__PublicBaseUrl on the API to the address people use, for example "
+                  + "https://ksamods.gg, then redeploy.",
+            statusCode: StatusCodes.Status500InternalServerError);
     }
 
     /// <summary>

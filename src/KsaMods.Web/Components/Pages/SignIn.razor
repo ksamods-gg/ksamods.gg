@@ -1,0 +1,94 @@
+@page "/signin"
+@inject AuthAvailability Auth
+
+<PageTitle>Sign in | ksamods.gg</PageTitle>
+
+<div class="mx-auto max-w-md py-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Sign in</h1>
+
+    @if (_providers.Count == 0)
+    {
+        @* Reachable by typing the URL even when the header hides the button, so it has to explain
+           itself rather than present an empty page with no buttons on it. *@
+        <Alert Variant="info" Title="Sign-in is not available yet" Class="mt-6">
+            No sign-in provider is configured on this site. Browsing, searching and looking up
+            asset ids all work without an account — signing in is only needed to publish a mod or
+            build a modlist.
+        </Alert>
+
+        <Button Href="/mods" Variant="outline" Class="mt-6">Browse mods</Button>
+    }
+    else
+    {
+        <p class="mt-2 text-muted-foreground">
+            You need an account to publish a mod or build a modlist. Browsing needs nothing.
+        </p>
+
+        <div class="mt-6 space-y-2">
+            @foreach (var provider in Ordered)
+            {
+                <a href="@StartUrl(provider)"
+                   class="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3
+                          text-sm font-medium transition-colors hover:border-ring hover:bg-accent
+                          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                    <ProviderMark Provider="@provider" Class="shrink-0" />
+                    <span>Continue with @DisplayName(provider)</span>
+                    <span class="ml-auto text-muted-foreground" aria-hidden="true">→</span>
+                </a>
+            }
+        </div>
+
+        @* Said here rather than buried in a privacy page, because this is the moment someone is
+           deciding whether to hand over an identity. *@
+        <p class="mt-6 text-xs leading-relaxed text-muted-foreground">
+            We read your username and avatar, and nothing else. We never post on your behalf, and
+            we do not ask for access to your repositories — connecting a repository to a mod is a
+            separate step you take later, per repository.
+        </p>
+
+        @if (_providers.Contains("github"))
+        {
+            <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
+                Signing in with GitHub is worth preferring if you publish mods: it is what lets us
+                confirm you control the repository your releases come from.
+            </p>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnTo { get; set; }
+
+    private IReadOnlyList<string> _providers = [];
+
+    /// <summary>
+    /// GitHub first where present: it is the one that can prove repository ownership, so it is the
+    /// better default for the people this page mostly exists for.
+    /// </summary>
+    private IEnumerable<string> Ordered =>
+        _providers.OrderBy(p => p == "github" ? 0 : 1).ThenBy(p => p, StringComparer.Ordinal);
+
+    protected override async Task OnInitializedAsync() =>
+        _providers = await Auth.ProvidersAsync();
+
+    private string StartUrl(string provider) =>
+        $"/auth/{provider}/start?returnTo={Uri.EscapeDataString(SafeReturnTo)}";
+
+    /// <summary>
+    /// Only ever a local path. An absolute URL here would turn the sign-in flow into an open
+    /// redirect — a phishing link that launders itself through a domain the user trusts.
+    /// </summary>
+    private string SafeReturnTo =>
+        !string.IsNullOrWhiteSpace(ReturnTo)
+        && ReturnTo.StartsWith('/')
+        && !ReturnTo.StartsWith("//", StringComparison.Ordinal)
+            ? ReturnTo
+            : "/";
+
+    private static string DisplayName(string provider) => provider switch
+    {
+        "github" => "GitHub",
+        "discord" => "Discord",
+        _ => provider,
+    };
+}
