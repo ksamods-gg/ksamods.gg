@@ -192,8 +192,13 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
 
 public sealed record CurrentAccount
 {
+    [JsonPropertyName("id")] public long Id { get; init; }
     [JsonPropertyName("handle")] public string Handle { get; init; } = "";
     [JsonPropertyName("site_role")] public string SiteRole { get; init; } = "user";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
+    [JsonPropertyName("avatar_url")] public string? AvatarUrl { get; init; }
+
+    public bool IsModerator => SiteRole is "moderator" or "admin";
 }
 
 public sealed record ModSummaryPage

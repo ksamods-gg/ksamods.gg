@@ -2,6 +2,7 @@
 @inherits LayoutComponentBase
 @using KsaMods.Web.Components.Ui
 @inject AuthAvailability Auth
+@inject KsaModsApi Api
 @inject NavigationManager Nav
 
 <div class="flex min-h-screen flex-col">
@@ -36,12 +37,17 @@
                     <span class="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true"></span>
                     <Button Href="/mods/new" Variant="ghost" Size="sm">Add a mod</Button>
 
-                    @* Shown only when the API has credentials for at least one provider. A sign-in
-                       button that 404s is worse than none: the reader cannot tell a misconfiguration
-                       from an outage. Which providers exist is the sign-in page's problem, not the
-                       header's, so adding Discord later changes one page rather than every layout. *@
-                    @if (_providers.Count > 0)
+                    @if (_user is not null)
                     {
+                        <AccountMenu User="_user" ReturnTo="@ReturnTo" />
+                    }
+                    else if (_providers.Count > 0)
+                    {
+                        @* Shown only when the API has credentials for at least one provider. A
+                           sign-in button that 404s is worse than none: the reader cannot tell a
+                           misconfiguration from an outage. Which providers exist is the sign-in
+                           page's problem, not the header's, so adding Discord later changes one
+                           page rather than every layout. *@
                         <Button Href="@($"/signin?returnTo={ReturnTo}")" Size="sm">Sign in</Button>
                     }
                 </div>
@@ -114,11 +120,19 @@
 
 @code {
     private IReadOnlyList<string> _providers = [];
+    private CurrentAccount? _user;
 
     /// <summary>Come back to the page the user was on, not to the home page.</summary>
     private string ReturnTo => Uri.EscapeDataString(
         "/" + Nav.ToBaseRelativePath(Nav.Uri));
 
-    protected override async Task OnInitializedAsync() =>
-        _providers = await Auth.ProvidersAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        // Who you are is asked per render; which providers exist is cached, because one changes
+        // on every sign-in and the other only on redeploy.
+        _user = await Api.GetCurrentUserAsync();
+
+        // Only needed to decide whether to offer sign-in at all, which is moot once signed in.
+        if (_user is null) _providers = await Auth.ProvidersAsync();
+    }
 }

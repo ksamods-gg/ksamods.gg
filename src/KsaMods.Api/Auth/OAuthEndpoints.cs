@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using KsaMods.Api.Data;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace KsaMods.Api.Auth;
@@ -82,17 +83,28 @@ public static class OAuthEndpoints
         // 204 rather than 401 for the anonymous case on purpose: not being signed in is a normal
         // answer to this question, not a failure, and 401 here would make every anonymous page
         // render log an authentication error that nothing went wrong to cause.
-        app.MapGet("/api/v1/me", (HttpContext http) =>
+        app.MapGet("/api/v1/me", async (HttpContext http, Database database, CancellationToken ct) =>
         {
             var user = http.User();
+            if (user is null) return Results.NoContent();
 
-            return user is null
-                ? Results.NoContent()
-                : Results.Ok(new
-                {
-                    handle = user.Handle,
-                    site_role = user.SiteRole,
-                });
+            // The session carries the handle and role, but not the avatar or display name, and the
+            // header wants a face rather than a username. One indexed lookup by primary key.
+            using var connection = await database.OpenAsync(ct);
+
+            var row = await Dapper.SqlMapper.QuerySingleOrDefaultAsync<(string? DisplayName, string? AvatarUrl)?>(
+                connection,
+                "select display_name, avatar_url from account where id = @id",
+                new { id = user.AccountId });
+
+            return Results.Ok(new
+            {
+                id = user.AccountId,
+                handle = user.Handle,
+                site_role = user.SiteRole,
+                display_name = row?.DisplayName ?? user.Handle,
+                avatar_url = row?.AvatarUrl,
+            });
         });
 
         app.MapGet("/auth/{provider}/start", (string provider, HttpContext http, string? returnTo) =>
@@ -215,16 +227,26 @@ public static class OAuthEndpoints
             return Results.LocalRedirect(returnTo.StartsWith('/') ? returnTo : "/");
         });
 
-        app.MapPost("/auth/logout", async (HttpContext http, SessionStore sessions, CancellationToken ct) =>
+        app.MapPost("/auth/logout", async (
+            HttpContext http, SessionStore sessions, string? returnTo, CancellationToken ct) =>
         {
             if (http.Request.Cookies.TryGetValue(sessionOptions.CookieName, out var raw) &&
                 Guid.TryParse(raw, out var sessionId))
             {
+                // Revoked server-side, not just cleared client-side. Deleting the cookie alone
+                // would leave a session anyone holding the old value could still use.
                 await sessions.RevokeAsync(sessionId, ct);
             }
 
             http.Response.Cookies.Delete(sessionOptions.CookieName);
-            return Results.NoContent();
+
+            // A browser posting a form needs somewhere to land; an API client wants the 204.
+            // Local paths only — an absolute returnTo here would be an open redirect.
+            return returnTo is { Length: > 0 }
+                && returnTo.StartsWith('/')
+                && !returnTo.StartsWith("//", StringComparison.Ordinal)
+                    ? Results.Redirect(returnTo)
+                    : Results.NoContent();
         });
     }
 

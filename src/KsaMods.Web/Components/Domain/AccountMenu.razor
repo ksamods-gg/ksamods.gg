@@ -1,0 +1,37 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+@using KsaMods.Web.Services
+
+@* A form, not a link, because signing out changes state — and a GET that logs you out gets
+   triggered by any prefetcher or link scanner that touches the page.
+
+   No antiforgery token needed: the session cookie is SameSite=Lax, so a cross-site POST does not
+   carry it and the request would be a no-op for the victim. *@
+
+<div class="flex items-center gap-2">
+    <span class="hidden items-center gap-2 text-sm sm:flex" title="@User.DisplayName">
+        @if (!string.IsNullOrWhiteSpace(User.AvatarUrl))
+        {
+            <img src="@User.AvatarUrl" alt="" width="22" height="22"
+                 class="size-[22px] rounded-full border border-border object-cover"
+                 loading="lazy" referrerpolicy="no-referrer" />
+        }
+        <span class="font-medium">@User.Handle</span>
+
+        @if (User.IsModerator)
+        {
+            <Badge Variant="info" Title="You can moderate listings.">staff</Badge>
+        }
+    </span>
+
+    <form method="post" action="@($"/auth/logout?returnTo={ReturnTo}")" class="contents">
+        <Button Type="submit" Variant="ghost" Size="sm">Sign out</Button>
+    </form>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CurrentAccount User { get; set; } = default!;
+
+    /// <summary>Stay where you are after signing out; every page here works signed out.</summary>
+    [Parameter] public string ReturnTo { get; set; } = "%2F";
+}
