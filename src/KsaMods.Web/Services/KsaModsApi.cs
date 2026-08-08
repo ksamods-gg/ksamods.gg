@@ -59,6 +59,35 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
     public Task<IReadOnlyList<GameBuild>?> GetBuildsAsync(CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<GameBuild>>("/api/v1/builds", ct);
 
+    /// <summary>
+    /// The signed-in account, or null for an anonymous visitor.
+    ///
+    /// <para>The session cookie travels with this because <see cref="CreateClient"/> forwards it,
+    /// so a server-rendered page gets the right answer on first paint rather than after a round
+    /// trip. Null covers both "no session" and "the API did not answer": a page guarding a form
+    /// should send someone to sign in either way rather than let them fill it in hopefully.</para>
+    /// </summary>
+    public async Task<CurrentAccount?> GetCurrentUserAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var client = CreateClient();
+            using var response = await client.GetAsync("/api/v1/me", ct);
+
+            // 204 is the documented anonymous answer; anything unsuccessful is treated the same.
+            if (response.StatusCode == HttpStatusCode.NoContent || !response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<CurrentAccount>(Json, ct);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
     public async Task<CreateModResult> CreateModAsync(CreateModRequest request, CancellationToken ct = default)
     {
         using var client = CreateClient();
@@ -72,8 +101,12 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
 
         // The API distinguishes a taken id from a malformed one, and the difference is the whole
         // message: one means "pick another name", the other means "that name cannot exist".
+        //
+        // The status comes back too. Not every rejection has a body worth reading: a 401 is a
+        // bare ProblemDetails with no detail field, and without the status the form can only say
+        // something vague when the real answer is "you are not signed in".
         var problem = await ReadProblemAsync(response, ct);
-        return new CreateModResult(false, null, null, problem);
+        return new CreateModResult(false, null, null, problem, response.StatusCode);
     }
 
     public async Task<bool> ConnectRepositoryAsync(
@@ -156,6 +189,12 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
 }
 
 // ── responses ──
+
+public sealed record CurrentAccount
+{
+    [JsonPropertyName("handle")] public string Handle { get; init; } = "";
+    [JsonPropertyName("site_role")] public string SiteRole { get; init; } = "user";
+}
 
 public sealed record ModSummaryPage
 {
@@ -312,4 +351,9 @@ public sealed record CreateModResponse
     [JsonPropertyName("note")] public string? Note { get; init; }
 }
 
-public sealed record CreateModResult(bool Success, string? Id, string? Note, string? Error);
+public sealed record CreateModResult(
+    bool Success, string? Id, string? Note, string? Error, HttpStatusCode? Status = null)
+{
+    /// <summary>No session, or a session without permission. The fix is signing in, not editing the form.</summary>
+    public bool NeedsSignIn => Status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+}

@@ -73,6 +73,28 @@ public static class OAuthEndpoints
             providers = providers.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray(),
         }));
 
+        // Who the caller is, or 204 for nobody.
+        //
+        // The frontend needs this to keep people out of forms they cannot submit. Without it the
+        // only way to discover that a session is missing is to post the form and read a 401,
+        // which means filling in a page of fields to be told the answer was "sign in first".
+        //
+        // 204 rather than 401 for the anonymous case on purpose: not being signed in is a normal
+        // answer to this question, not a failure, and 401 here would make every anonymous page
+        // render log an authentication error that nothing went wrong to cause.
+        app.MapGet("/api/v1/me", (HttpContext http) =>
+        {
+            var user = http.User();
+
+            return user is null
+                ? Results.NoContent()
+                : Results.Ok(new
+                {
+                    handle = user.Handle,
+                    site_role = user.SiteRole,
+                });
+        });
+
         app.MapGet("/auth/{provider}/start", (string provider, HttpContext http, string? returnTo) =>
         {
             if (!providers.TryGetValue(provider, out var options)) return NotConfigured(provider);
