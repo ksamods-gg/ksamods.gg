@@ -37,6 +37,10 @@ builder.Services.AddHttpClient(ApiProxy.ClientName, client =>
 
 builder.Services.AddScoped<KsaModsApi>();
 
+// Singleton: the answer comes from the API's configuration, so caching it across requests is the
+// point — the layout would otherwise ask on every page render.
+builder.Services.AddSingleton<AuthAvailability>();
+
 // Behind a TLS-terminating reverse proxy (Coolify's Traefik, nginx, a CDN), the app only ever
 // sees plain HTTP on an internal address. Without this it believes every request is insecure,
 // which breaks two things badly:

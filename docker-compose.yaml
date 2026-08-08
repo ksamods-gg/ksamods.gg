@@ -66,8 +66,15 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__Postgres=Host=postgres;Database=ksamods;Username=ksamods;Password=${SERVICE_PASSWORD_POSTGRES};Maximum Pool Size=20
-      # Sign-in is only offered when these are set. Left empty, the auth routes are simply not
-      # mapped — a working read-only site rather than a broken sign-in button.
+      # The address people type. Required for sign-in, because the OAuth redirect_uri must match
+      # what is registered with the provider exactly — and inside the compose network the API's
+      # own request host is "api:8080", which is not somewhere a browser can go.
+      #
+      # Defaults to the domain Coolify generated. Override PUBLIC_BASE_URL when you point a real
+      # domain at this.
+      - Site__PublicBaseUrl=${PUBLIC_BASE_URL:-${SERVICE_FQDN_WEB_8080:-}}
+      # Sign-in is only offered when these are set. Left empty, the frontend hides the button and
+      # the auth routes explain what is missing — a working read-only site, not a broken button.
       - OAuth__GitHub__ClientId=${GITHUB_CLIENT_ID:-}
       - OAuth__GitHub__ClientSecret=${GITHUB_CLIENT_SECRET:-}
       - OAuth__Discord__ClientId=${DISCORD_CLIENT_ID:-}

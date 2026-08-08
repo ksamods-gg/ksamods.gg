@@ -1,6 +1,8 @@
 @namespace KsaMods.Web.Components.Layout
 @inherits LayoutComponentBase
 @using KsaMods.Web.Components.Ui
+@inject AuthAvailability Auth
+@inject NavigationManager Nav
 
 <div class="flex min-h-screen flex-col">
     <SiteBanner />
@@ -33,7 +35,15 @@
                     <ThemeToggle />
                     <span class="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true"></span>
                     <Button Href="/mods/new" Variant="ghost" Size="sm">Add a mod</Button>
-                    <Button Href="/auth/github/start?returnTo=/" Size="sm">Sign in</Button>
+
+                    @* Shown only when the API has credentials for at least one provider. A sign-in
+                       button that 404s is worse than none: the reader cannot tell a misconfiguration
+                       from an outage. Which providers exist is the sign-in page's problem, not the
+                       header's, so adding Discord later changes one page rather than every layout. *@
+                    @if (_providers.Count > 0)
+                    {
+                        <Button Href="@($"/signin?returnTo={ReturnTo}")" Size="sm">Sign in</Button>
+                    }
                 </div>
             </div>
         </header>
@@ -101,3 +111,14 @@
     Something went wrong. Reload the page to continue.
     <a href="" class="dismiss">✕</a>
 </div>
+
+@code {
+    private IReadOnlyList<string> _providers = [];
+
+    /// <summary>Come back to the page the user was on, not to the home page.</summary>
+    private string ReturnTo => Uri.EscapeDataString(
+        "/" + Nav.ToBaseRelativePath(Nav.Uri));
+
+    protected override async Task OnInitializedAsync() =>
+        _providers = await Auth.ProvidersAsync();
+}

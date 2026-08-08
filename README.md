@@ -100,6 +100,20 @@ DISCORD_CLIENT_ID      DISCORD_CLIENT_SECRET
 
 The GitHub OAuth app's callback URL must be `https://<your-domain>/auth/github/callback`.
 
+**Set `PUBLIC_BASE_URL` once you point a real domain at this** — `https://ksamods.gg`, no trailing
+slash. It defaults to the domain Coolify generated, which is right until it isn't.
+
+That value is what builds the OAuth `redirect_uri`, and it is configured rather than read off the
+request on purpose. The API sits behind two proxies — Coolify's, then the frontend's — so its own
+`Request.Host` is `api:8080`, and a `redirect_uri` derived from it points at a hostname that exists
+only on a Docker network. Forwarded headers can carry the real host, but the `redirect_uri` has to
+match the registered callback byte for byte, and staking that on a header surviving two hops is a
+bad trade for one setting.
+
+If it is missing, the API says so three ways rather than failing obscurely: a warning at startup, a
+`500` naming the setting when a request arrives with an internal host, and the frontend hiding the
+sign-in button entirely when no provider is configured.
+
 **Only the frontend is exposed.** The API and Postgres publish no ports; the browser reaches the
 API through the frontend's own proxy. That is deliberate: it is what lets the session cookie stay
 HttpOnly and `SameSite=Lax` with no CORS policy anywhere. It also means `docker compose up` locally
