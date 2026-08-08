@@ -72,6 +72,20 @@ services:
       retries: 5
       start_period: 40s
 
+  # Builds the sandbox the worker runs each archive in, and tags it. One-shot: it starts, prints
+  # its version to prove the image works, and exits.
+  #
+  # It exists as a service so that `docker compose up --build` produces the image as part of an
+  # ordinary deploy. Making somebody build it by hand and paste a digest is the kind of step that
+  # gets skipped once and then stays skipped, and a worker with no validator does nothing at all.
+  validator:
+    build:
+      context: .
+      dockerfile: src/KsaMods.Validator.Host/Dockerfile
+    image: ${VALIDATOR_IMAGE:-ksamods/validator:local}
+    restart: "no"
+    command: ["--version"]
+
   # Where imports actually happen. Separate from the API because it drives the Docker daemon on
   # behalf of archives strangers wrote, and the process exposed to the internet must not be able
   # to do that.
@@ -87,12 +101,18 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      # Nothing to validate with until this has built and tagged the image.
+      validator:
+        condition: service_completed_successfully
     environment:
       - DATABASE_URL=${DATABASE_URL:?set DATABASE_URL to postgres://user:password@host:5432/dbname}
-      # Pinned by digest, never a tag: a tag is mutable and "the image we tested" is the point of
-      # pinning. Build it from src/KsaMods.Validator.Host/Dockerfile and put the digest here. The
-      # worker refuses to start without one.
-      - Validator__ImageDigest=${VALIDATOR_IMAGE:?set VALIDATOR_IMAGE to the validator image, pinned by digest}
+      # A tag, resolved at startup to the immutable id it points at - so the deploy stays one
+      # command while every run in this worker's lifetime still uses one image that cannot be
+      # swapped underneath it. The id it chose is in the startup log.
+      #
+      # Set Validator__ImageDigest instead to pin an exact digest across hosts; it is used as
+      # given and never resolved.
+      - Validator__Image=${VALIDATOR_IMAGE:-ksamods/validator:local}
       # Raises GitHub's limit from 60 requests an hour to 5000. Optional: the site reads public
       # repositories only, so this buys rate limit and no access.
       - GitHub__Token=${GITHUB_TOKEN:-}

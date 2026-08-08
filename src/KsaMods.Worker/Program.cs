@@ -56,16 +56,21 @@ builder.Services.AddSingleton(new FetchPolicy());
 builder.Services.AddSingleton(services => new SafeFetcher(
     services.GetRequiredService<FetchPolicy>(), scratch));
 
-// Pinned by digest, never by tag: a tag is mutable, and "the image we tested" is the whole point
-// of pinning. Without it the worker refuses to start rather than falling back to something
-// convenient - a validator running an unknown image is worse than a validator not running.
-var image = builder.Configuration["Validator:ImageDigest"];
+// Which image every validation runs in. A tag is resolved to the immutable id it currently points
+// at, so the deployment can build the image under a stable name and this worker still cannot have
+// it swapped underneath it mid-life. An explicit digest is honoured as given.
+//
+// Refuses to start rather than falling back to something convenient: a validator running an
+// unknown image is worse than a validator not running.
+var image = await ValidatorImage.ResolveAsync(
+    builder.Configuration["Validator:ImageDigest"],
+    builder.Configuration["Validator:Image"],
+    Console.Error.WriteLine,
+    CancellationToken.None);
 
-if (string.IsNullOrWhiteSpace(image))
+if (image is null)
 {
-    Console.Error.WriteLine(
-        "FATAL: set Validator__ImageDigest to the validator image, pinned by digest "
-        + "(ksamods/validator@sha256:...). Refusing to start without it.");
+    Console.Error.WriteLine("FATAL: no validator image. Refusing to start.");
     return 2;
 }
 
@@ -85,7 +90,7 @@ var host = builder.Build();
 
 host.Services.GetRequiredService<ILoggerFactory>()
     .CreateLogger("Worker")
-    .LogInformation("Validator image {Image}, scratch {Scratch}.", image, scratch);
+    .LogInformation("Scratch {Scratch}.", scratch);
 
 await host.RunAsync();
 

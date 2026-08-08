@@ -22,7 +22,11 @@ COPY src/KsaMods.Worker/ src/KsaMods.Worker/
 
 RUN dotnet publish src/KsaMods.Worker/KsaMods.Worker.csproj -c Release -o /app --no-self-contained
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0-noble AS runtime
+# aspnet, not runtime. The worker references KsaMods.Api for Database and JobQueue, and that is a
+# Web SDK project, so the published output binds Microsoft.AspNetCore.App. The base runtime image
+# does not carry that framework and the container exits at startup with "No frameworks were found"
+# - which says nothing about the reference that caused it.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 
 # The CLI only. Not the daemon: this container talks to the host's daemon over the mounted socket,
 # and running a second one inside would need --privileged, which is a much larger hole than the

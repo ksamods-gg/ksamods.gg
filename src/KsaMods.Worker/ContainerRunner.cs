@@ -39,61 +39,89 @@ public sealed class ContainerRunner(ContainerPolicy policy)
     public async Task<ContainerOutcome> RunAsync(
         string archivePath, string expectedModId, CancellationToken ct)
     {
-        var outputDirectory = Path.Combine(Path.GetTempPath(), $"ksamods-out-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(outputDirectory);
+        var arguments = BuildArguments(archivePath, expectedModId);
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "docker",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            },
+        };
+
+        foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
+
+        var stderr = new StringBuilder();
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) stderr.AppendLine(e.Data); };
+
+        process.Start();
+        process.BeginErrorReadLine();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(policy.Timeout + TimeSpan.FromSeconds(15));
+
+        // Started before the archive is written. The report is small and the archive is not, so in
+        // practice the container reads everything before answering - but a reader that only starts
+        // afterwards is a deadlock waiting for a validator that writes early.
+        var reading = process.StandardOutput.ReadToEndAsync(cts.Token);
+
+        var timedOut = false;
 
         try
         {
-            var arguments = BuildArguments(archivePath, outputDirectory, expectedModId);
-
-            using var process = new Process
+            await using (var archive = File.OpenRead(archivePath))
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "docker",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                },
-            };
-
-            foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-
-            var stderr = new StringBuilder();
-            process.ErrorDataReceived += (_, e) => { if (e.Data is not null) stderr.AppendLine(e.Data); };
-
-            process.Start();
-            process.BeginErrorReadLine();
-
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(policy.Timeout + TimeSpan.FromSeconds(15));
-
-            var timedOut = false;
-            try
-            {
-                await process.WaitForExitAsync(cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                timedOut = true;
-                TryKill(process);
+                await archive.CopyToAsync(process.StandardInput.BaseStream, cts.Token);
             }
 
-            var reportPath = Path.Combine(outputDirectory, "report.json");
-            var report = File.Exists(reportPath) ? await File.ReadAllTextAsync(reportPath, ct) : null;
+            // The container reads until end of stream, so this is what tells it the archive is
+            // complete rather than truncated.
+            process.StandardInput.Close();
 
-            return new ContainerOutcome
-            {
-                ExitCode = timedOut ? -1 : process.ExitCode,
-                TimedOut = timedOut,
-                ReportJson = report,
-                Stderr = stderr.ToString(),
-            };
+            await process.WaitForExitAsync(cts.Token);
         }
-        finally
+        catch (OperationCanceledException)
         {
-            try { Directory.Delete(outputDirectory, recursive: true); } catch (IOException) { /* best effort */ }
+            timedOut = true;
+            TryKill(process);
+        }
+        catch (IOException)
+        {
+            // The container exited before taking the whole archive - a rejected header, usually.
+            // Its own exit code and stderr say more than a broken pipe does.
+            timedOut = false;
+            TryKill(process);
+        }
+
+        var report = await ReadReportAsync(reading);
+
+        return new ContainerOutcome
+        {
+            ExitCode = timedOut ? -1 : process.ExitCode,
+            TimedOut = timedOut,
+            ReportJson = string.IsNullOrWhiteSpace(report) ? null : report,
+            Stderr = stderr.ToString(),
+        };
+    }
+
+    private static async Task<string?> ReadReportAsync(Task<string> reading)
+    {
+        try
+        {
+            return await reading;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
         }
     }
 
@@ -101,8 +129,7 @@ public sealed class ContainerRunner(ContainerPolicy policy)
     /// The flags are the sandbox. A Dockerfile cannot express any of them, so this list is the
     /// actual security boundary and every entry is load-bearing.
     /// </summary>
-    internal IReadOnlyList<string> BuildArguments(
-        string archivePath, string outputDirectory, string expectedModId)
+    internal IReadOnlyList<string> BuildArguments(string archivePath, string expectedModId)
     {
         var args = new List<string>
         {
@@ -143,11 +170,19 @@ public sealed class ContainerRunner(ContainerPolicy policy)
             args.Add($"seccomp={seccomp}");
         }
 
-        // The archive goes in read-only; /out is the only writable mount.
-        args.Add("-v");
-        args.Add($"{archivePath}:/in/archive.zip:ro");
-        args.Add("-v");
-        args.Add($"{outputDirectory}:/out");
+        // The archive goes in on stdin and the report comes back on stdout. No bind mounts at all,
+        // which is both simpler and stricter than the mounts it replaces:
+        //
+        //   · The worker runs in a container of its own, so a path it writes is meaningless to the
+        //     daemon. The daemon resolves mounts on the host, finds nothing, and creates an empty
+        //     directory - the archive silently becomes a directory and the run fails describing a
+        //     missing file. Exactly the bind-mount trap the migration runner hit under Coolify.
+        //   · With no /out there is no writable mount left, so --read-only means what it says.
+        args.Add("-i");
+        args.Add("-e");
+        args.Add("KSAMODS_INPUT=-");
+        args.Add("-e");
+        args.Add("KSAMODS_OUTPUT=-");
 
         args.Add(policy.ImageDigest);
         args.Add(expectedModId);

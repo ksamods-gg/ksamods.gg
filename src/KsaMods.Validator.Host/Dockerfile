@@ -40,13 +40,14 @@ WORKDIR /app
 COPY --from=build --chown=root:root --chmod=555 /app /app
 
 # Runtime hardening that belongs to the process rather than the sandbox.
+#
+# The archive arrives on stdin and the report leaves on stdout. There are no mounts at all, which
+# is why --read-only has nothing writable left to undermine it - and why the worker running inside
+# its own container works, since a path it writes means nothing to the daemon.
 ENV DOTNET_EnableDiagnostics=0 \
     DOTNET_TieredPMStubs=0 \
     DOTNET_gcServer=0 \
-    KSAMODS_INPUT=/in/archive.zip \
-    KSAMODS_OUTPUT=/out/report.json
-
-# Documented, not granted: the worker supplies both as mounts, /in read-only.
-VOLUME ["/in", "/out"]
+    KSAMODS_INPUT=- \
+    KSAMODS_OUTPUT=-
 
 ENTRYPOINT ["/app/KsaMods.Validator.Host"]

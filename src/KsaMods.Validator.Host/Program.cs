@@ -8,15 +8,31 @@ using KsaMods.Validation;
 // Contract, kept deliberately tiny because this is the process handling attacker-controlled
 // bytes:
 //
-//   /in/archive.zip   read-only mount, supplied by the worker
-//   /out/report.json  the only thing written
+//   stdin             the archive, or a read-only mount when KSAMODS_INPUT names a path
+//   stdout            the report, or a file when KSAMODS_OUTPUT names one
 //   argv[0]           the expected mod id
+//
+// Pipes by default, and that is not a style choice. The worker itself runs in a container, so a
+// path it writes is a path the Docker daemon cannot see: the daemon resolves bind mounts on the
+// host, finds nothing there, and helpfully creates an empty directory - so /in/archive.zip arrives
+// as a directory and the run fails with a message about a missing file. Piping removes the shared
+// filesystem entirely, which also means this process has no writable mount at all.
 //
 // It has no network (--network none), no capabilities, a read-only root filesystem and runs as
 // nobody. It never opens a socket, never resolves a name, and never writes outside /out.
 
-var inputPath = Environment.GetEnvironmentVariable("KSAMODS_INPUT") ?? "/in/archive.zip";
-var outputPath = Environment.GetEnvironmentVariable("KSAMODS_OUTPUT") ?? "/out/report.json";
+// "-" means the pipe. Paths still work, because the CLI runs this same code against a file.
+var inputPath = Environment.GetEnvironmentVariable("KSAMODS_INPUT") ?? "-";
+var outputPath = Environment.GetEnvironmentVariable("KSAMODS_OUTPUT") ?? "-";
+
+// A run that does nothing but prove the image works. The deployment builds this image as a
+// one-shot compose service, and a service that exits non-zero is a failed deploy - so there has to
+// be something it can be asked to do that succeeds without an archive.
+if (args.Contains("--version"))
+{
+    Console.WriteLine("ksamods validator, report schema 1");
+    return ExitCodes.Ok;
+}
 
 if (args.Length < 1)
 {
@@ -32,7 +48,9 @@ if (args.Length > 1 && File.Exists(args[1]))
     coreAssetIds = new HashSet<string>(await File.ReadAllLinesAsync(args[1]), StringComparer.Ordinal);
 }
 
-if (!File.Exists(inputPath))
+var fromStdin = inputPath == "-";
+
+if (!fromStdin && !File.Exists(inputPath))
 {
     await Console.Error.WriteLineAsync($"input archive not found at {inputPath}");
     return ExitCodes.Usage;
@@ -41,7 +59,7 @@ if (!File.Exists(inputPath))
 ValidationResult result;
 try
 {
-    await using var archive = File.OpenRead(inputPath);
+    await using var archive = fromStdin ? Console.OpenStandardInput() : File.OpenRead(inputPath);
     using var buffer = new MemoryStream();
     await archive.CopyToAsync(buffer);
     buffer.Position = 0;
@@ -73,6 +91,15 @@ return ExitCodes.Ok;
 
 static async Task WriteReportAsync(string path, Report report)
 {
+    // Nothing else is ever written to stdout, so the whole stream is the report and the worker
+    // can parse it without hunting for a delimiter.
+    if (path == "-")
+    {
+        await using var stdout = Console.OpenStandardOutput();
+        await JsonSerializer.SerializeAsync(stdout, report, ReportJson.Options);
+        return;
+    }
+
     var directory = Path.GetDirectoryName(path);
     if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
