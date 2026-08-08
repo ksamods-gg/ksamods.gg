@@ -171,6 +171,7 @@ public sealed record ModSummary
     [JsonPropertyName("abstract")] public string Abstract { get; init; } = "";
     [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
     [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
+    [JsonPropertyName("banner_url")] public string? BannerUrl { get; init; }
 }
 
 public sealed record ModDetail
@@ -185,6 +186,7 @@ public sealed record ModDetail
     [JsonPropertyName("status")] public string? Status { get; init; }
     [JsonPropertyName("superseded_by")] public string? SupersededBy { get; init; }
     [JsonPropertyName("listing_state")] public string ListingState { get; init; } = "listed";
+    [JsonPropertyName("banner_url")] public string? BannerUrl { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
 
@@ -298,7 +300,7 @@ public sealed record GameBuild
 public sealed record CreateModRequest(
     string Id, string Name, string Abstract, string License,
     string? Description = null, string[]? Tags = null,
-    Dictionary<string, string>? Links = null);
+    Dictionary<string, string>? Links = null, string? BannerUrl = null);
 
 public sealed record ConnectRepoRequest(
     string Provider, string RepoId, string RepoFullName,

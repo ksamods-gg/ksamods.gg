@@ -3,10 +3,12 @@
 @using KsaMods.Web.Components.Ui
 
 <div class="flex min-h-screen flex-col">
+    <SiteBanner />
+
     <header class="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-            <a href="/" class="flex items-baseline gap-1.5 font-semibold tracking-tight">
-                ksamods<span class="text-muted-foreground">.gg</span>
+            <a href="/" class="flex items-baseline gap-1.5 font-mono font-semibold tracking-tight">
+                ksamods<span class="text-primary">.gg</span>
             </a>
 
             <nav class="hidden items-center gap-1 text-sm sm:flex">
@@ -29,16 +31,57 @@
         @Body
     </main>
 
-    <footer class="border-t border-border">
-        <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-muted-foreground">
-            <p>
-                ksamods.gg is an index, not a file host. Downloads come from each author's own
-                repository, and the site records a hash rather than the file.
-            </p>
-            <p class="mt-2">
-                Code mods are unsandboxed .NET assemblies with full process privileges. Validation
-                checks packaging; it cannot make an assembly safe.
-            </p>
+    <footer class="mt-16 border-t border-border bg-card/40">
+        <div class="mx-auto max-w-6xl px-4 py-10">
+            <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="lg:col-span-2">
+                    <span class="font-mono font-semibold tracking-tight">
+                        ksamods<span class="text-primary">.gg</span>
+                    </span>
+                    <p class="mt-3 max-w-sm text-sm text-muted-foreground">
+                        Mods for Kitten Space Agency, and the tooling to build modlists with
+                        people you play with.
+                    </p>
+                </div>
+
+                <div>
+                    <h2 class="text-xs font-semibold uppercase tracking-wider text-foreground">Mods</h2>
+                    <ul class="mt-3 space-y-2 text-sm">
+                        <li><a href="/mods" class="text-muted-foreground hover:text-foreground">Browse</a></li>
+                        <li><a href="/mods/new" class="text-muted-foreground hover:text-foreground">Add a mod</a></li>
+                        <li><a href="/collisions" class="text-muted-foreground hover:text-foreground">Asset ids</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h2 class="text-xs font-semibold uppercase tracking-wider text-foreground">Site</h2>
+                    <ul class="mt-3 space-y-2 text-sm">
+                        <li><a href="/terms" class="text-muted-foreground hover:text-foreground">Terms</a></li>
+                        <li><a href="/privacy" class="text-muted-foreground hover:text-foreground">Privacy</a></li>
+                        <li>
+                            <a href="https://github.com/SafeShows/ksamods.gg" rel="noreferrer"
+                               class="text-muted-foreground hover:text-foreground">Source</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            @* These two stay on every page on purpose. The first is what the site is; the second
+               is the one thing a person should know before they install anything. *@
+            <div class="mt-10 space-y-1.5 border-t border-border pt-6 text-[11px] leading-relaxed text-muted-foreground">
+                <p>
+                    We index mods, we do not host them. Downloads come straight from the author's
+                    own repository, and all we keep is the link and a hash of what we checked.
+                </p>
+                <p>
+                    Code mods are ordinary .NET assemblies, and they run with full access to your
+                    machine. We check that a mod is packaged correctly. We cannot check that it is
+                    safe.
+                </p>
+                <p class="pt-1 text-[10px] opacity-80">
+                    Not affiliated with RocketWerkz. Kitten Space Agency is their game, not ours.
+                </p>
+            </div>
         </div>
     </footer>
 </div>

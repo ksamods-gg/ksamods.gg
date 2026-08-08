@@ -1,0 +1,50 @@
+@namespace KsaMods.Web.Components.Layout
+@using KsaMods.Web.Services
+@using Microsoft.Extensions.Options
+@inject IOptions<SiteBannerOptions> Options
+
+@if (Banner.IsActive)
+{
+    <script type="module" src="@Assets["Components/Layout/SiteBanner.razor.js"]"></script>
+
+    @* Starts hidden and is revealed by the script once it has checked whether this visitor
+       already dismissed it. The other way round flashes the banner on every page load for
+       people who closed it. *@
+    <div id="site-banner" data-banner-key="@Banner.DismissKey" hidden
+         role="@(IsUrgent ? "alert" : "status")"
+         class="@StripClass">
+        <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 text-sm">
+            <span class="min-w-0">
+                @Banner.Message
+                @if (!string.IsNullOrWhiteSpace(Banner.LinkHref))
+                {
+                    <a href="@Banner.LinkHref" class="ml-1 font-medium underline underline-offset-4">
+                        @(string.IsNullOrWhiteSpace(Banner.LinkText) ? "Read more" : Banner.LinkText)
+                    </a>
+                }
+            </span>
+
+            @if (Banner.Dismissible)
+            {
+                <button type="button" data-banner-dismiss aria-label="Dismiss this notice"
+                        class="ml-auto shrink-0 rounded px-1.5 py-0.5 leading-none opacity-70
+                               hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2">
+                    &#x2715;
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private SiteBannerOptions Banner => Options.Value;
+
+    private bool IsUrgent => Banner.Variant is "warning" or "error";
+
+    private string StripClass => Banner.Variant switch
+    {
+        "error" => "border-b border-severity-error/30 bg-severity-error/10 text-severity-error",
+        "warning" => "border-b border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
+        _ => "border-b border-border bg-accent text-accent-foreground",
+    };
+}

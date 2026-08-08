@@ -2,14 +2,14 @@
 @page "/collisions/{AssetId}"
 @inject KsaModsApi Api
 
-<PageTitle>Asset id collisions — ksamods.gg</PageTitle>
+<PageTitle>Asset id collisions | ksamods.gg</PageTitle>
 
 <h1 class="text-2xl font-semibold tracking-tight">Asset id collisions</h1>
 
 <p class="mt-3 max-w-2xl text-muted-foreground">
     KSA registers every asset id into one global table with <code class="font-mono text-sm">TryAdd</code>.
-    When two mods declare the same id, the second one is silently discarded — no error, no log line
-    a player will ever find. The part they installed simply is not there.
+    When two mods declare the same id, the second one is thrown away silently. No error, no log
+    line a player will ever find. The part they installed simply is not there.
 </p>
 <p class="mt-2 max-w-2xl text-muted-foreground">
     Because every archive is parsed at import, this index can answer who else declares an id.
@@ -61,7 +61,7 @@ else if (_lookup is not null)
         <Alert Variant="warning" Title="These mods conflict" Class="mt-4">
             Installing more than one of these means only the first to load registers this id.
             Load order comes from <code class="font-mono">manifest.toml</code>, which the game
-            rewrites whenever mods are toggled in-game — so which one wins is not stable.
+            rewrites whenever mods are toggled in-game, so which one wins is not stable.
         </Alert>
     }
 }
@@ -76,8 +76,8 @@ else if (_lookup is not null)
     private string Summary => _lookup!.DeclaredBy.Count switch
     {
         0 => "Not declared by any listed mod",
-        1 => "Declared by one mod — no conflict",
-        var n => $"Declared by {n} mods — they conflict",
+        1 => "Declared by one mod, no conflict",
+        var n => $"Declared by {n} mods, which conflict",
     };
 
     protected override async Task OnParametersSetAsync()

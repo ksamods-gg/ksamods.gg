@@ -16,6 +16,7 @@ public sealed record ModRow
     public required string Status { get; init; }
     public string? SupersededBy { get; init; }
     public required string ListingState { get; init; }
+    public string? BannerUrl { get; init; }
     public string[]? Os { get; init; }
     public required long CreatedBy { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
@@ -58,7 +59,8 @@ public sealed class ModRepository(Database database)
             select id as Id, type as Type, name as Name, abstract as "Abstract",
                    description as Description, license as License, tags as Tags,
                    links::text as Links, status as Status, superseded_by as SupersededBy,
-                   listing_state as ListingState, os as Os, created_by as CreatedBy,
+                   listing_state as ListingState, banner_url as BannerUrl,
+                   os as Os, created_by as CreatedBy,
                    created_at as CreatedAt, updated_at as UpdatedAt
             from mod
             where id_lower = @id
@@ -94,9 +96,9 @@ public sealed class ModRepository(Database database)
 
         await connection.ExecuteAsync("""
             insert into mod (id, id_lower, type, name, abstract, description, license, tags,
-                             links, status, listing_state, os, created_by)
+                             links, status, listing_state, banner_url, os, created_by)
             values (@Id, lower(@Id), @Type, @Name, @Abstract, @Description, @License, @Tags,
-                    @Links::jsonb, @Status, @ListingState, @Os, @CreatedBy)
+                    @Links::jsonb, @Status, @ListingState, @BannerUrl, @Os, @CreatedBy)
             """,
             mod, transaction);
 

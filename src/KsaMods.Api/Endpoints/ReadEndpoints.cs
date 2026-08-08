@@ -64,6 +64,7 @@ public static class ReadEndpoints
                 status = mod.Status,
                 superseded_by = mod.SupersededBy,
                 listing_state = mod.ListingState,
+                banner_url = mod.BannerUrl,
                 updated_at = mod.UpdatedAt,
                 releases = releases
                     .Where(r => Permissions.CanViewRelease(principal, r.ValidationState, mod.ListingState))
@@ -253,8 +254,8 @@ public static class ReadEndpoints
 
         // Keyset pagination, not offset: offset over a table changing mid-scroll skips and
         // repeats rows, and the offline-snapshot use case makes stable iteration a requirement.
-        var rows = await connection.QueryAsync<(string Id, string Type, string Name, string Abstract, string[] Tags, DateTimeOffset UpdatedAt)>("""
-            select m.id, m.type, m.name, m.abstract, m.tags, m.updated_at
+        var rows = await connection.QueryAsync<(string Id, string Type, string Name, string Abstract, string[] Tags, DateTimeOffset UpdatedAt, string? BannerUrl)>("""
+            select m.id, m.type, m.name, m.abstract, m.tags, m.updated_at, m.banner_url
             from mod m
             where m.listing_state = 'listed'
               and (@type is null or m.type = @type)
@@ -284,6 +285,7 @@ public static class ReadEndpoints
                 @abstract = r.Abstract,
                 tags = r.Tags,
                 updated_at = r.UpdatedAt,
+                banner_url = r.BannerUrl,
             }),
             next = list.Count == take ? list[^1].Id : null,
         });

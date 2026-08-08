@@ -1,16 +1,21 @@
 @page "/"
 @inject KsaModsApi Api
 
-<PageTitle>ksamods.gg — Kitten Space Agency mods</PageTitle>
+<PageTitle>ksamods.gg | Mods for Kitten Space Agency</PageTitle>
 
-<section class="mx-auto max-w-2xl py-8 text-center">
-    <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Mods for Kitten Space Agency</h1>
-    <p class="mt-3 text-muted-foreground">
-        Every listing is validated against how the game actually loads mods, so you find out about
-        a broken archive here rather than after installing it.
+<section class="border-b border-border pb-10">
+    <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">Kitten Space Agency</p>
+
+    <h1 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
+        Find mods that actually load.
+    </h1>
+
+    <p class="mt-4 max-w-xl text-muted-foreground">
+        We unpack every release and read it the same way the game does. If an archive is broken,
+        you find out here instead of after you have installed it.
     </p>
 
-    <form action="/mods" method="get" class="mt-6 flex gap-2">
+    <form action="/mods" method="get" class="mt-6 flex max-w-xl gap-2">
         <input name="q" type="search" placeholder="Search mods…" aria-label="Search mods"
                class="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm
                       placeholder:text-muted-foreground focus-visible:outline-2
@@ -37,8 +42,8 @@
     {
         <Card>
             <p class="text-sm text-muted-foreground">
-                Nothing published yet. If you have a mod, it takes one form and a connected
-                repository to appear here.
+                Nothing here yet. If you have made a mod, it takes one form and a connected
+                repository to get it listed.
             </p>
             <Button Href="/mods/new" Class="mt-4" Size="sm">Add a mod</Button>
         </Card>
@@ -69,7 +74,7 @@
         {
             // The API being down should degrade this page, not blank it: the header, the search
             // box and the explanation are all still useful.
-            _error = "The API did not respond. This page will work again once it is back.";
+            _error = "The API is not responding. This page will fill in once it is back.";
         }
     }
 }

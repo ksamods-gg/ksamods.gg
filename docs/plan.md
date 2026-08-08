@@ -23,7 +23,7 @@ own API and its own resolver. That work was done without knowledge of the KSAMod
 
 **Two competing indexes would be the worst outcome available.** The ecosystem is small enough that a split
 metadata namespace means authors publishing twice, clients resolving differently, and neither index being
-complete. Everything downstream of this — the format, the API, the resolver, the phasing — depends on which of
+complete. Everything downstream of this, the format, the API, the resolver, the phasing, depends on which of
 three postures ksamods.gg takes:
 
 1. **Front end to the RFC index.** ksamods.gg consumes the KSAModding index as its source of truth and is the
@@ -33,7 +33,7 @@ three postures ksamods.gg takes:
    listing and validation, and stays interoperable. Two indexes, one format, records reconcilable by id.
    Costs duplicated effort and needs a sync story, but survives either project stalling.
 3. **Separate registry with its own format.** What the earlier draft implied. Only defensible if the RFC
-   process fails or the format turns out to be unworkable, and neither is in evidence — RFC 0031 is careful,
+   process fails or the format turns out to be unworkable, and neither is in evidence, RFC 0031 is careful,
    well-grounded work.
 
 **This document now assumes posture 1 or 2 and is written to be compatible with both.** Where a decision
@@ -56,7 +56,7 @@ The site stores metadata, a pinned hash, and a link. RFC 0025 reaches the same c
 non-goal: hosting content files, and anything needing a service somebody has to keep running and paying for.
 
 **Note the second half of that constraint, because this plan does not currently satisfy it.** RFC 0025 puts
-the index and its automation on free infrastructure — GitHub repositories and Actions — following the proven
+the index and its automation on free infrastructure, GitHub repositories and Actions, following the proven
 self-updating `builds.json` pattern. This document assumes a hosted web service with a database, a moderation
 queue and a live API. That is a running cost and an operator, indefinitely. Under posture 1 the durable data
 lives in the RFC index and ksamods.gg is a cache and a front end, which keeps the failure mode to "the site is
@@ -98,7 +98,7 @@ Content types: mod, modpack, mod-loader, and later vehicle and save.
 ```
 
 **People, not just content.** Listings are created and maintained by accounts on the site, and modlists are
-collaborative — one owner plus invited editors. This is the product shape; [backend.md](backend.md) §2–§6
+collaborative: one owner plus invited editors. This is the product shape; [backend.md](backend.md) §2–§6
 specifies it. An earlier draft of this section modelled only content and its metadata, which is the right
 model for a metadata repository and an incomplete one for a site people log into.
 
@@ -113,7 +113,7 @@ never has to special-case it.
 **Id rules come from RFC 0031, via Standard §3.** ASCII, 1–64 characters, alphanumeric at both ends,
 case-insensitive comparison with authored casing preserved, `Core` and Windows device names reserved and
 checked up to the first dot. The earlier `<author>.<mod>` lowercase rule and the legacy-grandfathering clause
-it made necessary are both withdrawn — RFC 0031's format admits `AdvancedFlightComputer` directly, so there is
+it made necessary are both withdrawn, RFC 0031's format admits `AdvancedFlightComputer` directly, so there is
 nothing to grandfather.
 
 **The namespace is global across types, and mods have priority within it.** A mod, a modlist and a loader can
@@ -136,7 +136,7 @@ a release file.
 
 The `listing` snapshot is subtle and worth keeping: it lets a client show version 3 as it was described when
 version 3 shipped, instead of advertising features that only arrived in version 4. But deprecation, succession
-and index status are deliberately **not** snapshotted — those must reach every release the moment they are
+and index status are deliberately **not** snapshotted, those must reach every release the moment they are
 declared, so a client always reads them live.
 
 **Mod packs have no generated half.** A pack is pure reference metadata, one authored document per pack
@@ -150,7 +150,7 @@ an integrity guarantee at all, and it is stricter than the earlier draft here, w
 changed bytes as a new version after review.
 
 **Artifacts may be multiple per release**, for example a GitHub asset plus a mirror, and any source whose
-bytes match the recorded `sha256` is acceptable — which also lets clients fall back to caches. Mirrors are
+bytes match the recorded `sha256` is acceptable, which also lets clients fall back to caches. Mirrors are
 stamped only when a non-authority host serves an archive with identical bytes.
 
 ---
@@ -163,7 +163,7 @@ stamped only when a non-authority host serves an archive with identical bytes.
 2. Create the listing with an id. Validated against the Standard §3 format rules, which are RFC 0031's.
 3. Reserved: `Core`, anything colliding case-insensitively with an existing id of **any** content type, and
    Windows device names compared up to the id's first dot.
-4. Connect the repository by installing the ksamods app on it. **This is the ownership proof** — installing an
+4. Connect the repository by installing the ksamods app on it. **This is the ownership proof**, installing an
    app requires admin on that repository, which is stronger evidence than anything a listing can assert.
 5. Supply a KSA forums thread. Recommended rather than required here, because step 4 already proves control.
    It is still required to appear in the exported index (backend §12.2), it remains the tiebreaker in a
@@ -177,7 +177,7 @@ distinct, but they cannot both live in one `mods/` folder on Windows, so the reg
 Original casing is preserved for display and for the install path; only the uniqueness check is folded.
 
 **Id squatting policy:** an id with no published version after 90 days can be reclaimed on request. This does
-not conflict with the immutability rule in §2 — that rule binds from first publication, and an unpublished
+not conflict with the immutability rule in §2, that rule binds from first publication, and an unpublished
 claim is a reservation rather than an identity. Once a version exists, the id is frozen permanently.
 
 ### 3.2 Submitting a version
@@ -186,7 +186,7 @@ claim is a reservation rather than an identity. Once a version exists, the id is
 published release the forge sends a webhook, the site imports the asset, runs the pipeline, stamps an
 immutable release record and the version is listed.
 
-**Releases come from a git forge, and only from a git forge** — GitHub at launch, GitLab and Codeberg by
+**Releases come from a git forge, and only from a git forge**, GitHub at launch, GitLab and Codeberg by
 adapter. Not arbitrary download URLs. The properties this buys are worth the constraint: an enumerable host
 allowlist that keeps the fetch surface small, app installation as ownership proof, a release API that supplies
 tags and prerelease flags and changelogs for free, and webhooks so imports are event-driven. Every mainstream
@@ -209,7 +209,7 @@ and discarded; what persists is the URL, the hash, and everything the validator 
 **Listing metadata is edited on the site, not by re-releasing.** A corrected link, a tightened compatibility
 bound, a newly-learned dependency: all listing edits. This is a direct consequence of metadata not living in
 the archive (Standard §5.3), and it is one of the strongest reasons for that choice. Published *releases* are
-a different matter — they are immutable, and accept only the narrowing amendments in §5.
+a different matter: they are immutable, and accept only the narrowing amendments in §5.
 
 ### 3.3 Version metadata
 
@@ -236,7 +236,7 @@ Two fields carry more weight than their size suggests:
 
 **`status` and `superseded_by`.** A renamed mod is unavoidably a different mod, because the id is the folder
 name. Without a successor pointer, every rename and every continuation fork strands its users on a dead id.
-Succession is deliberately not a dependency — "I am replaced by X" does not mean "I need X", and putting it in
+Succession is deliberately not a dependency, "I am replaced by X" does not mean "I need X", and putting it in
 the dependency list would make every resolver filter it back out.
 
 **`status` is the author's voice only.** Delisted, taken down and disputed are statements the *index* makes
@@ -244,7 +244,7 @@ about a listing, and must not be author-writable. Keep the two vocabularies sepa
 them is very hard to undo.
 
 **Dependency kinds** follow Debian's precedent: `required`, `optional`, `recommends`, `suggests`, `conflict`.
-An entry may carry `any_of` instead of `id` — an array of alternatives, satisfied by any one — valid with
+An entry may carry `any_of` instead of `id`, an array of alternatives, satisfied by any one, valid with
 `required` or `recommends`.
 
 **Bounds are two typed inclusive fields, not a range expression.** No `>=0.1.0 <0.2.0` syntax. An expression
@@ -271,7 +271,7 @@ uncompressed size ceilings.
 
 **Stage 4, structure and install root.** Standard §2 and §12: exactly one top-level directory, name equal to
 the claimed Id compared case-insensitively, `mod.toml` present and parsing. Stamp `install.root` with
-`derived: true` when that standard shape is found. A name mismatch is an error, not a warning — the folder
+`derived: true` when that standard shape is found. A name mismatch is an error, not a warning, the folder
 name is the identity the game will see, and no amount of correct metadata survives getting it wrong.
 
 **Stage 5, declaration integrity.** This is the check nobody else can do for KSA, and it is the most valuable
@@ -280,7 +280,7 @@ thing in the pipeline.
 - Resolve every path declared under `assets`, `systems`, `fonts`, `starBinaries`, `planetMeshes`,
   `planetRandomHeightmapCollections`. A declared path that does not exist is an **error**.
 - Parse every declared XML. Malformed XML is an **error**. Wrong root element is an **error**.
-- Resolve paths referenced *from inside* that XML — meshes, textures, shaders, sounds — transitively. A
+- Resolve paths referenced *from inside* that XML, meshes, textures, shaders, sounds, transitively. A
   referenced path that does not exist is an **error**.
 - List content files reachable from neither `mod.toml` nor any declared XML. This is a **warning**.
 
@@ -293,13 +293,13 @@ is small and every miss in it is a genuine wiring mistake.
 **Stage 6, asset id extraction.** Walk the parsed XML, collect every `Id` attribute, and store it against the
 version. Feeds conflict detection (§7).
 
-**Run stage 6 from day one, even though §7 ships in Phase 3.** The walk is nearly free — stage 5 already holds
-the parsed tree — and the input is perishable. The site does not host artifacts, so backfilling this later
+**Run stage 6 from day one, even though §7 ships in Phase 3.** The walk is nearly free, stage 5 already holds
+the parsed tree, and the input is perishable. The site does not host artifacts, so backfilling this later
 means re-fetching every published version, by which point some of those URLs are exactly the dead links §5
 predicts. The oldest mods would be permanently missing from the collision index. The general rule: extract
 everything the site will ever want from an archive on first contact, and defer only the surfacing.
 
-**Stage 7, code facet.** If a DLL is present: confirm the entry assembly resolves — `[StarMap].EntryAssembly`
+**Stage 7, code facet.** If a DLL is present: confirm the entry assembly resolves, `[StarMap].EntryAssembly`
 when set, otherwise `<Id>.dll`, which is the loader's documented default and the reason `AircraftHUD` works
 with no `[StarMap]` block at all. Reject game and engine assemblies (`KSA.dll`, `Brutal.*`, `Planet.*`), warn
 on loader assemblies with a pointer at the `StarMap.API` NuGet reference as the fix, and list every shipped
@@ -309,8 +309,8 @@ Do **not** warn about third-party DLLs duplicated across mods. Each mod loads in
 `ModAssemblyLoadContext`, so two mods shipping different versions of the same library is supported by design
 rather than a conflict (Standard §6).
 
-**Stage 7b, dependency extraction.** Read `[[StarMap.ModDependencies]]` — `ModId`, `Optional`,
-`ImportedAssemblies` — and record each entry as `derived`. This is the only machine-readable dependency data
+**Stage 7b, dependency extraction.** Read `[[StarMap.ModDependencies]]`, `ModId`, `Optional`,
+`ImportedAssemblies`, and record each entry as `derived`. This is the only machine-readable dependency data
 that exists anywhere in the KSA ecosystem, and the loader acts on it at runtime, so it is ground truth rather
 than a hint. Merge with authored entries per RFC 0031: an authored entry replaces the derived entry with the
 same id and may add the version bounds the loader cannot express, but **a derived entry can never be
@@ -355,14 +355,14 @@ A queue that is mostly false positives trains moderators to click accept, which 
 when a real compromise arrives. Two axes decide severity:
 
 **What changed.** Re-run stages 3 to 8 on the new bytes and diff the result against the stored one. A re-pack
-— same asset ids, same shipped assemblies, same `[console]` arrays, no new file types — is a **benign
+(same asset ids, same shipped assemblies, same `[console]` arrays, no new file types) is a **benign
 divergence**: flag it on the mod page, notify the author, ask them to cut a real version. A changed DLL list,
 a new `[console]` entry, or newly-declared asset ids is a **tamper event**: quarantine immediately, hide the
 download, notify author and moderators, require a human. In neither case does the stamped record change.
 
 **Where it came from.** A forge release records whether it was edited, when, and by whom, which corroborates a
 benign re-upload. Bytes changing underneath a release nobody touched has no such explanation and is far more
-alarming — being able to tell those two apart is one of the concrete reasons releases come from forges rather
+alarming, being able to tell those two apart is one of the concrete reasons releases come from forges rather
 than arbitrary URLs (§3.2).
 
 **Yanking is the author's own tool and is not a tamper event.** A yank retracts one build: it stays in
@@ -395,13 +395,13 @@ its index data before offering installs or updates. Document that as a hard requ
 non-conforming. Document this as a hard requirement, not a suggestion.
 
 **The delivery risk is real but it now has an owner.** Hash pinning, resolve plans, load-order constraints and
-conflict warnings all reach the user through a client. The path of least resistance — open the page, click the
-link, drag the folder into `mods/` — verifies nothing, and it is what most users will do. An earlier draft
+conflict warnings all reach the user through a client. The path of least resistance, open the page, click the
+link, drag the folder into `mods/`, verifies nothing, and it is what most users will do. An earlier draft
 called this the plan's load-bearing unknown. RFC 0025 answers it: [Borea](https://github.com/KSAModding/Borea)
 is the client, in the KSAModding org, with the specification kept implementation-neutral so others can follow.
 
 What remains is narrower. A client that does not verify is non-conforming, and saying so is not enough on its
-own — the guarantee only holds if the normal way people install goes through a conforming client. That is a
+own, the guarantee only holds if the normal way people install goes through a conforming client. That is a
 distribution question rather than an engineering one, and it argues for pointing at Borea prominently on every
 page rather than presenting the raw download link as the primary action.
 
@@ -419,7 +419,7 @@ behind it. What matters at product level:
 **KSA has no version negotiation at all.** No compatibility field, no minimum-version check, nothing. Any
 compatibility rule the site enforces is one the site invented, and it should behave accordingly.
 
-**Order by the revision alone** — the fourth component. Not the full dotted string, which misorders 21
+**Order by the revision alone**, the fourth component. Not the full dotted string, which misorders 21
 adjacent pairs across the shipped history, because the third component is a machine-local build counter that
 *decreases* 32 times as the revision rises. The game's own `VersionInfo.CompareTo` does the same thing.
 
@@ -440,8 +440,8 @@ and explicit revision are the only two granularities offered; `Year.Month.Build`
 
 **A lower bound is required; an open upper bound is the recommended default.** At roughly thirteen releases a
 month, any model requiring authors to re-state compatibility per release is stale within days. An open upper
-end is an acknowledged false promise — a mod will eventually break silently and the site will have called it
-maybe-compatible — but the alternative is worse, and Untested plus a confirmation is the honest middle.
+end is an acknowledged false promise, a mod will eventually break silently and the site will have called it
+maybe-compatible, but the alternative is worse, and Untested plus a confirmation is the honest middle.
 
 **Do not build a build list; consume the one that exists.**
 [`builds.json`](https://raw.githubusercontent.com/KSAModding/KSA-CKAN-meta/main/builds.json) in
@@ -449,13 +449,13 @@ KSAModding/KSA-CKAN-meta is updated hourly by a GitHub Action polling the game's
 itself current since 2026-07-02 with no human attention, and costs nothing to consume. Embed a copy as an
 offline fallback, refreshed at release time, which is what the CKAN client does.
 
-That gives the same three things the earlier draft wanted from ingesting `Content/Versions` directly — a
+That gives the same three things the earlier draft wanted from ingesting `Content/Versions` directly, a
 dropdown of real builds, ranges expressed in real builds, and a changelog diff between the user's build and
-the mod's tested build as a genuinely useful "why did this break" answer — without operating anything.
+the mod's tested build as a genuinely useful "why did this break" answer, without operating anything.
 
 **Compatibility is author-declared and community-corroborated.** Let users report works or broken against a
 specific build. Show declared range and reported results separately. Never auto-mark a mod broken from reports
-alone, but surface a strong signal — and route a confirmed break into a compatibility-tightening amendment
+alone, but surface a strong signal, and route a confirmed break into a compatibility-tightening amendment
 (§5) rather than a yank.
 
 **Specialist builds are a known gap.** The developers ship builds for hardware vendors, agencies and
@@ -502,7 +502,7 @@ The registry provides the graph, the client applies it:
 
 - Dependencies as `id` plus inclusive `min`/`max` bounds, with kinds `required`, `optional`, `recommends`,
   `suggests`, `conflict`, and `any_of` alternatives.
-- The loader requirement as its own `[loader]` block, not a dependency entry — StarMap is content of type
+- The loader requirement as its own `[loader]` block, not a dependency entry, StarMap is content of type
   `mod-loader`, so it is listed and versioned like anything else, but a resolver never has to ask whether a
   given dependency is a loader.
 - Load order constraints: `before`, `after`, and the special `before Core`.
@@ -518,8 +518,8 @@ at wherever the author says it lives and lets the user continue. Blocking on a m
 for someone else's missing listing.
 
 **Ship the solver as a library, and run that same library behind the endpoint.** Solving server-side is the
-right default — every client reimplementing a solver is how ecosystems get subtly different resolution
-behaviour — but the offline index snapshot in §11 means clients must be able to solve locally too, so a
+right default, every client reimplementing a solver is how ecosystems get subtly different resolution
+behaviour, but the offline index snapshot in §11 means clients must be able to solve locally too, so a
 server-only solver just guarantees a second implementation appears anyway. One library, two call sites, same
 answer online and offline. This is the same shared-code-path argument as the validator CLI in §13.
 
@@ -551,14 +551,14 @@ count outbound clicks and API resolutions, which measures intent rather than ins
 a GitHub asset. Do not present a click count as a download count.
 
 **Modlists are a content type and a collaboration feature.** RFC 0031 defines the published artifact: one
-document per version, self-contained, pinning exact `(id, version)` pairs for mods and — with the same entry
-shape — vehicles and saves. No download, no checksum, no install data, no loader block (it follows from the
+document per version, self-contained, pinning exact `(id, version)` pairs for mods and, with the same entry
+shape, vehicles and saves. No download, no checksum, no install data, no loader block (it follows from the
 pinned mods), and no nested packs in `spec_version = 1`. A modlist never redistributes anyone's files; each
 member downloads from its own forge.
 
 On top of that, the site adds what a document format has no need for: **a mutable draft with multiple
 editors.** One owner, invited collaborators, editors who edit and admins who publish. Publishing snapshots the
-draft into an immutable version; the draft stays editable. Drafts are site-native and never exported — what
+draft into an immutable version; the draft stays editable. Drafts are site-native and never exported, what
 gets exported is exactly RFC 0031's shape. Backend §6.
 
 Given the game has no dependency system, curated working sets are disproportionately valuable here, and exact
@@ -572,7 +572,7 @@ place: the game resolves nothing and StarMap fails silently to a console nobody 
 dependency ships a mod that never loads and never says why.
 
 Note the vehicle and save sections are already defined in `spec_version = 1` even though those content types
-have not landed. That costs nothing now and saves a format bump later — worth copying as a habit.
+have not landed. That costs nothing now and saves a format bump later, worth copying as a habit.
 
 ---
 
@@ -591,13 +591,13 @@ The page has to carry the honesty burden that hosting would otherwise carry.
 - **Conflicts:** ids shared with other mods, ids overriding `Core`.
 - **Validation report:** the warnings from §4, including content files unreachable from `mod.toml` and XML.
 - **Deprecation and succession** where declared, read live rather than from a release snapshot, pointing at
-  `superseded_by` — this is what stops a rename stranding its users on a dead id.
+  `superseded_by`: this is what stops a rename stranding its users on a dead id.
 - **Yanked releases** shown with their reason, still in history, not offered for install.
 - Readme, changelog, screenshots, and a dependency tree.
 
 **Render a release as it described itself when it shipped.** RFC 0031's `listing` snapshot exists so browsing
 version 3 does not advertise what only arrived in version 4. But status, succession and index-side state
-always come from live data — a deprecation has to reach every release the moment it is declared. The snapshot
+always come from live data, a deprecation has to reach every release the moment it is declared. The snapshot
 is display history and is not amendable: a typo in an old stamp stays, and the correction lands in the
 authored file where it fixes the current view and every future stamp.
 
@@ -630,13 +630,13 @@ Format evolution follows RFC 0031: adding an optional field is not a break and d
 removing a field, changing a meaning, or adding a required field does. New content types extend the `type`
 enum without a bump, because a client that does not know a type already treats it as unknown.
 
-**On CKAN.** CKAN-KSA is a real, working field study — a full fork with KSA support, running against a live
+**On CKAN.** CKAN-KSA is a real, working field study, a full fork with KSA support, running against a live
 index since July 2026, with every decision recorded in public issues. It is the best evidence this ecosystem
 has about what the game forces on a manager, and §13 and §5 above both lean on it.
 
 It is not, however, the interop target. Its upstream pull request has sat without maintainer review since
-2026-07-06, and everything downstream of that merge — the metadata tester, the indexer bot, the status page —
-gates on somebody else's calendar. RFC 0025 chose to define its own index and self-host automation on GitHub
+2026-07-06, and everything downstream of that merge (the metadata tester, the indexer bot, the status
+page) gates on somebody else's calendar. RFC 0025 chose to define its own index and self-host automation on GitHub
 Actions precisely to avoid inheriting that choke point, and that reasoning holds. Take the versioning model,
 which is proven in production; skip the build-counter normalisation, which was CKAN's constraint and not this
 project's. The metadata side of CKAN-KSA stays consumable by anyone with no permission needed, so a bridge is
@@ -693,9 +693,9 @@ worth more than any number of validator warnings about them later.
 **Migration helper.** Point it at an existing unstructured mod folder and have it emit a conforming archive
 plus a suggested `mod.toml`, including declaring content files it found but that were never listed.
 
-**Authored-file scaffolding.** Generate the RFC 0031 authored TOML from what can be inferred — id from the
+**Authored-file scaffolding.** Generate the RFC 0031 authored TOML from what can be inferred, id from the
 folder name, `[loader]` from the presence of a DLL, `[[dependencies]]` from `[[StarMap.ModDependencies]]`,
-`license` from a detected `LICENSE` file — and leave the author to fill in `abstract`, the forums link and
+`license` from a detected `LICENSE` file, and leave the author to fill in `abstract`, the forums link and
 `game_min`. The authored file is written once and rarely touched, which makes the first write the moment where
 tooling pays for itself.
 
@@ -724,7 +724,7 @@ Straight from the Archive Standard §13 and §16, restated as product constraint
 - **The running process is `StarMap.exe`, not the game.** Anything detecting "is the game running" by process
   name needs to know that, and mods are loaded before the game's own entry point runs.
 - **No in-game version awareness.** The user can always run any mod against any build. The site can warn, it
-  cannot prevent — which is the whole reason only Incompatible blocks (§6).
+  cannot prevent, which is the whole reason only Incompatible blocks (§6).
 - **The loader has no failure surface.** A missing required dependency, a missing entry assembly, or a mod
   class without `[StarMapMod]` all end as a console line in a window most users never see. Every diagnostic
   the site surfaces at publish time is one the user would otherwise never get at all.
@@ -745,7 +745,7 @@ Worth writing down so scope stays honest:
 
 **Removed from this list:** craft and save sharing. It was previously out of scope pending an engine fix.
 RFC 0025 puts vehicles and saves in scope as their own content types, implemented after mods and packs, which
-needs no engine change — so the reason for the non-goal is gone.
+needs no engine change, so the reason for the non-goal is gone.
 
 ---
 
@@ -760,7 +760,7 @@ pipeline stages 1 to 7b, listing pages, and the RFC 0031 export with its git mir
 mod author and to start accumulating the corpus.
 
 Stages 6 and 7b run here even though nothing consumes them until Phase 4. Both are nearly free at ingest and
-impossible to backfill once artifact URLs start rotting — the site does not keep the bytes, so a fact not
+impossible to backfill once artifact URLs start rotting, the site does not keep the bytes, so a fact not
 extracted on first contact may be unrecoverable. Store extracted asset ids, extracted
 `[[StarMap.ModDependencies]]`, and the full validation report from day one; surface them later.
 
@@ -805,7 +805,7 @@ conversation to have during Phase 0 rather than a bet to place later.
 
 | Was open | Decision |
 |---|---|
-| Where can a release live? | **Git forge releases only**, from an allowlist — GitHub at launch, GitLab and Codeberg by adapter. Not arbitrary URLs. Backend §5.6. |
+| Where can a release live? | **Git forge releases only**, from an allowlist - GitHub at launch, GitLab and Codeberg by adapter. Not arbitrary URLs. Backend §5.6. |
 | Archival mirror for dead links? | **No artifact mirror; yes to a metadata mirror.** The site still never stores a mod file, which keeps RFC 0025's no-hosting non-goal intact. But the *metadata* is mirrored to a public git repository on every export, which is what stops the catalogue dying with the site. Backend §12.1. |
 
 ### Still open
@@ -815,7 +815,7 @@ conversation to have during Phase 0 rather than a bet to place later.
    changes shape depending on the answer, and it gets more expensive to answer the longer building continues.
 2. **Who operates and pays for the site, and what happens when they stop?** RFC 0025 explicitly avoids
    anything needing a service somebody keeps running. This plan assumes one. The git metadata mirror makes the
-   *catalogue* survivable, which is the part that matters to the ecosystem — but accounts, modlist drafts and
+   *catalogue* survivable, which is the part that matters to the ecosystem, but accounts, modlist drafts and
    collaboration state are not in the mirror and would be lost. Still needs an owner, not a paragraph.
 3. Are download counts worth showing at all given the site cannot measure them honestly?
 4. What is the review threshold in practice: every DLL forever, or reputation-gated after the first?

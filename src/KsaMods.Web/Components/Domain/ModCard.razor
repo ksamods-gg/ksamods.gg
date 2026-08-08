@@ -2,29 +2,42 @@
 @using KsaMods.Web.Services
 
 <a href="@($"/mods/{Mod.Id}")"
-   class="group flex h-full flex-col rounded-lg border border-border bg-card p-4 transition-colors
+   class="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors
           hover:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
 
-    <div class="flex items-start justify-between gap-2">
-        <h3 class="font-medium leading-tight group-hover:underline">@Mod.Name</h3>
-        @if (Mod.Type == "mod-loader")
-        {
-            <Badge Variant="info" Class="shrink-0">Loader</Badge>
-        }
-    </div>
+    @if (!string.IsNullOrWhiteSpace(Mod.BannerUrl))
+    {
+        @* Author-hosted and therefore unreliable: onerror drops the whole strip rather than
+           leaving a broken-image icon wedged above the title. *@
+        <div class="aspect-[3/1] w-full overflow-hidden border-b border-border bg-muted">
+            <img src="@Mod.BannerUrl" alt="" loading="lazy" referrerpolicy="no-referrer"
+                 onerror="this.parentElement.remove()"
+                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+        </div>
+    }
 
-    @* The id is the KSA folder name, so it is worth showing verbatim: it is what the user will
-       see in their mods directory and in manifest.toml. *@
-    <code class="mt-0.5 font-mono text-xs text-muted-foreground">@Mod.Id</code>
+    <div class="flex flex-1 flex-col p-4">
+        <div class="flex items-start justify-between gap-2">
+            <h3 class="font-medium leading-tight group-hover:underline">@Mod.Name</h3>
+            @if (Mod.Type == "mod-loader")
+            {
+                <Badge Variant="info" Class="shrink-0">Loader</Badge>
+            }
+        </div>
 
-    <p class="mt-2 line-clamp-2 text-sm text-muted-foreground">@Mod.Abstract</p>
+        @* The id is the KSA folder name, so it is worth showing verbatim: it is what the user will
+           see in their mods directory and in manifest.toml. *@
+        <code class="mt-0.5 font-mono text-xs text-muted-foreground">@Mod.Id</code>
 
-    <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
-        @foreach (var tag in Mod.Tags.Take(3))
-        {
-            <Badge Variant="outline">@tag</Badge>
-        }
-        <span class="ml-auto text-xs text-muted-foreground">@Presentation.Ago(Mod.UpdatedAt)</span>
+        <p class="mt-2 line-clamp-2 text-sm text-muted-foreground">@Mod.Abstract</p>
+
+        <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+            @foreach (var tag in Mod.Tags.Take(3))
+            {
+                <Badge Variant="outline">@tag</Badge>
+            }
+            <span class="ml-auto text-xs text-muted-foreground">@Presentation.Ago(Mod.UpdatedAt)</span>
+        </div>
     </div>
 </a>
 

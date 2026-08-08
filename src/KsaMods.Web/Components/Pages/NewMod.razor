@@ -4,7 +4,7 @@
 @inject KsaModsApi Api
 @inject NavigationManager Nav
 
-<PageTitle>Add a mod — ksamods.gg</PageTitle>
+<PageTitle>Add a mod | ksamods.gg</PageTitle>
 
 <div class="mx-auto max-w-2xl">
     <h1 class="text-2xl font-semibold tracking-tight">Add a mod</h1>
@@ -37,7 +37,7 @@
             }
 
             <div class="mt-5 space-y-5">
-                <Field Id="name" Label="Display name" Hint="Free choice — this one can change.">
+                <Field Id="name" Label="Display name" Hint="Whatever you want to call it. You can change this later.">
                     <input id="name" @bind="_form.Name" class="@InputClass" />
                 </Field>
 
@@ -58,8 +58,14 @@
                     </datalist>
                 </Field>
 
+                <Field Id="banner" Label="Banner image" Required="false"
+                       Hint="An https link to a wide image, roughly 3:1. It shows at the top of your mod page and on your card when people browse. We only store the link, so keep the file where it is.">
+                    <input id="banner" type="url" @bind="_form.BannerUrl"
+                           placeholder="https://…/banner.png" class="@InputClass" />
+                </Field>
+
                 <Field Id="forums" Label="KSA forums thread" Required="false"
-                       Hint="Not required to create the listing — connecting your repository proves ownership. It is required for the listing to appear in the exported index that other clients read.">
+                       Hint="You do not need this to create the listing, since connecting your repository is what proves you own it. You do need it before the listing shows up in the exported index that other clients read.">
                     <input id="forums" type="url" @bind="_form.Forums"
                            placeholder="https://forums.ahwoo.com/threads/…" class="@InputClass" />
                 </Field>
@@ -137,7 +143,8 @@
 
             var result = await Api.CreateModAsync(new CreateModRequest(
                 _form.Id.Trim(), _form.Name.Trim(), _form.Abstract.Trim(), _form.License.Trim(),
-                Links: links.Count > 0 ? links : null));
+                Links: links.Count > 0 ? links : null,
+                BannerUrl: string.IsNullOrWhiteSpace(_form.BannerUrl) ? null : _form.BannerUrl.Trim()));
 
             if (result.Success && result.Id is not null)
             {
@@ -163,6 +170,7 @@
         public string Name { get; set; } = "";
         public string Abstract { get; set; } = "";
         public string License { get; set; } = "MIT";
+        public string BannerUrl { get; set; } = "";
         public string Forums { get; set; } = "";
     }
 }

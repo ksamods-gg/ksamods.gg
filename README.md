@@ -17,7 +17,7 @@ persists is a URL, a `sha256`, and everything the validator learned from the byt
 
 The `content-manager-design` submodule is the [KSAModding](https://github.com/KSAModding) RFC
 process. RFC 0017 (version ordering), 0025 (scope) and 0031 (metadata format) are Accepted and
-this project follows them — that is what keeps the exported index consumable by other clients.
+this project follows them, which is what keeps the exported index consumable by other clients.
 
 ## Layout
 
@@ -30,14 +30,14 @@ src/
   KsaMods.Resolver/        Dependency and conflict solving.
   KsaMods.Api/             ASP.NET Core. Everything user-facing.
   KsaMods.Exporter/        Builds the static index and pushes the git mirror.
-  KsaMods.Cli/             `ksamods validate` — the rules authors run locally.
+  KsaMods.Cli/             `ksamods validate`. The rules authors run locally.
   KsaMods.Web/             Blazor Web App frontend, Tailwind v4, shadcn-style components.
 db/migrations/             Postgres schema.
 db/seed-dev.sql            Development data, including the awkward states.
 tests/KsaMods.Tests/       Fixture corpus and the guard tests.
 ```
 
-`KsaMods.Validation` does no I/O — no `HttpClient`, no `File`, no database. That is what makes
+`KsaMods.Validation` does no I/O at all: no `HttpClient`, no `File`, no database. That is what makes
 "the CLI and the server run identical rules" true by construction rather than by discipline.
 
 ## Build and test
@@ -90,7 +90,7 @@ Coolify fills two values in automatically because they are declared with no valu
 | `SERVICE_FQDN_WEB_8080` | Assigns a domain, terminates TLS, routes it to the frontend |
 | `SERVICE_PASSWORD_POSTGRES` | Generates a password once and injects it into both services |
 
-Optional, for sign-in — leave them unset and the auth routes are simply not mapped, which is a
+Optional, for sign-in. Leave them unset and the auth routes are simply not mapped, which is a
 working read-only site rather than a broken sign-in button:
 
 ```
@@ -101,7 +101,7 @@ DISCORD_CLIENT_ID      DISCORD_CLIENT_SECRET
 The GitHub OAuth app's callback URL must be `https://<your-domain>/auth/github/callback`.
 
 **Only the frontend is exposed.** The API and Postgres publish no ports; the browser reaches the
-API through the frontend's own proxy. That is deliberate — it is what lets the session cookie stay
+API through the frontend's own proxy. That is deliberate: it is what lets the session cookie stay
 HttpOnly and `SameSite=Lax` with no CORS policy anywhere. It also means `docker compose up` locally
 gives you nothing to curl; add a `ports:` mapping to the `web` service if you want that.
 
@@ -123,8 +123,8 @@ http, and the browser loops; and the OAuth start endpoint builds its `redirect_u
 `KnownIPNetworks` and `KnownProxies` must be *cleared* or the headers are silently ignored, since
 the defaults trust only loopback and in a container the proxy is always another address.
 
-**Healthchecks probe from inside the app.** The runtime images are chiselled — no shell, no curl,
-no wget — so `HealthProbe.cs` gives each app a `--healthcheck` argument that requests its own
+**Healthchecks probe from inside the app.** The runtime images are chiselled, with no shell, no
+curl and no wget, so `HealthProbe.cs` gives each app a `--healthcheck` argument that requests its own
 `/health` and exits 0 or 1. Adding curl to the image to avoid this would mean shipping a binary,
 and an attack surface, for one request the app can make itself.
 
@@ -133,14 +133,14 @@ and an attack surface, for one request the app can make itself.
 Blazor Web App, server-rendered by default so mod pages are indexable, with interactive
 rendering only where a page needs it. Tailwind CSS v4 with a shadcn-style token layer: every
 colour is a CSS variable, so the dark theme is a token swap rather than a `dark:` prefix on every
-element. Components live in `Components/Ui` and are owned outright — there is no component
+element. Components live in `Components/Ui` and are owned outright, so there is no component
 dependency to track.
 
 **The browser only ever sees one origin.** `Services/ApiProxy.cs` forwards `/api` and `/auth` to
 the .NET API, so the API keeps its HttpOnly, `SameSite=Lax` session cookie with no CORS policy
 and no token handling in JavaScript.
 
-The `NewMod` form validates ids against `KsaMods.Metadata.ContentId` — literally the same code the
+The `NewMod` form validates ids against `KsaMods.Metadata.ContentId`, literally the same code the
 API enforces, via a project reference, so the two cannot drift.
 
 Tailwind is built by an MSBuild target before compile, so a fresh clone never serves stale CSS:
@@ -172,7 +172,7 @@ OuterPlanets: passed with warnings (0 error(s), 1 warning(s))
 
 ## The validation container
 
-Building the image is not enough — **the runtime flags are the sandbox**, and a Dockerfile cannot
+Building the image is not enough. **The runtime flags are the sandbox**, and a Dockerfile cannot
 express them. `KsaMods.Worker/ContainerRunner.cs` is what applies them, and
 `ContainerFlagTests` is what stops them regressing.
 
@@ -196,19 +196,19 @@ Stages 3–8 of [backend.md §7.3](docs/backend.md). The one nobody else does is
 
 - Every path declared in `mod.toml` resolves to a real file.
 - Every declared XML parses, with the right root element.
-- **Reachability is two hops.** Textures and meshes are correctly absent from `mod.toml` — they
+- **Reachability is two hops.** Textures and meshes are correctly absent from `mod.toml`, because they
   are referenced from inside the declared XML. Only files reachable from *neither* are warned
   about. A validator that warns on everything not in `mod.toml` fires on the correct shape of
   every content mod, and the warning authors ignore is worth less than no warning at all.
 
-Everything a mod ships is also recorded on first contact — asset ids, StarMap dependencies,
+Everything a mod ships is also recorded on first contact: asset ids, StarMap dependencies,
 assemblies, `[console]` blocks. The site does not keep the archive, so a fact not extracted now
 may be unrecoverable once the asset URL rots.
 
 ## What the resolver does
 
 `POST /api/v1/resolve` takes a wanted set and a game revision and returns an ordered install plan
-— or a structured explanation of why the set is unsatisfiable. It also returns **asset id
+or a structured explanation of why the set is unsatisfiable. It also returns **asset id
 collisions within the resolved set**, so a client can warn before writing anything.
 
 `KsaMods.Resolver` ships as a library as well as running behind the endpoint. The offline index
@@ -224,7 +224,7 @@ reorders initialisation within the walk.
 Every export run writes RFC 0031 documents and commits them to a public git repository. This is
 required, not optional ([backend.md §12.1](docs/backend.md)): Postgres holds the record, so
 without the mirror the catalogue does not outlive the service. A tarball behind a CDN dies with
-the CDN; a public git repository survives because it gets forked — and forks happen before the
+the CDN; a public git repository survives because it gets forked, and forks happen before the
 outage, not after.
 
 Output is deterministic: stable ordering, LF endings, no BOM, timestamps from the input rather
@@ -251,6 +251,6 @@ job, forge adapters beyond GitHub, sign-in wired to real OAuth apps, and the mod
 `CompressionEnabled` is `false` in `KsaMods.Web.csproj`, and it has to stay that way until the SDK
 bug it works around is fixed. The SDK writes precompressed static assets with a literal `{0}` left
 in the filename, so at runtime the app advertises a gzip variant, fails to find it, and answers a
-browser with an empty `200`. Stylesheets then parse to zero rules and `blazor.web.js` aborts — with
+browser with an empty `200`. Stylesheets then parse to zero rules and `blazor.web.js` aborts, with
 nothing in any log, because the status is `200` and `curl` (which sends no `Accept-Encoding`) sees
 the correct file. Compression belongs at the CDN or reverse proxy anyway.

@@ -8,7 +8,8 @@ namespace KsaMods.Api.Endpoints;
 
 public sealed record CreateModBody(
     string Id, string Name, string Abstract, string License,
-    string? Description, string[]? Tags, Dictionary<string, string>? Links);
+    string? Description, string[]? Tags, Dictionary<string, string>? Links,
+    string? BannerUrl = null);
 
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
@@ -45,6 +46,16 @@ public static class ModEndpoints
                 });
             }
 
+            // The column has the same rule as a check constraint, but a constraint violation
+            // surfaces as a 500. Reject it here so the author gets told what is wrong with it.
+            if (!string.IsNullOrWhiteSpace(body.BannerUrl) && !IsUsableBannerUrl(body.BannerUrl))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["bannerUrl"] = ["A banner must be an https:// link to an image, under 2048 characters."],
+                });
+            }
+
             var links = body.Links ?? [];
 
             await mods.CreateAsync(new ModRow
@@ -59,6 +70,7 @@ public static class ModEndpoints
                 Links = System.Text.Json.JsonSerializer.Serialize(links),
                 Status = "active",
                 ListingState = "listed",
+                BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
                 CreatedBy = user.AccountId,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
@@ -245,6 +257,16 @@ public static class ModEndpoints
             return Results.NoContent();
         });
     }
+
+    /// <summary>
+    /// A banner is a link to an image the author already hosts, so the only things we can check
+    /// are the ones that decide whether a browser will render it at all: https, because the page
+    /// is https and mixed content is blocked silently, and a length the column will accept.
+    /// </summary>
+    private static bool IsUsableBannerUrl(string candidate) =>
+        candidate.Trim() is { Length: > 0 and <= 2048 } url
+        && Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+        && parsed.Scheme == Uri.UriSchemeHttps;
 
     private static string Explain(IdRejection reason) => reason switch
     {

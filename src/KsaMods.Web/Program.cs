@@ -19,6 +19,9 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddHttpContextAccessor();
 
+// Turning on a site notice is a config change and a restart, not a deploy.
+builder.Services.Configure<SiteBannerOptions>(builder.Configuration.GetSection("SiteBanner"));
+
 // One HttpClient for both the typed client and the proxy. AllowAutoRedirect is off because the
 // OAuth flow's redirects belong to the browser, not to us — we forward them verbatim.
 builder.Services.AddHttpClient(ApiProxy.ClientName, client =>

@@ -7,28 +7,36 @@
 
   OKLCH rather than hex, so lightness is perceptually even across hues — a mid-grey and a
   mid-blue at the same L actually look equally dark, which hex does not give you.
+
+  The neutrals carry a small amount of chroma on a cold hue rather than being literally grey,
+  and the accent is the warm amber of an instrument panel. Both are deliberate: a zero-chroma
+  palette is the default every component library ships with, and it reads as "nobody chose
+  this". Tinting the greys towards night sky and pushing the one accent warm is most of what
+  makes this look like a site for a space game rather than a dashboard template.
 */
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
+  --color-background: oklch(0.992 0.003 250);
+  --color-foreground: oklch(0.18 0.016 262);
 
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0.002 250);
+  --color-card-foreground: oklch(0.18 0.016 262);
 
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0.002 250);
+  --color-popover-foreground: oklch(0.18 0.016 262);
 
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
+  /* Amber, and the only saturated thing in the interface. It marks the few places that are
+     genuinely the point: the brand, the primary action, the current release. */
+  --color-primary: oklch(0.62 0.155 52);
+  --color-primary-foreground: oklch(0.99 0.004 80);
 
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-secondary: oklch(0.965 0.005 255);
+  --color-secondary-foreground: oklch(0.22 0.016 262);
 
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
+  --color-muted: oklch(0.965 0.005 255);
+  --color-muted-foreground: oklch(0.495 0.015 258);
 
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
+  --color-accent: oklch(0.955 0.008 255);
+  --color-accent-foreground: oklch(0.22 0.016 262);
 
   --color-destructive: oklch(0.577 0.245 27.325);
   --color-destructive-foreground: oklch(0.985 0 0);
@@ -40,9 +48,13 @@
   --color-severity-info: oklch(0.6 0.118 244.5);
   --color-severity-ok: oklch(0.596 0.145 155.0);
 
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0 0);
+  --color-border: oklch(0.905 0.008 255);
+  --color-input: oklch(0.895 0.008 255);
+  --color-ring: oklch(0.62 0.155 52);
+
+  /* Sits behind the top of the page. Low enough alpha to read as depth rather than as a
+     coloured band. */
+  --color-glow: oklch(0.62 0.155 52 / 6%);
 
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
@@ -61,26 +73,26 @@
 */
 @layer base {
   .dark {
-    --color-background: oklch(0.145 0 0);
-    --color-foreground: oklch(0.985 0 0);
+    --color-background: oklch(0.155 0.015 264);
+    --color-foreground: oklch(0.96 0.005 260);
 
-    --color-card: oklch(0.205 0 0);
-    --color-card-foreground: oklch(0.985 0 0);
+    --color-card: oklch(0.196 0.017 264);
+    --color-card-foreground: oklch(0.96 0.005 260);
 
-    --color-popover: oklch(0.205 0 0);
-    --color-popover-foreground: oklch(0.985 0 0);
+    --color-popover: oklch(0.196 0.017 264);
+    --color-popover-foreground: oklch(0.96 0.005 260);
 
-    --color-primary: oklch(0.922 0 0);
-    --color-primary-foreground: oklch(0.205 0 0);
+    --color-primary: oklch(0.735 0.155 58);
+    --color-primary-foreground: oklch(0.17 0.02 264);
 
-    --color-secondary: oklch(0.269 0 0);
-    --color-secondary-foreground: oklch(0.985 0 0);
+    --color-secondary: oklch(0.262 0.018 264);
+    --color-secondary-foreground: oklch(0.96 0.005 260);
 
-    --color-muted: oklch(0.269 0 0);
-    --color-muted-foreground: oklch(0.708 0 0);
+    --color-muted: oklch(0.262 0.018 264);
+    --color-muted-foreground: oklch(0.705 0.014 260);
 
-    --color-accent: oklch(0.269 0 0);
-    --color-accent-foreground: oklch(0.985 0 0);
+    --color-accent: oklch(0.262 0.018 264);
+    --color-accent-foreground: oklch(0.96 0.005 260);
 
     --color-destructive: oklch(0.704 0.191 22.216);
     --color-destructive-foreground: oklch(0.985 0 0);
@@ -90,36 +102,39 @@
     --color-severity-info: oklch(0.696 0.136 244.5);
     --color-severity-ok: oklch(0.696 0.155 155.0);
 
-    --color-border: oklch(1 0 0 / 12%);
-    --color-input: oklch(1 0 0 / 18%);
-    --color-ring: oklch(0.556 0 0);
+    --color-border: oklch(1 0 0 / 11%);
+    --color-input: oklch(1 0 0 / 16%);
+    --color-ring: oklch(0.735 0.155 58);
+
+    --color-glow: oklch(0.735 0.155 58 / 9%);
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not(.light) {
-      --color-background: oklch(0.145 0 0);
-      --color-foreground: oklch(0.985 0 0);
-      --color-card: oklch(0.205 0 0);
-      --color-card-foreground: oklch(0.985 0 0);
-      --color-popover: oklch(0.205 0 0);
-      --color-popover-foreground: oklch(0.985 0 0);
-      --color-primary: oklch(0.922 0 0);
-      --color-primary-foreground: oklch(0.205 0 0);
-      --color-secondary: oklch(0.269 0 0);
-      --color-secondary-foreground: oklch(0.985 0 0);
-      --color-muted: oklch(0.269 0 0);
-      --color-muted-foreground: oklch(0.708 0 0);
-      --color-accent: oklch(0.269 0 0);
-      --color-accent-foreground: oklch(0.985 0 0);
+      --color-background: oklch(0.155 0.015 264);
+      --color-foreground: oklch(0.96 0.005 260);
+      --color-card: oklch(0.196 0.017 264);
+      --color-card-foreground: oklch(0.96 0.005 260);
+      --color-popover: oklch(0.196 0.017 264);
+      --color-popover-foreground: oklch(0.96 0.005 260);
+      --color-primary: oklch(0.735 0.155 58);
+      --color-primary-foreground: oklch(0.17 0.02 264);
+      --color-secondary: oklch(0.262 0.018 264);
+      --color-secondary-foreground: oklch(0.96 0.005 260);
+      --color-muted: oklch(0.262 0.018 264);
+      --color-muted-foreground: oklch(0.705 0.014 260);
+      --color-accent: oklch(0.262 0.018 264);
+      --color-accent-foreground: oklch(0.96 0.005 260);
       --color-destructive: oklch(0.704 0.191 22.216);
       --color-destructive-foreground: oklch(0.985 0 0);
       --color-severity-error: oklch(0.704 0.191 22.216);
       --color-severity-warning: oklch(0.769 0.188 70.08);
       --color-severity-info: oklch(0.696 0.136 244.5);
       --color-severity-ok: oklch(0.696 0.155 155.0);
-      --color-border: oklch(1 0 0 / 12%);
-      --color-input: oklch(1 0 0 / 18%);
-      --color-ring: oklch(0.556 0 0);
+      --color-border: oklch(1 0 0 / 11%);
+      --color-input: oklch(1 0 0 / 16%);
+      --color-ring: oklch(0.735 0.155 58);
+      --color-glow: oklch(0.735 0.155 58 / 9%);
     }
   }
 
@@ -129,6 +144,12 @@
 
   body {
     background-color: var(--color-background);
+
+    /* A single soft light source above the fold. Cheap, but it stops the page reading as a
+       flat rectangle of one colour, which is most of what makes a dark theme look unfinished. */
+    background-image: radial-gradient(58rem 26rem at 50% -14rem, var(--color-glow), transparent 70%);
+    background-repeat: no-repeat;
+
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
