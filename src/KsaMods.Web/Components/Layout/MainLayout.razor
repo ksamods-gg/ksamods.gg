@@ -5,70 +5,81 @@
 <div class="flex min-h-screen flex-col">
     <SiteBanner />
 
-    <header class="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
-        <div class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-            <a href="/" class="flex items-baseline gap-1.5 font-mono font-semibold tracking-tight">
-                ksamods<span class="text-primary">.gg</span>
-            </a>
+    @*
+        The masthead sits on the drafting grid rather than on a plain band, and the grid runs on
+        past it into the first screenful before fading out. That is what ties the header to the
+        page instead of leaving it floating above one.
+    *@
+    @* flex-1 lives here rather than on <main>: the wrapper is the flex child of the page
+       column, so without it main's own flex-1 has nothing to grow against and the footer
+       rides up under short pages. *@
+    <div class="relative flex flex-1 flex-col">
+        @* Masthead texture, not a page background. Tall enough to sit under the header and the
+           first line of a page, short enough that it is gone before body copy starts: a grid
+           running behind paragraphs is noise, and inner pages start higher than the home hero. *@
+        <div class="grid-substrate pointer-events-none absolute inset-x-0 top-0 h-52" aria-hidden="true"></div>
 
-            <nav class="hidden items-center gap-1 text-sm sm:flex">
-                <a href="/mods" class="rounded-md px-2.5 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-                    Browse
-                </a>
-                <a href="/collisions" class="rounded-md px-2.5 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-                    Asset ids
-                </a>
-                <a href="/api-reference" class="rounded-md px-2.5 py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-                    API
-                </a>
-            </nav>
+        <header class="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
+            <div class="mx-auto flex h-14 max-w-6xl items-center gap-7 px-4">
+                <Wordmark />
 
-            <div class="ml-auto flex items-center gap-2">
-                <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
-                <Button Href="/auth/github/start?returnTo=/" Size="sm">Sign in</Button>
+                <nav class="hidden items-center gap-6 text-[0.8125rem] sm:flex">
+                    <a href="/mods" class="text-muted-foreground transition-colors hover:text-foreground">Browse</a>
+                    <a href="/collisions" class="text-muted-foreground transition-colors hover:text-foreground">Asset ids</a>
+                    <a href="/api-reference" class="text-muted-foreground transition-colors hover:text-foreground">API</a>
+                </nav>
+
+                <div class="ml-auto flex items-center gap-1.5">
+                    <ThemeToggle />
+                    <span class="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true"></span>
+                    <Button Href="/mods/new" Variant="ghost" Size="sm">Add a mod</Button>
+                    <Button Href="/auth/github/start?returnTo=/" Size="sm">Sign in</Button>
+                </div>
             </div>
-        </div>
-    </header>
+        </header>
 
-    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        @Body
-    </main>
+        <main class="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-8">
+            @Body
+        </main>
+    </div>
 
-    <footer class="mt-16 border-t border-border bg-card/40">
-        <div class="mx-auto max-w-6xl px-4 py-10">
-            <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="lg:col-span-2">
-                    <span class="font-mono font-semibold tracking-tight">
-                        ksamods<span class="text-primary">.gg</span>
-                    </span>
-                    <p class="mt-3 max-w-sm text-sm text-muted-foreground">
-                        Mods for Kitten Space Agency, and the tooling to build modlists with
-                        people you play with.
+    @*
+        A colophon rather than a sitemap. The disclaimers are the reason this block exists, so
+        they get the width; the links are a short index down the side.
+    *@
+    <footer class="mt-auto border-t border-border bg-card/30">
+        <div class="mx-auto max-w-6xl px-4 py-12">
+            <div class="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
+                <div>
+                    <Wordmark Compact="true" />
+                    <p class="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                        An index of mods for Kitten Space Agency, and the tooling to build modlists
+                        with the people you play with.
                     </p>
                 </div>
 
                 <div>
-                    <h2 class="text-xs font-semibold uppercase tracking-wider text-foreground">Mods</h2>
-                    <ul class="mt-3 space-y-2 text-sm">
-                        <li><a href="/mods" class="text-muted-foreground hover:text-foreground">Browse</a></li>
-                        <li><a href="/mods/new" class="text-muted-foreground hover:text-foreground">Add a mod</a></li>
-                        <li><a href="/collisions" class="text-muted-foreground hover:text-foreground">Asset ids</a></li>
-                        <li><a href="/api-reference" class="text-muted-foreground hover:text-foreground">API</a></li>
+                    <h2 class="eyebrow text-muted-foreground">Mods</h2>
+                    <ul class="mt-4 space-y-2.5 text-sm">
+                        <li><a href="/mods" class="text-muted-foreground transition-colors hover:text-foreground">Browse</a></li>
+                        <li><a href="/mods/new" class="text-muted-foreground transition-colors hover:text-foreground">Add a mod</a></li>
+                        <li><a href="/collisions" class="text-muted-foreground transition-colors hover:text-foreground">Asset ids</a></li>
+                        <li><a href="/api-reference" class="text-muted-foreground transition-colors hover:text-foreground">API</a></li>
                     </ul>
                 </div>
 
                 <div>
-                    <h2 class="text-xs font-semibold uppercase tracking-wider text-foreground">Site</h2>
-                    <ul class="mt-3 space-y-2 text-sm">
-                        <li><a href="/terms" class="text-muted-foreground hover:text-foreground">Terms</a></li>
-                        <li><a href="/privacy" class="text-muted-foreground hover:text-foreground">Privacy</a></li>
+                    <h2 class="eyebrow text-muted-foreground">Site</h2>
+                    <ul class="mt-4 space-y-2.5 text-sm">
+                        <li><a href="/terms" class="text-muted-foreground transition-colors hover:text-foreground">Terms</a></li>
+                        <li><a href="/privacy" class="text-muted-foreground transition-colors hover:text-foreground">Privacy</a></li>
                     </ul>
                 </div>
             </div>
 
             @* These two stay on every page on purpose. The first is what the site is; the second
                is the one thing a person should know before they install anything. *@
-            <div class="mt-10 space-y-1.5 border-t border-border pt-6 text-[11px] leading-relaxed text-muted-foreground">
+            <div class="mt-12 max-w-3xl space-y-1.5 border-t border-border pt-6 text-[11px] leading-relaxed text-muted-foreground">
                 <p>
                     We index mods, we do not host them. Downloads come straight from the author's
                     own repository, and all we keep is the link and a hash of what we checked.

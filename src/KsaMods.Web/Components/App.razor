@@ -9,7 +9,39 @@
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["KsaMods.Web.styles.css"]" />
     <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
+
+    @*
+        Order matters and it is the opposite of what it looks like. Browsers walk these and keep
+        the *last* one whose type they support, so the raster fallback goes first and the SVG
+        last. Declaring the SVG first is how you end up shipping a vector favicon that no browser
+        ever uses.
+
+        Both are the same orbit mark, so the fallback is not a different logo either way.
+    *@
+    <link rel="icon" type="image/png" sizes="128x128" href="favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+    @*
+        Deliberately inline and deliberately blocking, before any stylesheet has painted.
+
+        A stored theme has to reach the root element in the same frame the document does. Do it
+        in a module and it lands after first paint, which is the white flash every dark-mode
+        visitor sees on a site that got this wrong. It is a few lines, so the cost of blocking
+        here is far smaller than the cost of not.
+    *@
+    <script>
+        (function () {
+            try {
+                var choice = localStorage.getItem('ksamods.theme');
+                if (choice === 'dark' || choice === 'light') {
+                    document.documentElement.classList.add(choice);
+                }
+            } catch (e) {
+                /* Storage blocked; fall through to the system preference. */
+            }
+        })();
+    </script>
+
     <HeadOutlet />
 </head>
 

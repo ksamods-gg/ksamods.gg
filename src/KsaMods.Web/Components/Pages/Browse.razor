@@ -3,17 +3,33 @@
 
 <PageTitle>Browse mods | ksamods.gg</PageTitle>
 
-<div class="flex items-baseline justify-between gap-4">
-    <h1 class="text-2xl font-semibold tracking-tight">
-        @(string.IsNullOrWhiteSpace(Q) ? "All mods" : $"Results for “{Q}”")
-    </h1>
-    <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
+@*
+    A catalogue header rather than a page title: the count and the active filters are the useful
+    information here, and they belong on the same line as the thing they describe.
+*@
+<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+    <div class="min-w-0">
+        <p class="eyebrow text-muted-foreground">Catalogue</p>
+        <h1 class="mt-2 text-2xl font-bold tracking-tight">
+            @(string.IsNullOrWhiteSpace(Q) ? "All mods" : $"Results for “{Q}”")
+        </h1>
+    </div>
+
+    <div class="flex items-center gap-3">
+        @if (_page is not null && _page.Items.Count > 0)
+        {
+            <span class="font-mono text-xs text-muted-foreground tabular-nums">
+                @_page.Items.Count shown@(_page.Next is not null ? ", more available" : "")
+            </span>
+        }
+        <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
+    </div>
 </div>
 
-<form action="/mods" method="get" class="mt-4 flex gap-2">
+<form action="/mods" method="get" class="mt-5 flex gap-2">
     <input name="q" type="search" value="@Q" placeholder="Search by name or description…"
            aria-label="Search mods"
-           class="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm
+           class="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm
                   placeholder:text-muted-foreground focus-visible:outline-2
                   focus-visible:outline-offset-2 focus-visible:outline-ring" />
     @if (!string.IsNullOrWhiteSpace(Tag))
@@ -25,11 +41,14 @@
 
 @if (!string.IsNullOrWhiteSpace(Tag))
 {
-    <p class="mt-3 text-sm text-muted-foreground">
-        Filtered by tag <Badge Variant="outline">@Tag</Badge>
+    <div class="mt-4 flex items-center gap-2 text-sm">
+        <span class="text-muted-foreground">Filtered by</span>
+        <Badge Variant="outline">@Tag</Badge>
         <a href="@($"/mods{(string.IsNullOrWhiteSpace(Q) ? "" : $"?q={Uri.EscapeDataString(Q!)}")}")"
-           class="ml-2 underline underline-offset-4">clear</a>
-    </p>
+           class="text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
+            clear
+        </a>
+    </div>
 }
 
 <div class="mt-6">
@@ -39,21 +58,25 @@
     }
     else if (_page is null)
     {
-        <p class="text-sm text-muted-foreground">Loading…</p>
+        <p class="font-mono text-xs text-muted-foreground">Loading…</p>
     }
     else if (_page.Items.Count == 0)
     {
-        <Card>
+        <Card Class="text-center">
             <p class="text-sm text-muted-foreground">
                 @(string.IsNullOrWhiteSpace(Q)
                     ? "No mods are listed yet."
                     : $"Nothing matched “{Q}”.")
             </p>
+            @if (!string.IsNullOrWhiteSpace(Q))
+            {
+                <Button Href="/mods" Variant="ghost" Size="sm" Class="mt-3">Clear the search</Button>
+            }
         </Card>
     }
     else
     {
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach (var mod in _page.Items)
             {
                 <ModCard Mod="mod" />
@@ -64,7 +87,7 @@
         {
             @* Keyset pagination: the API hands back the last id rather than an offset, so a
                listing published mid-scroll cannot make a row repeat or vanish. *@
-            <div class="mt-6 flex justify-center">
+            <div class="mt-8 flex justify-center border-t border-border pt-8">
                 <Button Href="@NextPageUrl" Variant="outline">Next page</Button>
             </div>
         }

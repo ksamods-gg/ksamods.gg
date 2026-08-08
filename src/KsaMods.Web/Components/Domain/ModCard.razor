@@ -2,41 +2,52 @@
 @using KsaMods.Web.Services
 
 <a href="@($"/mods/{Mod.Id}")"
-   class="group flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors
-          hover:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+   @* No h-full: in a grid the card's containing block is the whole row, so height:100% stretches
+      a text-only card to match a banner card beside it and leaves a gap inside it. Paired with
+      items-start on the grid, each card now ends where its content ends. *@
+   class="group flex flex-col overflow-hidden rounded-lg border border-border bg-card
+          transition-colors duration-150 hover:border-primary/50
+          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
 
     @if (!string.IsNullOrWhiteSpace(Mod.BannerUrl))
     {
         @* Author-hosted and therefore unreliable: onerror drops the whole strip rather than
            leaving a broken-image icon wedged above the title. *@
-        <div class="aspect-[3/1] w-full overflow-hidden border-b border-border bg-muted">
+        <div class="aspect-[16/6] w-full overflow-hidden border-b border-border bg-muted">
             <img src="@Mod.BannerUrl" alt="" loading="lazy" referrerpolicy="no-referrer"
                  onerror="this.parentElement.remove()"
-                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+                 class="h-full w-full object-cover" />
         </div>
     }
 
     <div class="flex flex-1 flex-col p-4">
         <div class="flex items-start justify-between gap-2">
-            <h3 class="font-medium leading-tight group-hover:underline">@Mod.Name</h3>
+            <h3 class="text-[0.9375rem] font-semibold leading-tight tracking-tight
+                       transition-colors group-hover:text-primary">
+                @Mod.Name
+            </h3>
             @if (Mod.Type == "mod-loader")
             {
-                <Badge Variant="info" Class="shrink-0">Loader</Badge>
+                <Badge Variant="info" Class="shrink-0">loader</Badge>
             }
         </div>
 
-        @* The id is the KSA folder name, so it is worth showing verbatim: it is what the user will
-           see in their mods directory and in manifest.toml. *@
-        <code class="mt-0.5 font-mono text-xs text-muted-foreground">@Mod.Id</code>
+        @* The id is the folder name the game loads, so it is shown verbatim and in mono: this is
+           the string a user will see in their mods directory and in manifest.toml. *@
+        <code class="mt-1 block truncate font-mono text-xs text-muted-foreground">@Mod.Id</code>
 
-        <p class="mt-2 line-clamp-2 text-sm text-muted-foreground">@Mod.Abstract</p>
+        <p class="mt-2.5 line-clamp-2 text-[0.8125rem] leading-relaxed text-muted-foreground">
+            @Mod.Abstract
+        </p>
 
-        <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+        <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-4">
             @foreach (var tag in Mod.Tags.Take(3))
             {
                 <Badge Variant="outline">@tag</Badge>
             }
-            <span class="ml-auto text-xs text-muted-foreground">@Presentation.Ago(Mod.UpdatedAt)</span>
+            <span class="ml-auto font-mono text-[0.6875rem] text-muted-foreground tabular-nums">
+                @Presentation.Ago(Mod.UpdatedAt)
+            </span>
         </div>
     </div>
 </a>

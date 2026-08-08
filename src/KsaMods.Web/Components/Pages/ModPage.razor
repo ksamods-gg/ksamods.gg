@@ -48,10 +48,11 @@ else
             </div>
         }
 
-        <header class="flex flex-wrap items-start justify-between gap-4">
+        <header class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
             <div class="min-w-0">
-                <h1 class="text-2xl font-semibold tracking-tight">@_mod.Name</h1>
-                <code class="mt-1 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
+                <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight">@_mod.Name</h1>
+                @* The id, verbatim: this is the folder name the game loads it under. *@
+                <code class="mt-1.5 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
             </div>
 
             <div class="flex shrink-0 flex-wrap items-center gap-2">

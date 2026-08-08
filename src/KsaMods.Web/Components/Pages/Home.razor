@@ -3,31 +3,39 @@
 
 <PageTitle>ksamods.gg | Mods for Kitten Space Agency</PageTitle>
 
-<section class="border-b border-border pb-10">
-    <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">Kitten Space Agency</p>
+@*
+    No hero graphic. This is a catalogue, and the useful things are the search field and the
+    list, so the page spends four lines establishing what the site is and then gets out of the
+    way. A panel of ornament to the right of the headline was filling space rather than earning
+    it, whichever ornament it happened to be.
+*@
+<section class="max-w-2xl pb-10">
+    <p class="eyebrow text-primary">Kitten Space Agency</p>
 
-    <h1 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
+    <h1 class="mt-4 text-balance text-[2.5rem] font-bold leading-[1.05] tracking-tight sm:text-[3.25rem]">
         Find mods that actually load.
     </h1>
 
-    <p class="mt-4 max-w-xl text-muted-foreground">
+    <p class="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-muted-foreground">
         We unpack every release and read it the same way the game does. If an archive is broken,
         you find out here instead of after you have installed it.
     </p>
 
-    <form action="/mods" method="get" class="mt-6 flex max-w-xl gap-2">
+    <form action="/mods" method="get" class="mt-7 flex gap-2">
         <input name="q" type="search" placeholder="Search mods…" aria-label="Search mods"
-               class="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm
+               class="h-10 flex-1 rounded-md border border-input bg-card px-3.5 text-sm
                       placeholder:text-muted-foreground focus-visible:outline-2
                       focus-visible:outline-offset-2 focus-visible:outline-ring" />
-        <Button Type="submit" Class="h-10">Search</Button>
+        <Button Type="submit" Class="h-10 px-5">Search</Button>
     </form>
 </section>
 
-<section class="mt-4">
-    <div class="mb-3 flex items-baseline justify-between">
-        <h2 class="text-sm font-semibold">Recently updated</h2>
-        <a href="/mods" class="text-sm text-muted-foreground hover:text-foreground">Browse all →</a>
+<section class="border-t border-border pt-10">
+    <div class="mb-5 flex items-baseline justify-between gap-4">
+        <h2 class="eyebrow text-muted-foreground">Recently updated</h2>
+        <a href="/mods" class="text-[0.8125rem] text-muted-foreground transition-colors hover:text-foreground">
+            Browse all
+        </a>
     </div>
 
     @if (_error is not null)
@@ -36,7 +44,7 @@
     }
     else if (_mods is null)
     {
-        <p class="text-sm text-muted-foreground">Loading…</p>
+        <p class="font-mono text-xs text-muted-foreground">Loading…</p>
     }
     else if (_mods.Count == 0)
     {
@@ -50,7 +58,7 @@
     }
     else
     {
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach (var mod in _mods)
             {
                 <ModCard Mod="mod" />
