@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\KsaMods.Metadata\KsaMods.Metadata.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,10 @@
+M:System.Reflection.Assembly.Load(System.Byte[]);Loads and executes untrusted code. Use MetadataLoadContext (backend.md §14.4).
+M:System.Reflection.Assembly.Load(System.String);Loads and executes untrusted code. Use MetadataLoadContext (backend.md §14.4).
+M:System.Reflection.Assembly.Load(System.Reflection.AssemblyName);Loads and executes untrusted code. Use MetadataLoadContext (backend.md §14.4).
+M:System.Reflection.Assembly.LoadFrom(System.String);Loads and executes untrusted code. Use MetadataLoadContext (backend.md §14.4).
+M:System.Reflection.Assembly.LoadFile(System.String);Loads and executes untrusted code. Use MetadataLoadContext (backend.md §14.4).
+M:System.Reflection.Assembly.UnsafeLoadFrom(System.String);Loads and executes untrusted code. Use MetadataLoadContext (backend.md §14.4).
+M:System.IO.Compression.ZipFileExtensions.ExtractToDirectory(System.IO.Compression.ZipArchive,System.String);Bypasses the archive guards. Iterate entries via SafeArchiveReader (backend.md §14.2).
+M:System.IO.Compression.ZipFile.ExtractToDirectory(System.String,System.String);Bypasses the archive guards. Iterate entries via SafeArchiveReader (backend.md §14.2).
+M:System.Xml.XmlDocument.Load(System.String);Unhardened XML reader. Use SafeXml (backend.md §14.3).
+M:System.Xml.XmlDocument.Load(System.IO.Stream);Unhardened XML reader. Use SafeXml (backend.md §14.3).
