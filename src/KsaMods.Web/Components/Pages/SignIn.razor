@@ -10,10 +10,10 @@
     {
         @* Reachable by typing the URL even when the header hides the button, so it has to explain
            itself rather than present an empty page with no buttons on it. *@
-        <Alert Variant="info" Title="Sign-in is not available yet" Class="mt-6">
-            No sign-in provider is configured on this site. Browsing, searching and looking up
-            asset ids all work without an account — signing in is only needed to publish a mod or
-            build a modlist.
+        <Alert Variant="info" Title="Sign-in isn't set up here" Class="mt-6">
+            Nobody has configured a sign-in provider on this site yet. You can still browse,
+            search, and look up asset ids. An account only matters if you want to publish a mod
+            or build a modlist.
         </Alert>
 
         <Button Href="/mods" Variant="outline" Class="mt-6">Browse mods</Button>
@@ -21,7 +21,7 @@
     else
     {
         <p class="mt-2 text-muted-foreground">
-            You need an account to publish a mod or build a modlist. Browsing needs nothing.
+            You'll need an account to publish a mod or build a modlist. Browsing works without one.
         </p>
 
         <div class="mt-6 space-y-2">
@@ -41,16 +41,16 @@
         @* Said here rather than buried in a privacy page, because this is the moment someone is
            deciding whether to hand over an identity. *@
         <p class="mt-6 text-xs leading-relaxed text-muted-foreground">
-            We read your username and avatar, and nothing else. We never post on your behalf, and
-            we do not ask for access to your repositories — connecting a repository to a mod is a
-            separate step you take later, per repository.
+            We only see your username and avatar. We won't post anything as you, and we don't ask
+            for access to your code. Linking a repository to a mod happens later, one at a time,
+            and you do it yourself.
         </p>
 
         @if (_providers.Contains("github"))
         {
             <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Signing in with GitHub is worth preferring if you publish mods: it is what lets us
-                confirm you control the repository your releases come from.
+                If you're planning to publish mods, use GitHub. It's how we check that the
+                repository your releases come from is really yours.
             </p>
         }
     }
