@@ -1,6 +1,6 @@
 # ksamods.gg Backend Specification
 
-**Status:** Draft v0.2
+**Status:** Draft v0.3
 **Companion to:** [KSA Mod Archive Structure Standard v0.4](spec.md), [ksamods.gg Feature Plan v0.3](plan.md)
 **Grounded on:** KSA build `2026.8.5.5168`, StarMap `0.4.6`
 **Follows:** KSAModding RFC 0017, RFC 0025, RFC 0031, all Accepted
@@ -10,19 +10,19 @@
 ## 0. What this is
 
 The server side of ksamods.gg: a web application where people sign in, create and maintain mod listings,
-publish releases by connecting a GitHub repository, and build modlists alone or together.
+publish releases by connecting a git repository, and build modlists alone or together.
 
-**The site never stores a mod file.** A release points at a GitHub release asset. The pipeline downloads that
-archive transiently to validate it and discards it; the durable record is a URL, a `sha256`, and everything
-the validator learned from the bytes.
+**The site never stores a mod file.** A release points at a release asset on the author's own forge — GitHub
+at launch, other forges by adapter (§5.6). The pipeline downloads that archive transiently to validate it and
+discards it; the durable record is a URL, a `sha256`, and everything the validator learned from the bytes.
 
 ### 0.1 The five decisions everything follows from
 
 | Decision | Choice |
 |---|---|
-| Store of record | **Postgres.** A static index is exported for interop and survivability (§12). |
-| Identity | **GitHub OAuth** primary, Discord secondary. GitHub App installation is the ownership proof (§5.2). |
-| Release source | **GitHub releases only.** Repo connected once, releases imported automatically thereafter (§5). |
+| Store of record | **Postgres**, mirrored continuously to a public git repository (§12). |
+| Identity | **GitHub OAuth** primary, Discord secondary. Forge app installation is the ownership proof (§5.2). |
+| Release source | **Git forge releases only**, from an allowlist of supported forges. Repo connected once, releases imported automatically thereafter (§5). |
 | Modlists | **Owner plus invited collaborators.** Mutable draft, immutable published versions (§6). |
 | Validation | **Full pipeline**, each job in a locked-down Docker container the site operates (§7). |
 
@@ -32,13 +32,19 @@ v0.1 made git the store of record and published through pull requests. That is a
 metadata-repository project and the wrong one here: this is a product where users create content in a browser
 and two people co-edit a modlist. Publishing-by-PR fights both.
 
-The consequences worth naming, because they are real costs of the reversal:
+The consequences worth naming, because they are real costs of the reversal, each with its mitigation:
 
-- **Metadata no longer survives the site by default.** Under git-as-record the ecosystem kept its data if
-  ksamods.gg stopped being operated. Under Postgres-as-record it does not, and §12's export exists specifically
-  to buy some of that back. It is a weaker guarantee than the one it replaces.
-- **Moderation history is now a table to build**, not `git log`. §13.4.
+- **Metadata would not survive the site.** Under git-as-record the ecosystem kept its data if ksamods.gg
+  stopped being operated. This is why **the git mirror in §12 is required rather than optional**: it restores
+  most of that property for very little work. A tarball behind a CDN dies with the CDN; a public git
+  repository can be forked by anyone who cares, and forks happen before the outage rather than after.
+- **Moderation history is now a table to build**, not `git log`. It has to be append-only and exported, or the
+  audit trail is only as trustworthy as the interface that writes it. §13.4.
 - **Publish-time review is no longer PR review.** It becomes an explicit queue (§13.2).
+
+The mirror does not fully replace git-as-record — it is a follower, so a compromised or buggy writer can
+publish bad state into it, where a PR-based flow would have caught that at review. What it does guarantee is
+that the data outlives the service, which is the property that actually mattered.
 
 ### 0.3 Relationship to the RFCs
 
@@ -46,13 +52,16 @@ RFC 0017's version model and RFC 0031's metadata shapes are followed exactly —
 exported index consumable by Borea and anyone else. Two deliberate divergences, both because this is a site
 rather than a metadata repository:
 
-1. **Ownership is proven by GitHub App installation, not a forums thread.** RFC 0031 requires `links.forums`
-   partly as an ownership signal for an index with no other option. Installing an App on a repository requires
+1. **Ownership is proven by forge app installation, not a forums thread.** RFC 0031 requires `links.forums`
+   partly as an ownership signal for an index with no other option. Installing an app on a repository requires
    admin on that repository, which is strictly stronger. The forums link stays as recommended metadata and is
    required on export.
 2. **Modlists are drafts before they are versions.** RFC 0031's modpack is a self-contained published document
    with no notion of an unpublished state. A collaborative editor needs one. Published modlist versions
    serialise to exactly the RFC's shape; drafts are site-native and never exported.
+
+The id namespace stays shared across mods and modlists as RFC 0031 requires, with a priority rule the RFC does
+not need but a site does. §2.1.
 
 ---
 
@@ -61,7 +70,7 @@ rather than a metadata repository:
 ```
   browser ──────▶ ┌──────────────────────────────────┐
                   │  KsaMods.Api   (ASP.NET Core)    │
-  GitHub ────────▶│   auth · mods · modlists · search│
+  forge  ────────▶│   auth · mods · modlists · search│
   webhooks        │   enqueue jobs                   │
                   └───────────────┬──────────────────┘
                                   │
@@ -121,8 +130,8 @@ any future preflight run identical rules by construction rather than by discipli
 ```
 Account
   ├── owns / maintains ──▶ Mod            id == the KSA folder name, globally unique
-  │                          └── Release  one per GitHub release, immutable once imported
-  │                                └── Artifact   GitHub asset URL + sha256 + sizes
+  │                          └── Release  one per forge release, immutable once imported
+  │                                └── Artifact   forge asset URL + sha256 + sizes
   │
   └── owns / collaborates ──▶ Modlist
                                 ├── Draft          mutable working set
@@ -133,12 +142,35 @@ Account
 alphanumeric at both ends, compared case-insensitively with authored casing preserved, `Core` and Windows
 device names reserved and checked up to the first dot.
 
-**One global id namespace across mods and modlists.** RFC 0031 makes the namespace type-free so that a
-reference to an id never needs a type alongside it. The cost is that a modlist can occupy a name a mod later
-wants, first come first served. Worth accepting for interop; worth telling users at creation time, because it
-is surprising.
+### 2.1 One namespace, but mods have priority in it
 
-**Releases are immutable once imported.** The version, the artifact URL and the hash are frozen. A GitHub
+RFC 0031 makes the id namespace type-free so a reference to an id never needs a type alongside it. This spec
+keeps that — a shared namespace across mods and modlists — because diverging would break the export.
+
+Plain first-come-first-served in a shared namespace is wrong here, though, and the reason is an asymmetry the
+RFC has no need to model:
+
+**A mod's id is dictated by the game. A modlist's id is a free choice.** The folder name *is* the mod's
+identity (`Mod.MakeUsing` overwrites anything else, spec §1), so a mod author who finds their id taken has no
+alternative — they cannot pick another one and still ship a working mod. A modlist author in the same position
+picks a different name and loses nothing but a preference.
+
+So the rule is:
+
+- Creating a modlist checks the id against **both** mods and modlists, as before. A taken id is refused.
+- If a mod author needs an id held by a **modlist**, it is a dispute (§5.4) and **the mod wins**. The modlist
+  is renamed, and its old id becomes a permanent alias redirecting to the new one.
+- If a mod author needs an id held by another **mod**, ordinary dispute resolution applies and neither party
+  gets an automatic win — both are equally constrained.
+- The creation form says this plainly when a modlist id looks like a plausible mod folder name. Surprising
+  someone at rename time is worse than warning them at creation time.
+
+**Renaming a modlist is survivable; renaming a mod is not.** A modlist id appears in links and in the export;
+an alias row covers both. A mod id appears in every user's `mods/` directory, in their `manifest.toml`, and in
+every modlist that pins it — renaming breaks all of them at once. Giving the recoverable case priority over
+the unrecoverable one is the whole argument.
+
+**Releases are immutable once imported.** The version, the artifact URL and the hash are frozen. A forge
 release re-uploaded with different bytes does not overwrite the record — it raises a divergence (§11.1). Only
 the narrow amendment set in §5.5 may change a published release, and only in the narrowing direction.
 
@@ -214,16 +246,17 @@ create table mod_maintainer (
 );
 
 -- the connected repository; installation proves control (§5.2)
-create table github_link (
+create table repo_link (
   mod_id           text primary key references mod(id) on delete cascade,
-  installation_id  bigint not null,
-  repo_id          bigint not null,
+  provider         text not null,               -- github | gitlab | codeberg (§5.6)
+  installation_id  text,                        -- provider-specific; null where not applicable
+  repo_id          text not null,
   repo_full_name   text not null,
   linked_by        bigint not null references account(id),
   linked_at        timestamptz not null default now(),
   auto_import      boolean not null default true,
   last_seen_at     timestamptz,
-  unique (repo_id)
+  unique (provider, repo_id)
 );
 
 create table mod_release (
@@ -233,9 +266,10 @@ create table mod_release (
   version_sort       bytea not null,           -- precomputed SemVer ordering key
   release_status     text not null,            -- stable | testing | dev
   released_at        timestamptz not null,
-  github_release_id  bigint,
-  github_tag         text,
-  github_commit      text,
+  provider           text not null,            -- forge this release came from
+  provider_release_id text,
+  provider_tag       text,
+  provider_commit    text,
   changelog_url      text,
   changelog_body     text,
   game_min_revision  integer,                  -- null ⇒ Unknown (RFC 0017)
@@ -261,7 +295,7 @@ create index on mod_release (mod_id, version_sort desc);
 
 create table release_artifact (
   release_id    bigint not null references mod_release(id) on delete cascade,
-  url           text not null,                 -- GitHub release asset
+  url           text not null,                 -- forge release asset
   asset_id      bigint,
   sha256        bytea not null,
   size          bigint not null,
@@ -328,6 +362,14 @@ create table modlist (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
   check (id_lower = lower(id))
+);
+
+-- retired modlist ids, kept forever so links and exports keep resolving (§2.1)
+create table modlist_alias (
+  alias_lower  citext primary key,
+  modlist_id   text not null references modlist(id) on delete cascade,
+  retired_at   timestamptz not null default now(),
+  reason       text
 );
 
 create table modlist_collaborator (
@@ -500,7 +542,7 @@ Two role scopes plus a site scope.
 | Action | Mod owner | Mod maintainer | List owner | List admin | List editor | Moderator |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Edit listing metadata | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Connect/disconnect GitHub repo | ✓ | — | — | — | — | — |
+| Connect/disconnect the repository | ✓ | — | — | — | — | — |
 | Import or retry a release | ✓ | ✓ | — | — | — | ✓ |
 | Yank a release | ✓ | ✓ | — | — | — | ✓ |
 | Add/remove maintainers | ✓ | — | — | — | — | ✓ |
@@ -543,20 +585,20 @@ the namespace, after a warning to the owner. This is plan §3.1's squatting poli
 
 ### 5.2 Connecting a repository, which is also the ownership proof
 
-The owner installs the ksamods GitHub App on the repository and selects it in the UI. The site records the
-installation and repository ids.
+The owner installs the ksamods app on the repository — a GitHub App, or the equivalent for another supported
+forge (§5.6) — and selects it in the UI. The site records the provider, installation and repository ids.
 
-**Installing a GitHub App requires admin on that repository.** That is a considerably stronger ownership
-signal than a forums thread, and it is the reason this spec does not gate publishing on the forums link that
-RFC 0031 requires for its own index. The forums link stays recommended, and becomes required at export (§12).
+**Installing an app requires admin on that repository.** That is a considerably stronger ownership signal than
+a forums thread, and it is the reason this spec does not gate publishing on the forums link that RFC 0031
+requires for its own index. The forums link stays recommended, and becomes required at export (§12).
 
 One repository links to one mod. A repository already linked elsewhere is refused with a pointer to the
 existing listing — that is a dispute (§5.4), not an error to work around.
 
 ### 5.3 Importing a release
 
-On `release.published` — or `release.edited`, or a manual retry — GitHub delivers a webhook. The API verifies
-the HMAC signature, resolves the installation to a mod, and enqueues an `import_release` job.
+On a release-published event — or a release edit, or a manual retry — the forge delivers a webhook. The API
+verifies the signature, resolves the installation to a mod, and enqueues an `import_release` job.
 
 The worker then:
 
@@ -567,8 +609,8 @@ The worker then:
    something plausible.
 3. **Refuses to re-stamp.** If that version already exists, the import does not overwrite. Same bytes is a
    no-op; different bytes is a divergence (§11.1).
-4. **Derives `release_status`** — `stable`, `testing` or `dev` — from GitHub's prerelease flag and the SemVer
-   pre-release part, so a nightly does not present itself as a release.
+4. **Derives `release_status`** — `stable`, `testing` or `dev` — from the forge's prerelease flag and the
+   SemVer pre-release part, so a nightly does not present itself as a release.
 5. **Runs the validation pipeline** (§7).
 6. **Snapshots the listing** into `listing_snapshot`, so browsing version 3 shows what version 3 said rather
    than what the listing says today.
@@ -580,8 +622,12 @@ discarding the bytes is what keeps the site an index rather than a host.
 ### 5.4 Disputes
 
 Two people claiming one id, or a repository already linked, goes to a moderator. Evidence, in descending
-weight: GitHub App installation on the canonical repository; commit history; the KSA forums thread; the
-`author` field in a published `mod.toml`.
+weight: app installation on the canonical repository; commit history; the KSA forums thread; the `author`
+field in a published `mod.toml`.
+
+**A mod disputing an id held by a modlist is decided by rule, not judgement: the mod wins** (§2.1). The
+moderator's job there is to confirm the mod is real and the id is genuinely its folder name, then execute the
+rename and the alias.
 
 Outcomes are recorded in `moderation_action` with a rationale and are public by default.
 
@@ -612,6 +658,38 @@ installable where it still works.
 **A yank is the author's statement about one build.** Distinct from `status = "deprecated"`, which covers the
 whole listing, and from a moderator delisting, which is not the author's voice at all. Three vocabularies;
 never merge them.
+
+### 5.6 Supported forges
+
+"GitHub only" would exclude authors who deliberately do not use GitHub, and that is an access decision as much
+as a technical one. The properties actually worth keeping are not GitHub's — they are:
+
+- an **enumerable host allowlist**, so §14.1's SSRF surface stays a handful of known domains rather than the
+  open internet;
+- **app installation as proof of repository control**;
+- a **release API** giving tags, prerelease flags, assets and changelogs without scraping;
+- **webhooks**, so imports are event-driven rather than polled.
+
+Every mainstream git forge has all four. So the rule is **git forge releases from an allowlist**, not GitHub
+specifically:
+
+| Provider | Status |
+|---|---|
+| GitHub | Supported at launch |
+| GitLab (gitlab.com and self-hosted) | Adapter, post-launch |
+| Codeberg / Gitea / Forgejo | Adapter, post-launch |
+
+Adding a forge means implementing `IForgeProvider` — resolve installation, list releases, fetch release
+metadata, verify webhook signature, enumerate asset URLs — and adding its asset domains to the fetch
+allowlist. Nothing else in the pipeline is provider-aware, because §7 receives bytes and an expected id and
+does not care where they came from.
+
+**Self-hosted instances are allowlisted individually, not by pattern.** A wildcard over "any GitLab" is an
+open redirect into arbitrary hosts wearing a forge's clothes, which gives back exactly the property this
+design is buying. An operator adds an instance deliberately, and that is a moderation decision with a record.
+
+**Arbitrary download URLs stay unsupported.** That is where SSRF, link rot and provenance all get materially
+worse at once, and a forge allowlist covers the authors who were actually being excluded.
 
 ---
 
@@ -688,7 +766,7 @@ network at all.**
 worker (host)                          container
 ─────────────                          ─────────
 resolve DNS, SSRF guard (§14.1)
-fetch from GitHub over TLS
+fetch from the forge over TLS
 write to a scratch file
                           ─── mount ro ──▶  /in/archive.zip
                           ─── mount rw ──▶  /out/
@@ -846,7 +924,7 @@ POST /api/v1/resolve                       { content[], gameBuild } → ordered 
 ```
 POST   /api/v1/mods                              create a listing
 PATCH  /api/v1/mods/{id}                         edit metadata
-POST   /api/v1/mods/{id}/github-link             connect a repository
+POST   /api/v1/mods/{id}/repo-link               connect a repository
 POST   /api/v1/mods/{id}/releases/import         manual import or retry
 POST   /api/v1/mods/{id}/releases/{v}/yank       yank, with reason
 PATCH  /api/v1/mods/{id}/releases/{v}            narrowing amendments only (§5.5)
@@ -920,18 +998,18 @@ is material.
 build, a CI re-run — and a queue that is mostly noise trains moderators to click accept, which is exactly the
 wrong reflex on the day a real compromise arrives.
 
-GitHub gives a corroborating signal here that an arbitrary host would not: the release's `updated_at` and
-whether the asset was replaced. Use it to distinguish an author re-uploading from bytes changing underneath a
-release nobody touched. The second is far more alarming than the first.
+A forge gives a corroborating signal an arbitrary host would not: the release's `updated_at` and whether the
+asset was replaced. Use it to distinguish an author re-uploading from bytes changing underneath a release
+nobody touched. The second is far more alarming than the first, and only a forge lets you tell them apart.
 
 ### 11.2 Others
 
 | Job | Cadence | Notes |
 |---|---|---|
 | `sync_builds` | hourly | Mirror `builds.json` into `build`. |
-| `export_index` | on change, at most every 15 min | §12. |
+| `export_index` | on change, at most every 15 min | Build the export **and push the git mirror** (§12.1). Push failure alerts. |
 | `expire_listings` | daily | 90-day unpublished listings and modlists. |
-| `sweep_installations` | daily | Reconcile GitHub App installs; a revoked install disables auto-import and notifies. |
+| `sweep_installations` | daily | Reconcile forge app installs; a revoked install disables auto-import and notifies. |
 | `link_health` | weekly | Check `links.*`; a dead forums thread is a moderation signal. |
 | `refresh_search` | on change | Materialised search vectors. |
 
@@ -940,19 +1018,43 @@ release nobody touched. The second is far more alarming than the first.
 ## 12. Export and interop
 
 Postgres holding the record means the metadata does not outlive the site by default. The export is what buys
-some of that back, and it is also what makes the data useful to Borea and to CKAN-KSA.
+that back, and it is also what makes the data useful to Borea and to CKAN-KSA.
 
 `KsaMods.Exporter` produces **RFC 0031-shaped documents**: one authored TOML per listing, one generated JSON
 per release, one TOML per published modlist version. Bundled as `index.tar.gz` plus a served `index.json`,
 with a manifest carrying `spec_version`, generation time and a content hash.
 
-Optionally pushed to a public git repository on each run. That is the piece that actually delivers
-survivability — a tarball behind a CDN dies with the CDN, a git repository can be forked by anyone who cares.
-**Recommended, and cheap.**
+### 12.1 The git mirror is required
+
+**Every export run commits and pushes to a public git repository.** Not optional, not a later phase — it is
+the mitigation for the single largest cost of moving off git-as-record (§0.2), and it is a few hours of work.
+
+A tarball behind a CDN dies with the CDN and with whoever pays for it. A public git repository survives
+because it gets forked, and — this is the part that matters — **forks happen before the outage, not after**.
+Nobody clones a backup they did not know existed.
+
+Properties to hold:
+
+- **Deterministic output.** Stable key ordering, stable file ordering, timestamps only where semantically
+  meaningful. A run that changes nothing must produce no commit; otherwise the history is noise and diffing
+  two days apart tells you nothing.
+- **One commit per export run**, with a message naming what changed and how many records.
+- **The moderation log is exported too.** §13.4 — an audit trail that only exists inside the service is only
+  as trustworthy as the service.
+- **Push failure is an alert, not a warning.** A silently stale mirror is worse than no mirror, because it
+  looks like a backup.
+
+What the mirror does *not* do: it is a follower, so it inherits whatever the writer produced. A buggy or
+compromised writer publishes bad state into it, where a PR-based flow would have caught that at review. It
+guarantees the data outlives the service. It does not guarantee the data is right.
+
+### 12.2 Conformance and ingest
 
 **Export requires the fields RFC 0031 requires**, including `links.forums`, which the site does not otherwise
 gate on (§5.2). A listing missing them is skipped, and its maintainers are told why, on the listing. Exporting
 a document that does not satisfy the format it claims to implement would make the export worse than useless.
+
+Modlist aliases (§2.1) are exported as a redirect map so a consumer holding a retired id can follow it.
 
 Ingesting the KSAModding index — plan §0's peer posture — reads their published index and surfaces listings
 absent here, labelled by source. It is deliberately read-only and deliberately does not merge: two indexes
@@ -982,7 +1084,7 @@ validation report, so the author's iteration loop is never blocked on a human.
 ### 13.3 Takedown
 
 **A takedown is a delisting, not a deletion.** The site does not host, so removing a listing does not remove
-anything from GitHub. Say exactly that rather than implying a power the site does not have.
+anything from the author's forge. Say exactly that rather than implying a power the site does not have.
 
 **Delisted content stays resolvable by id.** Modlists pin it and dependency graphs reference it; a hole in the
 graph is a worse failure than a listing marked delisted. Serve the record, refuse to offer the download, state
@@ -991,8 +1093,14 @@ why.
 ### 13.4 Audit
 
 Every moderation action writes `moderation_action` with a rationale, public by default (plan §12). Under
-git-as-record this was `git log`; now it is a table, and it needs to be append-only, exposed, and never
-deleted by the same interface that creates it.
+git-as-record this was `git log`; now it is a table, and a table is only as trustworthy as the code that
+writes it. Three properties close that gap:
+
+- **Append-only.** No `UPDATE`, no `DELETE`, enforced by a database role that lacks both rather than by
+  convention. A correction is a new row referencing the old one.
+- **Exported to the git mirror** (§12.1), so the audit trail exists somewhere the service cannot rewrite.
+- **Written in the same transaction as the effect.** A delisting that lands without its log row, or a log row
+  without its delisting, is worse than either alone.
 
 ### 13.5 Stolen content
 
@@ -1008,12 +1116,13 @@ Ranked worst-first.
 
 ### 14.1 SSRF at fetch
 
-The worker fetches URLs derived from webhook payloads. GitHub-only narrows this considerably but does not
-close it: release assets can redirect, and a compromised or hostile App installation supplies attacker-chosen
-values.
+The worker fetches URLs derived from webhook payloads. Restricting sources to allowlisted forges narrows this
+considerably but does not close it: release assets redirect, and a compromised or hostile app installation
+supplies attacker-chosen values.
 
-- Allowlist the host to GitHub's release and asset domains. **This is the single biggest win of the
-  GitHub-only decision** and it should be enforced, not assumed.
+- **Allowlist hosts to the registered asset domains of supported forges** (§5.6), including any individually
+  approved self-hosted instances. This is the single biggest win of the forge-only decision and it must be
+  enforced at fetch time, not assumed from the fact that a webhook arrived.
 - Resolve DNS explicitly and reject loopback, link-local, private, CGNAT, multicast and reserved ranges, IPv6
   and IPv4-mapped forms included.
 - **Re-check after every redirect.** Validating only the initial URL is the standard way this is got wrong.
@@ -1057,8 +1166,8 @@ nothing else.
 ### 14.6 Webhooks
 
 Verify the HMAC signature on every delivery with a constant-time comparison before parsing the body. Reject
-deliveries older than five minutes. De-duplicate on delivery id — GitHub retries, and an import that runs
-twice must be a no-op.
+deliveries older than five minutes. De-duplicate on delivery id — forges retry, and an import that runs twice
+must be a no-op.
 
 ### 14.7 The threat the site cannot fix
 
@@ -1108,8 +1217,11 @@ Postgres is now the record, so this is load-bearing in a way it was not in v0.1:
 30-day retention, and a **restore that has actually been performed**. An untested restore is a hope, and the
 data it protects is the entire product.
 
-The published export is a second, independent copy of the durable metadata. Push it to git (§12) and the
-worst-case story stops being "everything is gone".
+**The git mirror (§12.1) is a second, independent copy held by people who are not you**, which is the property
+no snapshot policy provides. It carries the published metadata, not accounts or sessions — so a total loss
+still costs the user table, but the catalogue survives and can be rebuilt into a fresh instance or a fork.
+
+Alert on mirror push failure at the same severity as a backup failure, because that is what it is.
 
 ### 16.3 Observability
 
@@ -1147,19 +1259,24 @@ a lost update.
 
 ## 18. Build order
 
-**Phase 1 — the core loop.** Auth, mod creation, GitHub App linking, release import, the validator library and
-container, findings on the listing page. Nothing else. This is the shortest path to something a mod author
-gets value from, and it forces the metadata types to be right before anything depends on them.
+**Phase 1 — the core loop.** Auth, mod creation, GitHub linking, release import, the validator library and
+container, findings on the listing page, **and the export with its git mirror**. This is the shortest path to
+something a mod author gets value from, and it forces the metadata types to be right before anything depends
+on them.
 
-**Phase 2 — modlists.** Drafts, collaborators, publishing, versioned pins, publish-time checks.
+The mirror belongs here rather than in a later phase for two reasons: it is the durability story for a
+database that is now the record, and it forces the RFC 0031 serialisation to be correct from the first
+listing rather than retrofitted onto data that grew without it.
+
+**Phase 2 — modlists.** Drafts, collaborators, publishing, versioned pins, publish-time checks, aliases.
 
 **Phase 3 — the read product.** Search, facets, compatibility surfacing, public read API, `builds.json` sync.
 
 **Phase 4 — trust.** Re-verification, divergence classification, quarantine, review queue, reports,
 moderation log.
 
-**Phase 5 — the ecosystem.** Export, resolver library and endpoint, collision surfacing, CLI, upstream index
-ingest.
+**Phase 5 — the ecosystem.** Resolver library and endpoint, collision surfacing, CLI, additional forge
+adapters, upstream index ingest.
 
 Stages 6 and 7b of the pipeline run from the first import even though nothing consumes them until Phase 5.
 Both are nearly free at ingest and impossible to backfill once asset URLs start rotting — the site does not
@@ -1169,25 +1286,31 @@ keep the bytes, so a fact not extracted on first contact may be unrecoverable.
 
 ## 19. Open questions
 
+### Decided since v0.2
+
+| Was open | Decision |
+|---|---|
+| GitHub-only excludes non-GitHub authors | **Generalised to a forge allowlist** (§5.6). GitHub at launch; GitLab and Codeberg/Forgejo by adapter. The properties worth keeping were an enumerable host allowlist, app-install proof, a release API and webhooks — every mainstream forge has all four, so none of them required GitHub specifically. Arbitrary URLs stay unsupported. |
+| Should modlists share the mod id namespace? | **Yes, shared — with mods holding priority** (§2.1). A mod's id is forced by the game; a modlist's is a free choice, and renaming a modlist is survivable via an alias while renaming a mod breaks every install. The constrained party wins. |
+| Is the git mirror worth it? | **Required, in Phase 1** (§12.1). It is the mitigation for the largest cost of leaving git-as-record, and it only works if forks exist before the outage. |
+
+### Still open
+
 1. **Posture with KSAModding (plan §0).** §12's read-only ingest manages a problem that should be designed
    away. Still the first question, and it gets more expensive with every listing.
-2. **GitHub-only excludes authors who do not use GitHub.** Accepted for now — provenance and the SSRF
-   reduction are worth it — but it is a real access decision, not just a technical one. Revisit when someone
-   is actually turned away.
-3. **Should modlists share the mod id namespace?** RFC 0031 says yes and interop wants it. It also means a
-   casual list can take an id a mod later needs, which will surprise people. A separate namespace with a
-   prefix on export is the alternative.
-4. **Does Borea consume the validation findings?** Asset collisions, unreachable content files and unresolved
+2. **Does Borea consume the validation findings?** Asset collisions, unreachable content files and unresolved
    declared paths are this project's distinctive contribution, and they are only worth surfacing if a client
    uses them. Worth confirming early — it justifies a good deal of Phase 1.
-5. **Tomlyn or Tomlet?** StarMap parses `mod.toml` with Tomlet. If they disagree on a malformed file, the
+3. **Tomlyn or Tomlet?** StarMap parses `mod.toml` with Tomlet. If they disagree on a malformed file, the
    validator's verdict and the loader's behaviour diverge, which is the one place this must not be wrong. A
    differential test over the fixture corpus would settle it cheaply.
-6. **Who operates and pays, and what happens when they stop?** §12 and §16.2 make the failure survivable
-   rather than terminal. They do not make it not happen.
-7. **Do vehicles and saves land here?** RFC 0025 puts them in scope as separate content types with a different
+4. **Who operates and pays, and what happens when they stop?** §12.1 and §16.2 make the metadata survive. They
+   do not make the site survive, and accounts and modlist drafts are not in the mirror.
+5. **Do vehicles and saves land here?** RFC 0025 puts them in scope as separate content types with a different
    install target. §3's schema assumes they fit the existing shape, and `modlist_draft_entry.entry_kind`
    anticipates them. Probably right. Not verified.
-8. **Multi-owner mods.** §4.2 allows exactly one owner plus maintainers. Some mods are genuinely
+6. **Multi-owner mods.** §4.2 allows exactly one owner plus maintainers. Some mods are genuinely
    collaborative, and the modlist model already supports shared control — worth revisiting once there is
    evidence of the need rather than in anticipation of it.
+7. **Which self-hosted forge instances get allowlisted, and on what basis?** §5.6 makes it a deliberate
+   moderation decision with a record. It needs a stated bar before the first request arrives, not after.

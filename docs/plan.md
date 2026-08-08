@@ -1,7 +1,7 @@
 # ksamods.gg Feature Plan
 
-**Status:** Draft v0.3
-**Companion to:** [KSA Mod Archive Structure Standard v0.4](spec.md), [Backend Specification v0.1](backend.md)
+**Status:** Draft v0.4
+**Companion to:** [KSA Mod Archive Structure Standard v0.4](spec.md), [Backend Specification v0.3](backend.md)
 **Grounded on:** KSA build `2026.8.5.5168`, StarMap `0.4.6`
 **Aligned with:** KSAModding [RFC 0017](../content-manager-design/rfcs/0017-game-version-ordering-and-compatibility.md),
 [RFC 0025](../content-manager-design/rfcs/0025-scope.md),
@@ -41,7 +41,7 @@ differs between them it is called out. Posture 3 is not planned for; adopting it
 this plan does not currently have.
 
 What does *not* change under any posture is the part of this plan the RFCs do not cover at all: **archive
-content validation and asset id collision detection** (§4 and §7). RFC 0031's watcher reads `mod.toml` for
+content validation and asset id collision detection** (§4 and §7). RFC 0031's import reads `mod.toml` for
 identity, install root and dependencies. Nothing in the RFC corpus parses declared XML, checks that content
 paths resolve, or maintains a cross-mod asset id index. That is genuinely additive, it is the difference
 between "installed fine, does nothing" and a useful error, and it is the strongest argument for this project
@@ -84,13 +84,23 @@ was reviewed, and will it conflict with the other mods I have.
 ## 2. Domain model
 
 ```
-Author        a person or org, owns Content
-  └── Content   stable identity, one global id namespace across every type
-        │       type ∈ { mod, modpack, mod-loader, (vehicle, save) }
-        │       authored metadata: identity, links, license, compatibility, loader, dependencies
-        └── Release   SemVer, immutable once stamped
-              └── Artifact   one downloadable archive: url + sha256 + sizes
+Account       a signed-in person (GitHub or Discord)
+  ├── owns / maintains ──▶ Mod        stable identity == the KSA folder name
+  │                          └── Release   SemVer, immutable once imported
+  │                                └── Artifact   forge asset: url + sha256 + sizes
+  │
+  └── owns / collaborates ──▶ Modlist
+                                ├── Draft     mutable, multi-editor working set
+                                └── Version   immutable snapshot, exact (id, version) pins
+
+One global id namespace across mods and modlists.
+Content types: mod, modpack, mod-loader, and later vehicle and save.
 ```
+
+**People, not just content.** Listings are created and maintained by accounts on the site, and modlists are
+collaborative — one owner plus invited editors. This is the product shape; [backend.md](backend.md) §2–§6
+specifies it. An earlier draft of this section modelled only content and its metadata, which is the right
+model for a metadata repository and an incomplete one for a site people log into.
 
 **Content, not just mods.** RFC 0025 scopes the ecosystem to mods, mod packs, vehicles and saves, with the
 content type a required field from day one so that widening later is an extension rather than a break. This
@@ -106,8 +116,11 @@ checked up to the first dot. The earlier `<author>.<mod>` lowercase rule and the
 it made necessary are both withdrawn — RFC 0031's format admits `AdvancedFlightComputer` directly, so there is
 nothing to grandfather.
 
-**The namespace is global across types.** A mod, a pack and a loader can never share an id, which keeps every
-reference type-free. The cost is first-come-first-served across types, and it is the right trade.
+**The namespace is global across types, and mods have priority within it.** A mod, a modlist and a loader can
+never share an id, which keeps every reference type-free. Plain first-come-first-served would be wrong,
+though: a mod's id is dictated by the game folder name, while a modlist's is a free choice. So a mod disputing
+an id held by a modlist wins, and the modlist is renamed with a permanent alias redirect. Renaming a modlist
+costs a link; renaming a mod breaks every install. See [backend.md](backend.md) §2.1.
 
 **Metadata splits by who writes it, and the split is the important part** (RFC 0031):
 
@@ -131,7 +144,7 @@ version, pinning exact `(id, version)` pairs. There is no archive, so there is n
 stamp. Exact pins rather than ranges, because a pack is a curated tested set rather than a statement of need.
 
 **Releases are immutable, and a version is stamped exactly once.** If a host's tag for an already-stamped
-version reappears with different bytes, the watcher **rejects it and never overwrites**. The author's way
+version reappears with different bytes, the import **rejects it and never overwrites**. The author's way
 forward is a new version, or a yank of the broken one. This is the only way an index without hosting can offer
 an integrity guarantee at all, and it is stricter than the earlier draft here, which contemplated accepting
 changed bytes as a new version after review.
@@ -147,13 +160,17 @@ stamped only when a non-authority host serves an archive with identical bytes.
 ### 3.1 Claiming an id
 
 1. Sign in with GitHub or Discord.
-2. Request an id. Validated against the Standard §3 format rules, which are RFC 0031's.
+2. Create the listing with an id. Validated against the Standard §3 format rules, which are RFC 0031's.
 3. Reserved: `Core`, anything colliding case-insensitively with an existing id of **any** content type, and
    Windows device names compared up to the id's first dot.
-4. Supply a KSA forums thread. Required, per RFC 0031, and it does real work: it ties the listing to an Ahwoo
-   account, it is the tiebreaker in an id dispute, and it is a takedown tripwire. It is also the cheapest
-   ownership signal available to a project that cannot verify domains.
-5. Claim is immediate for unused ids. Disputes go to moderation, with the forums thread as evidence.
+4. Connect the repository by installing the ksamods app on it. **This is the ownership proof** — installing an
+   app requires admin on that repository, which is stronger evidence than anything a listing can assert.
+5. Supply a KSA forums thread. Recommended rather than required here, because step 4 already proves control.
+   It is still required to appear in the exported index (backend §12.2), it remains the tiebreaker in a
+   dispute, and it is a takedown tripwire.
+
+Creation is immediate for unused ids; there is no separate claim step and no waiting period, because a listing
+with no connected repository and no releases is inert. Disputes go to moderation.
 
 **Case-insensitive reservation is intentional and narrower than the game.** KSA treats `MyMod` and `mymod` as
 distinct, but they cannot both live in one `mods/` folder on Windows, so the registry reserves them as one.
@@ -165,47 +182,55 @@ claim is a reservation rather than an identity. Once a version exists, the id is
 
 ### 3.2 Submitting a version
 
-**The author writes one file, once, and then stops.** RFC 0031's shape: an authored TOML document declares a
-`[releases]` section naming where releases appear — `github = "owner/repo"` or `spacedock = 4253` — and from
-then on the author tags a release and goes to bed. A watcher fetches the archive, computes the checksum, reads
-dependencies out of the archive's own `mod.toml`, stamps a release file, and the release is installable.
+**The author connects a repository once, and then just tags releases.** No per-release paperwork. On a
+published release the forge sends a webhook, the site imports the asset, runs the pipeline, stamps an
+immutable release record and the version is listed.
 
-More than one host key is allowed, and then an `authority` key naming one of them is required: the authority
-defines which releases exist and when, and other hosts are checked only for an archive with identical bytes,
-which is how mirrors get populated.
+**Releases come from a git forge, and only from a git forge** — GitHub at launch, GitLab and Codeberg by
+adapter. Not arbitrary download URLs. The properties this buys are worth the constraint: an enumerable host
+allowlist that keeps the fetch surface small, app installation as ownership proof, a release API that supplies
+tags and prerelease flags and changelogs for free, and webhooks so imports are event-driven. Every mainstream
+forge has all four. Backend §5.6 covers adding one.
 
-The `[releases]` section is optional. Without it, releases enter by pull request, which stays the path for
-content hosted where no watcher looks.
+An earlier draft of this section described RFC 0031's watcher-plus-pull-request model, where an author writes a
+TOML document declaring a `[releases]` host and releases enter the index by PR. That is the right design for a
+metadata repository maintained in git. It is the wrong one for a site where people sign in and click, and the
+site's model is what this document now describes.
 
-**Provenance still differs by path, and the page should say which.** A watched GitHub release carries repo,
-tag, commit and asset id, so provenance is real. A pull-requested release or a pasted URL does not prove
-control of anything, and §5 escalates accordingly.
-
-**Validation happens at publish time, in front of the author.** A version string that does not parse as SemVer
-rejects the release then and there, rather than surfacing later in front of users. This is CKAN's most
+**Validation happens at import, with the result in front of the author.** A tag that does not parse as SemVer
+fails the import there and then rather than surfacing later in front of users. This is CKAN's most
 transferable operational lesson: a malformed template failed inflation with the error in front of the person
-who could fix it.
+who could fix it. A failed import stays visible to maintainers with its full report and a retry button, so
+fixing a packaging mistake never means deleting and recreating anything.
 
-The pipeline (§4) runs on every path. No path stores the archive permanently.
+**The pipeline (§4) runs on every import, and never stores the archive.** It is downloaded, inspected,
+and discarded; what persists is the URL, the hash, and everything the validator learned.
 
-**Authored metadata is fixed by editing the index, not by re-releasing.** A corrected link, a tightened
-compatibility bound, a newly-learned dependency: all index edits. This is a direct consequence of metadata not
-living in the archive (Standard §5.3), and it is one of the strongest reasons for that choice.
+**Listing metadata is edited on the site, not by re-releasing.** A corrected link, a tightened compatibility
+bound, a newly-learned dependency: all listing edits. This is a direct consequence of metadata not living in
+the archive (Standard §5.3), and it is one of the strongest reasons for that choice. Published *releases* are
+a different matter — they are immutable, and accept only the narrowing amendments in §5.
 
 ### 3.3 Version metadata
 
-Split by who writes it, per RFC 0031. The left column is the authored file; the right is stamped per release.
+Split by who writes it and how often, which is RFC 0031's authored/generated split expressed as a site. The
+left column is the listing, edited by its maintainers; the right is stamped at import and frozen.
 
-| Authored, once | Generated, per release |
+| Listing, edited any time | Release, stamped once at import |
 |---|---|
 | `id`, `type`, `name`, `authors`, `abstract`, `license` (SPDX) | `version`, normalised to SemVer 2.0.0, leading `v` stripped |
-| `description`, `tags`, `status`, `superseded_by` | `release_status`: `stable`, `testing` or `dev`, derived from host flags and the pre-release part |
-| `[links]` with `forums` required | `release_date`, ISO 8601 UTC |
-| `[releases]` host and authority | `download`: `url`, `sha256`, `size`, `content_type`, optional `mirrors` |
-| `[compatibility]`: `game_min` required, `game_max` and `os` optional | `game_min` plus resolved `game_min_revision` (§6) |
-| `[loader]`: `id`, `min` required, `max` optional | `install.root` and whether it was derived |
-| `[[dependencies]]`: `id`, `kind`, optional `min`/`max` | merged `dependencies`, each tagged `authored` or `derived` |
-| | `install_size`, `changelog`, `listing` snapshot |
+| `description`, `tags`, `status`, `superseded_by` | `release_status`: `stable`, `testing` or `dev`, from the forge's prerelease flag and the pre-release part |
+| `links`, with `forums` recommended and required to export | `released_at`, ISO 8601 UTC |
+| the connected repository | `download`: `url`, `sha256`, `size`, `content_type` |
+| compatibility: `game_min` required, `game_max` and `os` optional | `game_min` plus resolved `game_min_revision` (§6) |
+| loader: `id`, `min` required, `max` optional | `install.root` and whether it was derived |
+| dependencies: `id`, `kind`, optional `min`/`max` | merged `dependencies`, each tagged `authored` or `derived` |
+| | `install_size`, `changelog`, and a `listing` snapshot |
+
+**Editing the listing affects future releases only.** Each release keeps the snapshot taken when it was
+imported, so browsing version 3 shows what version 3 said rather than what the listing says today. Status and
+succession are the exception: those are read live, because a deprecation has to reach every release the moment
+it is declared.
 
 Two fields carry more weight than their size suggests:
 
@@ -335,10 +360,10 @@ divergence**: flag it on the mod page, notify the author, ask them to cut a real
 a new `[console]` entry, or newly-declared asset ids is a **tamper event**: quarantine immediately, hide the
 download, notify author and moderators, require a human. In neither case does the stamped record change.
 
-**Where it came from.** A watched GitHub release knows whether it was edited, when, and by whom, which
-corroborates a benign re-upload. A pasted URL or a pull-requested release has no such signal, so an
-unexplained change there escalates one level: benign divergence becomes a review item, and a tamper event
-reaches the author's other listings as well.
+**Where it came from.** A forge release records whether it was edited, when, and by whom, which corroborates a
+benign re-upload. Bytes changing underneath a release nobody touched has no such explanation and is far more
+alarming — being able to tell those two apart is one of the concrete reasons releases come from forges rather
+than arbitrary URLs (§3.2).
 
 **Yanking is the author's own tool and is not a tamper event.** A yank retracts one build: it stays in
 history, clients stop offering it for new installs and updates, an already-installed copy is left alone and
@@ -525,15 +550,26 @@ count outbound clicks and API resolutions, which measures intent rather than ins
 "resolutions" with an honest tooltip, or fetch real counts from the GitHub releases API where the artifact is
 a GitHub asset. Do not present a click count as a download count.
 
-**Mod packs are a content type, not a site feature.** RFC 0031 defines them: one authored TOML document per
-pack version, self-contained, pinning exact `(id, version)` pairs for mods and — with the same entry shape —
-vehicles and saves. No download, no checksum, no install data, no `[loader]` block (it follows from the pinned
-mods), and no nested packs in `spec_version = 1`. A pack never redistributes anyone's files; each member
-downloads from its own host.
+**Modlists are a content type and a collaboration feature.** RFC 0031 defines the published artifact: one
+document per version, self-contained, pinning exact `(id, version)` pairs for mods and — with the same entry
+shape — vehicles and saves. No download, no checksum, no install data, no loader block (it follows from the
+pinned mods), and no nested packs in `spec_version = 1`. A modlist never redistributes anyone's files; each
+member downloads from its own forge.
+
+On top of that, the site adds what a document format has no need for: **a mutable draft with multiple
+editors.** One owner, invited collaborators, editors who edit and admins who publish. Publishing snapshots the
+draft into an immutable version; the draft stays editable. Drafts are site-native and never exported — what
+gets exported is exactly RFC 0031's shape. Backend §6.
 
 Given the game has no dependency system, curated working sets are disproportionately valuable here, and exact
-pins are the point: a dependency says "any X in this range works", a pack says "this exact set is what I
+pins are the point: a dependency says "any X in this range works", a modlist says "this exact set is what I
 curated and tested". The two are not in tension.
+
+**Publish-time checks are what make curation mean something.** A pin naming a version that does not exist
+blocks. Yanked or deprecated members, colliding asset ids between members, non-intersecting compatibility
+ranges, and unsatisfied required dependencies all warn and are overridable. The dependency check earns its
+place: the game resolves nothing and StarMap fails silently to a console nobody reads, so a modlist missing a
+dependency ships a mod that never loads and never says why.
 
 Note the vehicle and save sections are already defined in `spec_version = 1` even though those content types
 have not landed. That costs nothing now and saves a format bump later — worth copying as a habit.
@@ -550,7 +586,7 @@ The page has to carry the honesty burden that hosting would otherwise carry.
   Unknown (§6), rendered in full version strings rather than raw revisions.
 - **Loader requirement:** which loader and which version bound, or "runs without a loader" for asset-only mods.
 - **Availability status** per artifact: verified and when, unavailable, diverged, or quarantined.
-- **Provenance:** watched release with repo, tag and commit, or a submitted URL. Say which, plainly.
+- **Provenance:** the connected repository, with tag and commit for the release. Say which forge, plainly.
 - **Risk surface:** ships code yes or no, list of shipped assemblies, `[console]` commands verbatim if present.
 - **Conflicts:** ids shared with other mods, ids overriding `Core`.
 - **Validation report:** the warnings from §4, including content files unreachable from `mod.toml` and XML.
@@ -719,24 +755,30 @@ needs no engine change — so the reason for the non-goal is gone.
 answer. This is days of conversation, not weeks of work, and every phase below is cheaper once it is decided.
 Doing it after Phase 1 means rewriting Phase 1.
 
-**Phase 1, the index.** Auth, id claiming, submission by watched host and by pull request, verification
-pipeline stages 1 to 7b, listing pages, search, read-only API serving RFC 0031 documents. Enough to be useful
-and to start accumulating the corpus.
+**Phase 1, the core loop.** Auth, listing creation, repository connection, release import, verification
+pipeline stages 1 to 7b, listing pages, and the RFC 0031 export with its git mirror. Enough to be useful to a
+mod author and to start accumulating the corpus.
 
-Stages 6 and 7b run here even though nothing consumes them until Phase 3. Both are nearly free at ingest and
-impossible to backfill cheaply once artifact URLs start rotting (§4). Store extracted asset ids, extracted
+Stages 6 and 7b run here even though nothing consumes them until Phase 4. Both are nearly free at ingest and
+impossible to backfill once artifact URLs start rotting — the site does not keep the bytes, so a fact not
+extracted on first contact may be unrecoverable. Store extracted asset ids, extracted
 `[[StarMap.ModDependencies]]`, and the full validation report from day one; surface them later.
 
-**Phase 2, trust.** Watched-release provenance, periodic re-verification, hash-change classification, yanks
-and the narrow amendment set, moderation queue, reporting.
+The export belongs in Phase 1, not later: it is the durability story for a database that is now the record,
+and it forces the RFC 0031 serialisation to be right from the first listing rather than retrofitted.
 
-**Phase 3, resolution.** Dependency graph, conflicts, asset id collision detection surfaced from the Phase 1
-data, the resolve endpoint and its shared solver library, compatibility ranges over `builds.json`.
+**Phase 2, modlists.** Drafts, collaborators, publishing, versioned pins, publish-time checks.
 
-**Phase 4, ecosystem.** Publish action, local validator CLI, template repo, mod packs, and the vehicle and
-save content types once RFC 0025's second implementation phase defines them.
+**Phase 3, the read product.** Search, facets, compatibility surfacing, public read API, `builds.json` sync.
 
-Phases 1 and 2 are the product. Phase 3 is what makes it better than a spreadsheet. Phase 4 is what makes the
+**Phase 4, trust and resolution.** Re-verification, divergence classification, quarantine, review queue,
+reporting, the dependency graph, asset id collision surfacing, and the resolve endpoint with its shared solver
+library.
+
+**Phase 5, ecosystem.** Local validator CLI, template repo, additional forge adapters, upstream index ingest,
+and the vehicle and save content types once RFC 0025's second implementation phase defines them.
+
+Phases 1 and 2 are the product. Phase 4 is what makes it better than a spreadsheet. Phase 5 is what makes the
 Archive Standard stick.
 
 **The client question is answered and no longer sits in Phase 2.** RFC 0025 names
@@ -756,8 +798,15 @@ conversation to have during Phase 0 rather than a bet to place later.
 |---|---|
 | Who builds the conforming client? | **Borea**, in the KSAModding org, per RFC 0025. The spec stays implementation-neutral so others can too. |
 | Interoperate with CKAN, or define a new format? | **Define our own**, per RFC 0025. Take CKAN's versioning model and authored/generated split; skip the build-counter workaround and the upstream-merge choke point (§11). |
-| Do collections share the mod id namespace? | **Yes.** RFC 0031 makes the namespace global across all content types, so a reference to an id needs no type. |
+| Do collections share the mod id namespace? | **Yes, and mods have priority in it.** RFC 0031 makes the namespace global so a reference needs no type. A mod disputing an id held by a modlist wins, because a mod's id is forced by the game while a modlist's is a free choice (§2). |
 | Do legacy ids get a deadline? | **Moot.** RFC 0031's id format admits `AdvancedFlightComputer` directly, so there is no legacy tier and nothing to sunset. |
+
+### Settled by the backend spec
+
+| Was open | Decision |
+|---|---|
+| Where can a release live? | **Git forge releases only**, from an allowlist — GitHub at launch, GitLab and Codeberg by adapter. Not arbitrary URLs. Backend §5.6. |
+| Archival mirror for dead links? | **No artifact mirror; yes to a metadata mirror.** The site still never stores a mod file, which keeps RFC 0025's no-hosting non-goal intact. But the *metadata* is mirrored to a public git repository on every export, which is what stops the catalogue dying with the site. Backend §12.1. |
 
 ### Still open
 
@@ -765,12 +814,11 @@ conversation to have during Phase 0 rather than a bet to place later.
    load-bearing question, and it is the same *kind* of question the client one was: everything downstream
    changes shape depending on the answer, and it gets more expensive to answer the longer building continues.
 2. **Who operates and pays for the site, and what happens when they stop?** RFC 0025 explicitly avoids
-   anything needing a service somebody keeps running. This plan assumes one. That tension is real and §1 names
-   it; it needs an owner, not a paragraph.
-3. Optional archival mirror for dead links: worth the hosting and licensing complexity, or accept link rot?
-   Note this one now cuts against RFC 0025's no-hosting non-goal as well as costing money.
-4. Are download counts worth showing at all given the site cannot measure them honestly?
-5. What is the review threshold in practice: every DLL forever, or reputation-gated after the first?
+   anything needing a service somebody keeps running. This plan assumes one. The git metadata mirror makes the
+   *catalogue* survivable, which is the part that matters to the ecosystem — but accounts, modlist drafts and
+   collaboration state are not in the mirror and would be lost. Still needs an owner, not a paragraph.
+3. Are download counts worth showing at all given the site cannot measure them honestly?
+4. What is the review threshold in practice: every DLL forever, or reputation-gated after the first?
 6. **Does the validation data have a consumer?** Asset id collisions, unreachable content files and declared
    paths that do not resolve are this project's distinctive contribution (§0), but they are only worth
    producing if Borea or another client surfaces them. Worth confirming early, since it is the justification
