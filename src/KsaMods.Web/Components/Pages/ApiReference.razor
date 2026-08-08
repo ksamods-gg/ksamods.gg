@@ -1,0 +1,200 @@
+@page "/api-reference"
+
+@* Route is /api-reference, not /api: ApiProxy claims /api/{**path} and forwards it to the
+   backend, so a page mounted there would be unreachable. *@
+
+<PageTitle>API | ksamods.gg</PageTitle>
+
+<div class="mx-auto max-w-3xl">
+    <p class="font-mono text-xs uppercase tracking-[0.2em] text-primary">Reference</p>
+    <h1 class="mt-3 text-3xl font-semibold tracking-tight">The ksamods.gg API</h1>
+
+    <p class="mt-4 max-w-2xl text-muted-foreground">
+        Everything you can see on this site, you can read as JSON. Reads need no key and no
+        account, because the whole point of the index is that other people's tools can use it.
+    </p>
+
+    <div class="mt-8 space-y-10 text-sm leading-relaxed">
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Basics</h2>
+            <dl class="mt-3 divide-y divide-border rounded-lg border border-border">
+                <div class="flex gap-4 px-4 py-2.5">
+                    <dt class="w-32 shrink-0 text-muted-foreground">Base URL</dt>
+                    <dd class="font-mono text-xs">/api/v1</dd>
+                </div>
+                <div class="flex gap-4 px-4 py-2.5">
+                    <dt class="w-32 shrink-0 text-muted-foreground">Format</dt>
+                    <dd>JSON. Every response carries <code class="font-mono text-xs">spec_version</code>.</dd>
+                </div>
+                <div class="flex gap-4 px-4 py-2.5">
+                    <dt class="w-32 shrink-0 text-muted-foreground">Auth</dt>
+                    <dd>None for reads. Writes use the session cookie from signing in.</dd>
+                </div>
+                <div class="flex gap-4 px-4 py-2.5">
+                    <dt class="w-32 shrink-0 text-muted-foreground">Rate limit</dt>
+                    <dd>300 reads and 60 writes per minute, per address.</dd>
+                </div>
+                <div class="flex gap-4 px-4 py-2.5">
+                    <dt class="w-32 shrink-0 text-muted-foreground">Errors</dt>
+                    <dd>
+                        RFC 9457 problem details. Read
+                        <code class="font-mono text-xs">detail</code> for something worth showing a person.
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Reading the catalogue</h2>
+            <p class="mt-2 text-muted-foreground">
+                No account needed. These are the endpoints a launcher or a mod manager will spend
+                its time in.
+            </p>
+
+            <div class="mt-4 overflow-x-auto">
+                <table class="w-full min-w-[34rem] border-collapse text-left">
+                    <thead>
+                        <tr class="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+                            <th class="py-2 pr-4 font-medium">Endpoint</th>
+                            <th class="py-2 font-medium">What it gives you</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /mods</td>
+                            <td class="py-2.5 align-top text-muted-foreground">Search and list mods.</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /content</td>
+                            <td class="py-2.5 align-top text-muted-foreground">
+                                The same search across mods and modlists together.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /mods/{id}</td>
+                            <td class="py-2.5 align-top text-muted-foreground">
+                                One listing with its releases.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /mods/{id}/releases/{version}</td>
+                            <td class="py-2.5 align-top text-muted-foreground">
+                                One release: download URL, hash, dependencies, validator findings.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /collisions/{assetId}</td>
+                            <td class="py-2.5 align-top text-muted-foreground">
+                                Everyone declaring that asset id. More than one means they conflict.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /builds</td>
+                            <td class="py-2.5 align-top text-muted-foreground">Known game builds and their revisions.</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2.5 pr-4 align-top font-mono text-xs">GET /modlists/{id}</td>
+                            <td class="py-2.5 align-top text-muted-foreground">A modlist and its published versions.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="mt-6 text-sm font-semibold text-foreground">Search parameters</h3>
+            <p class="mt-2 text-muted-foreground">
+                All optional, all on <code class="font-mono text-xs">/mods</code> and
+                <code class="font-mono text-xs">/content</code>.
+            </p>
+            <ul class="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+                <li><code class="font-mono text-xs">q</code> matches name and short description.</li>
+                <li><code class="font-mono text-xs">tag</code> filters to one tag.</li>
+                <li><code class="font-mono text-xs">gameBuild</code> keeps only things with a release for that revision.</li>
+                <li><code class="font-mono text-xs">limit</code> defaults to 50, capped at 200.</li>
+                <li><code class="font-mono text-xs">after</code> is the cursor. See below.</li>
+            </ul>
+
+            <h3 class="mt-6 text-sm font-semibold text-foreground">Paging</h3>
+            <p class="mt-2 text-muted-foreground">
+                Responses carry a <code class="font-mono text-xs">next</code> value. Pass it back as
+                <code class="font-mono text-xs">after</code> for the following page, and stop when it
+                comes back null. This is a cursor rather than an offset on purpose: offsets skip and
+                repeat rows when the catalogue changes mid-scroll, and something taking a full
+                snapshot would end up with a corrupt one.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Resolving an install</h2>
+            <p class="mt-2 text-muted-foreground">
+                <code class="font-mono text-xs">POST /resolve</code> takes what you want and returns
+                a concrete install plan, or an explanation of why there is not one. It also reports
+                asset id collisions between the mods you picked, which is the failure a player
+                otherwise finds out about by noticing something silently missing in game.
+            </p>
+
+            <pre class="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs"><code>POST /api/v1/resolve
+Content-Type: application/json
+
+{
+  "content": [
+    { "id": "OuterPlanets", "version": "1.2.0" },
+    { "id": "AdvancedFlightComputer" }
+  ],
+  "gameBuild": 1042,
+  "includeRecommended": false
+}</code></pre>
+
+            <p class="mt-3 text-muted-foreground">
+                Leave <code class="font-mono text-xs">version</code> out to take the newest release
+                that fits. <code class="font-mono text-xs">gameBuild</code> is the revision number
+                from <code class="font-mono text-xs">/builds</code>.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Writing</h2>
+            <p class="mt-2 text-muted-foreground">
+                Writes need a signed-in session and, for anything touching a mod, the right role on
+                that mod. The cookie is HttpOnly, so these are for the site itself rather than for a
+                script you are writing.
+            </p>
+            <ul class="mt-3 list-disc space-y-1 pl-5 text-muted-foreground">
+                <li><code class="font-mono text-xs">POST /mods</code> creates a listing.</li>
+                <li><code class="font-mono text-xs">POST /mods/{id}/repo-link</code> connects the repository releases come from.</li>
+                <li><code class="font-mono text-xs">POST /mods/{id}/releases/import</code> pulls in tagged releases.</li>
+                <li><code class="font-mono text-xs">POST /mods/{id}/releases/{version}/yank</code> retracts one build.</li>
+                <li><code class="font-mono text-xs">POST /modlists</code> and the draft and publish routes under it.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Two things to know before you build on this</h2>
+
+            <p class="mt-2 text-muted-foreground">
+                <span class="font-medium text-foreground">Download URLs are not ours.</span>
+                Every release points at a file on the author's own forge, and we store the
+                <code class="font-mono text-xs">sha256</code> we measured when we checked it. Verify
+                that hash after downloading. If it does not match, do not install the file, because
+                the bytes changed after we looked at them.
+            </p>
+
+            <p class="mt-3 text-muted-foreground">
+                <span class="font-medium text-foreground">Passing validation is not a safety
+                verdict.</span> Findings tell you an archive is packaged the way the game expects.
+                Code mods are unsandboxed assemblies, and no amount of packaging analysis tells you
+                what one does once it is running.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">The exported index</h2>
+            <p class="mt-2 text-muted-foreground">
+                If you want the whole catalogue rather than a query against it, there is a static
+                export and a git mirror of it, both built to keep working if this service is not.
+                Polling <code class="font-mono text-xs">/mods</code> in a loop is the wrong tool for
+                that job.
+            </p>
+        </section>
+    </div>
+</div>
