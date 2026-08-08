@@ -116,7 +116,14 @@
                                         <input id="@($"why-{listing.Id}")" value="@_rationale"
                                                @oninput='e => _rationale = e.Value?.ToString() ?? ""'
                                                placeholder="What happened, in one line."
-                                               class="@InputClass" />
+                                               class="@Cx.Of(InputClass, _panelError is not null ? "border-severity-error" : null)" />
+
+                                        @* Beside the field rather than at the top of the page,
+                                           where it would sit above a search box it is not about. *@
+                                        @if (_panelError is not null)
+                                        {
+                                            <p class="mt-1.5 text-xs text-severity-error">@_panelError</p>
+                                        }
                                     </div>
                                 </div>
 
@@ -162,7 +169,13 @@
 
     private bool _loading = true;
     private bool _saving;
+
+    /// <summary>Something the API refused. Belongs at the top, with the rest of the page state.</summary>
     private string? _error;
+
+    /// <summary>Something wrong with what is typed in the open panel. Belongs beside the field.</summary>
+    private string? _panelError;
+
     private string? _notice;
 
     protected override async Task OnInitializedAsync()
@@ -218,6 +231,7 @@
 
         // Fresh every time: a reason typed for one listing must never be carried onto another.
         _rationale = "";
+        _panelError = null;
         _target = "delisted";
     }
 
@@ -225,7 +239,7 @@
     {
         if (string.IsNullOrWhiteSpace(_rationale))
         {
-            _error = "Write down why first. It goes in the log with your name on it.";
+            _panelError = "Write down why first. It goes in the log with your name on it.";
             _notice = null;
             return;
         }
@@ -243,6 +257,7 @@
                 _notice = $"{listing.Id} is now {_target}.";
                 _open = null;
                 _rationale = "";
+                _panelError = null;
                 await LoadAsync();
             }
             else

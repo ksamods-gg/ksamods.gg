@@ -123,7 +123,16 @@
                                           value="@Rationale(report.Id)"
                                           @oninput="e => SetRationale(report.Id, e.Value?.ToString())"
                                           placeholder="What you found, and what you did about it."
-                                          class="@TextareaClass"></textarea>
+                                          class="@Cx.Of(TextareaClass, _blank == report.Id ? "border-severity-error" : null)"></textarea>
+
+                                @* Beside the box it is about. At the top of the page it sat above
+                                   a row of filter buttons, which is not what it was talking about. *@
+                                @if (_blank == report.Id)
+                                {
+                                    <p class="mt-1.5 text-xs text-severity-error">
+                                        Write down why first. It goes in the log with your name on it.
+                                    </p>
+                                }
 
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
                                     @* Three outcomes, deliberately: "triaged" is for a report that
@@ -187,6 +196,9 @@
     private readonly Dictionary<long, string> _rationales = [];
     private long? _busy;
 
+    /// <summary>The report whose reason box was left empty, so the complaint can sit next to it.</summary>
+    private long? _blank;
+
     private string _state = "open";
     private bool _loading = true;
     private string? _error;
@@ -234,12 +246,13 @@
         // rather than after it - the text is the whole point of the record.
         if (rationale.Length == 0)
         {
-            _error = "Write down why first. It goes in the log with your name on it.";
+            _blank = id;
             _notice = null;
             return;
         }
 
         _busy = id;
+        _blank = null;
         _error = null;
         _notice = null;
 

@@ -92,7 +92,15 @@
                                     <input id="@($"why-{account.Id}")" value="@_rationale"
                                            @oninput='e => _rationale = e.Value?.ToString() ?? ""'
                                            placeholder="Required. Goes in the log with your name on it."
-                                           class="@InputClass" />
+                                           class="@Cx.Of(InputClass, _panelError is not null ? "border-severity-error" : null)" />
+
+                                    @* Next to the field it is about. At the top of the page this
+                                       sat above a search box, which is the one input on screen it
+                                       was not talking about. *@
+                                    @if (_panelError is not null)
+                                    {
+                                        <p class="mt-1.5 text-xs text-severity-error">@_panelError</p>
+                                    }
                                 </div>
 
                                 <div class="flex flex-wrap items-center gap-2">
@@ -138,6 +146,16 @@
                                                     @onclick="() => SetRoleAsync(account)">
                                                 Change role
                                             </Button>
+
+                                            @if (_role == account.SiteRole)
+                                            {
+                                                @* A disabled button with no explanation reads as
+                                                   "you are not allowed", which is the opposite of
+                                                   what is going on. *@
+                                                <span class="text-xs text-muted-foreground">
+                                                    Already @account.SiteRole. Pick a different one.
+                                                </span>
+                                            }
                                         </div>
                                         <p class="mt-2 text-xs text-muted-foreground">
                                             Signs them out everywhere, because a session carries the
@@ -172,7 +190,13 @@
 
     private bool _loading = true;
     private bool _saving;
+
+    /// <summary>Something the API refused. Belongs at the top, with the rest of the page state.</summary>
     private string? _error;
+
+    /// <summary>Something wrong with what is typed in the open panel. Belongs beside the field.</summary>
+    private string? _panelError;
+
     private string? _notice;
 
     protected override async Task OnInitializedAsync()
@@ -219,6 +243,7 @@
 
         // A reason typed against one account must never be carried onto another.
         _rationale = "";
+        _panelError = null;
         _role = _accounts.FirstOrDefault(a => a.Id == id)?.SiteRole ?? "user";
     }
 
@@ -265,7 +290,7 @@
     {
         if (!string.IsNullOrWhiteSpace(_rationale)) return true;
 
-        _error = "Write down why first. It goes in the log with your name on it.";
+        _panelError = "Write down why first. It goes in the log with your name on it.";
         _notice = null;
         return false;
     }
@@ -276,6 +301,7 @@
         {
             _notice = success;
             _error = null;
+            _panelError = null;
             _open = null;
             _rationale = "";
             await LoadAsync();
