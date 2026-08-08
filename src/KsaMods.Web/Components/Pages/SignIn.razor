@@ -76,7 +76,7 @@
 
     /// <summary>
     /// Only ever a local path. An absolute URL here would turn the sign-in flow into an open
-    /// redirect — a phishing link that launders itself through a domain the user trusts.
+    /// redirect - a phishing link that launders itself through a domain the user trusts.
     /// </summary>
     private string SafeReturnTo =>
         !string.IsNullOrWhiteSpace(ReturnTo)

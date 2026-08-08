@@ -64,7 +64,7 @@ else
                 </Field>
 
                 <Field Id="handle" Label="Handle"
-                       Hint="How other people refer to you — a collaborator invite asks for this. Letters, digits, '-' and '_'. Capitalisation is ignored when checking it is free.">
+                       Hint="How other people refer to you - a collaborator invite asks for this. Letters, digits, '-' and '_'. Capitalisation is ignored when checking it is free.">
                     <input id="handle" @bind="_form.Handle" class="@Cx.Of(InputClass, "font-mono")"
                            autocomplete="off" spellcheck="false" />
                 </Field>
@@ -121,7 +121,7 @@ else
                             else
                             {
                                 @* Disconnecting the only one leaves an account nobody can sign
-                                   into — there is no password and no email to recover through. *@
+                                   into - there is no password and no email to recover through. *@
                                 <span class="text-xs text-muted-foreground">Only way in</span>
                             }
                         </div>
@@ -134,15 +134,23 @@ else
             }
             @if (unlinked.Count > 0)
             {
-                <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                    <span class="text-sm text-muted-foreground">Also connect:</span>
-                    @foreach (var provider in unlinked)
-                    {
-                        <Button Href="@($"/auth/{provider}/start?returnTo=%2Faccount")"
-                                Variant="outline" Size="sm">
-                            @DisplayName(provider)
-                        </Button>
-                    }
+                <div class="mt-4 border-t border-border pt-4">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm text-muted-foreground">Also connect:</span>
+                        @foreach (var provider in unlinked)
+                        {
+                            @* intent=link is what stops the callback creating a second account:
+                               it attaches the identity to the session you already have. *@
+                            <Button Href="@($"/auth/{provider}/start?intent=link&returnTo=%2Faccount")"
+                                    Variant="outline" Size="sm">
+                                @DisplayName(provider)
+                            </Button>
+                        }
+                    </div>
+                    <p class="mt-2 text-xs text-muted-foreground">
+                        Connecting another provider gives you a second way into this same account.
+                        It does not create a new one.
+                    </p>
                 </div>
             }
         </Card>
@@ -234,7 +242,7 @@ else
             @if (!_confirmingDelete)
             {
                 <p class="text-sm text-muted-foreground">
-                    Your mods and modlists stay published — people have them installed, and modlists
+                    Your mods and modlists stay published - people have them installed, and modlists
                     point at them. What goes is the account: your name, your avatar, your sign-in
                     links, and every session. It cannot be undone, and you cannot sign back in.
                 </p>
@@ -295,7 +303,30 @@ else
     private bool DeleteConfirmed =>
         string.Equals(_deleteConfirmation.Trim(), _profile?.Handle, StringComparison.OrdinalIgnoreCase);
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    [SupplyParameterFromQuery] public string? Linked { get; set; }
+    [SupplyParameterFromQuery(Name = "link_error")] public string? LinkError { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // The provider redirect lands back here with the outcome, because the round trip leaves
+        // the page and cannot carry component state across it.
+        if (Linked is { Length: > 0 })
+        {
+            _notice = $"{DisplayName(Linked)} connected. You can now sign in with either.";
+        }
+        else if (LinkError is { Length: > 0 })
+        {
+            _identityError = LinkError switch
+            {
+                "taken" => "That account is already connected to a different ksamods.gg account. "
+                         + "An account can only be connected in one place, so disconnect it there first.",
+                "session_expired" => "You were signed out while connecting. Sign in and try again.",
+                _ => "Could not connect that account.",
+            };
+        }
+
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {

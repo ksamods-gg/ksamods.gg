@@ -75,7 +75,8 @@ public sealed record AuthoredDocument
     [JsonPropertyName("superseded_by")] public string? SupersededBy { get; init; }
 
     /// <summary><c>forums</c> is required by RFC 0031 and therefore required to export.</summary>
-    [JsonPropertyName("links")] public IReadOnlyDictionary<string, string> Links { get; init; } =
+    [JsonPropertyName("links")]
+    public IReadOnlyDictionary<string, string> Links { get; init; } =
         new Dictionary<string, string>();
 
     [JsonPropertyName("compatibility")] public CompatibilityBlock? Compatibility { get; init; }
@@ -88,7 +89,7 @@ public sealed record CompatibilityBlock
     /// <summary>Oldest game version known to work, as displayed, or a month such as 2026.7.</summary>
     [JsonPropertyName("game_min")] public string? GameMin { get; init; }
 
-    /// <summary>Newest tested version. Absent means no known upper limit — the recommended default.</summary>
+    /// <summary>Newest tested version. Absent means no known upper limit - the recommended default.</summary>
     [JsonPropertyName("game_max")] public string? GameMax { get; init; }
 
     /// <summary>Platforms known to work. Absent means no known restriction.</summary>
@@ -196,13 +197,14 @@ public sealed record ListingSnapshot
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("license")] public required string License { get; init; }
     [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
-    [JsonPropertyName("links")] public IReadOnlyDictionary<string, string> Links { get; init; } =
+    [JsonPropertyName("links")]
+    public IReadOnlyDictionary<string, string> Links { get; init; } =
         new Dictionary<string, string>();
 }
 
 /// <summary>
 /// A published modlist version. Pure reference metadata: no download, no checksum, no install
-/// data. It never redistributes anyone's files — each member downloads from its own forge.
+/// data. It never redistributes anyone's files - each member downloads from its own forge.
 /// </summary>
 public sealed record ModlistDocument
 {

@@ -100,11 +100,11 @@ DISCORD_CLIENT_ID      DISCORD_CLIENT_SECRET
 
 The GitHub OAuth app's callback URL must be `https://<your-domain>/auth/github/callback`.
 
-**Set `PUBLIC_BASE_URL` once you point a real domain at this** — `https://ksamods.gg`, no trailing
+**Set `PUBLIC_BASE_URL` once you point a real domain at this** - `https://ksamods.gg`, no trailing
 slash. It defaults to the domain Coolify generated, which is right until it isn't.
 
 That value is what builds the OAuth `redirect_uri`, and it is configured rather than read off the
-request on purpose. The API sits behind two proxies — Coolify's, then the frontend's — so its own
+request on purpose. The API sits behind two proxies - Coolify's, then the frontend's - so its own
 `Request.Host` is `api:8080`, and a `redirect_uri` derived from it points at a hostname that exists
 only on a Docker network. Forwarded headers can carry the real host, but the `redirect_uri` has to
 match the registered callback byte for byte, and staking that on a header surviving two hops is a
@@ -128,7 +128,7 @@ applies only that file.
 **The SQL is baked into an image rather than bind-mounted, and that is load-bearing.** Coolify runs
 `docker compose` inside a helper container while talking to the host's Docker daemon, so a relative
 bind mount like `./db:/db` resolves to a path that exists in the helper but not on the host. The
-daemon then creates an empty directory there and the migration file is silently absent — the first
+daemon then creates an empty directory there and the migration file is silently absent - the first
 version of this compose file failed on Coolify for exactly that reason while working locally.
 
 Migration files carry no `BEGIN`/`COMMIT`: `db/apply.sh` runs each under `--single-transaction` so
@@ -139,7 +139,7 @@ would end that transaction early.
 
 Built and run end to end: all three services reach healthy, `migrate` applies and records the
 schema, the frontend serves its pages, the proxy reaches the API, and re-running `migrate` reports
-`0001_initial.sql already applied`. The failure paths were tested too — an empty password and an
+`0001_initial.sql already applied`. The failure paths were tested too - an empty password and an
 unreachable database both fail with a message that names the cause.
 
 ### Two things that had to change for this to work

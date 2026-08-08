@@ -13,7 +13,7 @@ public sealed record Pill(string Label, string Variant, string Explanation);
 public static class Presentation
 {
     /// <summary>
-    /// RFC 0017's four compatibility states. Only Incompatible is a refusal — the copy has to
+    /// RFC 0017's four compatibility states. Only Incompatible is a refusal - the copy has to
     /// carry that, or a warning reads as a block and users stop trusting either.
     /// </summary>
     public static Pill Compatibility(int? installedRevision, int? min, int? max)
@@ -47,7 +47,7 @@ public static class Presentation
 
     /// <summary>
     /// Artifact availability. The site never stores the file, so every one of these is a statement
-    /// about somebody else's server — the wording says so rather than implying the site holds it.
+    /// about somebody else's server - the wording says so rather than implying the site holds it.
     /// </summary>
     public static Pill Availability(string availability, DateTimeOffset? lastVerified) => availability switch
     {
@@ -115,7 +115,7 @@ public static class Presentation
 
     public static string Bytes(long? bytes)
     {
-        if (bytes is null or < 0) return "—";
+        if (bytes is null or < 0) return "-";
 
         string[] units = ["B", "KiB", "MiB", "GiB"];
         double value = bytes.Value;

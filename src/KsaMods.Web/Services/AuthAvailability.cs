@@ -10,7 +10,7 @@ namespace KsaMods.Web.Services;
 /// that turning credentials on does not need the frontend restarted too.</para>
 ///
 /// <para>On failure it reports <b>no</b> providers. Offering a sign-in button that leads to a 404
-/// is worse than offering none — the reader has no way to tell a misconfiguration from an outage,
+/// is worse than offering none - the reader has no way to tell a misconfiguration from an outage,
 /// and either way the button cannot work.</para>
 /// </summary>
 public sealed class AuthAvailability(IHttpClientFactory factory, ILogger<AuthAvailability> logger)

@@ -104,7 +104,7 @@ public sealed class JobQueue(Database database)
 
     /// <summary>
     /// Exponential backoff, then <c>dead</c> with an alert. A dead job is an operational signal,
-    /// not a silent drop — §16.3 alerts on it.
+    /// not a silent drop - §16.3 alerts on it.
     /// </summary>
     public async Task FailAsync(long id, int attempts, string error, CancellationToken ct)
     {

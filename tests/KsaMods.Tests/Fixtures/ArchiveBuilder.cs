@@ -8,7 +8,7 @@ namespace KsaMods.Tests.Fixtures;
 ///
 /// <para>backend.md §17 asks for a fixture corpus with one deliberately broken archive per
 /// pipeline stage. Building them in code rather than committing binaries keeps the hostile
-/// fixtures — zip bombs, traversal entries — reviewable as source instead of opaque blobs, and
+/// fixtures - zip bombs, traversal entries - reviewable as source instead of opaque blobs, and
 /// means a reader can see exactly what makes each one hostile.</para>
 /// </summary>
 public sealed class ArchiveBuilder
@@ -89,7 +89,7 @@ public static class ModArchives
 
     /// <summary>
     /// A well-formed content mod. Note the texture is deliberately <b>not</b> declared in
-    /// mod.toml — it is referenced from inside the declared XML, which is the normal and correct
+    /// mod.toml - it is referenced from inside the declared XML, which is the normal and correct
     /// shape (spec §14) and the reason reachability is two hops rather than one.
     /// </summary>
     public static MemoryStream ContentMod() => ArchiveBuilder.New()
@@ -140,7 +140,7 @@ public static class ModArchives
         .WithFile($"{ContentModId}/Systems/NotASystem.xml", "<Assets><Planet Id=\"x\" /></Assets>")
         .Build();
 
-    /// <summary>A texture reachable from nothing. Stage 5 warning — the genuinely-orphaned case.</summary>
+    /// <summary>A texture reachable from nothing. Stage 5 warning - the genuinely-orphaned case.</summary>
     public static MemoryStream OrphanedContent() => ArchiveBuilder.New()
         .WithFile($"{ContentModId}/mod.toml", """
             name = "Outer Planets"
@@ -183,7 +183,7 @@ public static class ModArchives
         .WithFile($"{CodeModId}/StarMap.API.dll", FakeAssembly())
         .Build();
 
-    /// <summary>No [StarMap] section but a DLL named after the mod id — the AircraftHUD shape.</summary>
+    /// <summary>No [StarMap] section but a DLL named after the mod id - the AircraftHUD shape.</summary>
     public static MemoryStream NoStarMapSectionButEntryDllPresent() => ArchiveBuilder.New()
         .WithFile($"{CodeModId}/mod.toml", "name = \"x\"")
         .WithFile($"{CodeModId}/{CodeModId}.dll", FakeAssembly())

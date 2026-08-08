@@ -11,7 +11,7 @@ namespace KsaMods.Tests;
 ///
 /// <para>These exist because of a bug that shipped: every repository that began a transaction
 /// called <c>connection.Open()</c> on a connection the factory had already opened, and Npgsql
-/// throws rather than ignoring it. Nothing caught it — the read paths never opened explicitly, so
+/// throws rather than ignoring it. Nothing caught it - the read paths never opened explicitly, so
 /// the whole suite passed while sign-in was broken in production. Pure unit tests could not have
 /// caught it either, which is the argument for this file existing at all.</para>
 ///
@@ -116,7 +116,7 @@ public sealed class DatabaseWriteTests : IAsyncLifetime
     public async Task A_handle_differing_only_in_case_does_not_break_sign_in()
     {
         // The 23505 that reached production. account.handle is citext, so the unique index
-        // compares case-insensitively — but a `where handle = @param` lookup does not, because
+        // compares case-insensitively - but a `where handle = @param` lookup does not, because
         // Postgres casts the column down to text to find an operator. Anyone whose login differed
         // only in case from an existing handle got a duplicate-key crash instead of an account.
         var accounts = new AccountStore(Db);
@@ -190,7 +190,7 @@ public sealed class DatabaseWriteTests : IAsyncLifetime
         Assert.NotNull(resolved);
         Assert.Equal(accountId, resolved.AccountId);
 
-        // Revocation has to take effect immediately — that is the whole reason sessions are rows
+        // Revocation has to take effect immediately - that is the whole reason sessions are rows
         // rather than self-contained tokens.
         await sessions.RevokeAsync(sessionId, default);
         Assert.Null(await sessions.ResolveAsync(sessionId, default));

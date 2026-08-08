@@ -22,8 +22,8 @@ else if (_mod is null)
 }
 else if (_mod.IsWithdrawn)
 {
-    @* Delisted content stays resolvable by id — modlists pin it and dependency graphs reference
-       it — but the download is not offered and the reason is stated plainly. *@
+    @* Delisted content stays resolvable by id - modlists pin it and dependency graphs reference
+       it - but the download is not offered and the reason is stated plainly. *@
     <Card Header="@(builder => { builder.AddContent(0, _mod.Id); })">
         <Alert Variant="warning" Title="This listing has been withdrawn">
             @(_mod.Message ?? "Moderators have withdrawn this listing, so we're not offering its releases.")
@@ -157,7 +157,7 @@ else
 
                             @if (release.Yanked)
                             {
-                                @* A yank is the author's statement about one build — distinct from
+                                @* A yank is the author's statement about one build - distinct from
                                    deprecation and from a moderator delisting. *@
                                 <Badge Variant="error" Title="Retracted by the author. Copies you already installed are fine.">
                                     Yanked

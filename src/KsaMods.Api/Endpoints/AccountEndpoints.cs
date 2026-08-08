@@ -72,7 +72,10 @@ public static class AccountEndpoints
                 mods = mods.Select(m => new { id = m.Id, name = m.Name, role = m.Role }),
                 modlists = modlists.Select(m => new
                 {
-                    id = m.Id, name = m.Name, role = m.Role, visibility = m.Visibility,
+                    id = m.Id,
+                    name = m.Name,
+                    role = m.Role,
+                    visibility = m.Visibility,
                 }),
             });
         });
@@ -95,7 +98,7 @@ public static class AccountEndpoints
                 errors["handle"] = [handleError];
             }
 
-            // Only https, and only somewhere else — the same rule the banner URL follows, for the
+            // Only https, and only somewhere else - the same rule the banner URL follows, for the
             // same reason: a link we render must not be able to point back into this site or load
             // over plain http on an https page.
             if (!string.IsNullOrWhiteSpace(body.ForumsUrl)
@@ -131,7 +134,7 @@ public static class AccountEndpoints
             }
             catch (Npgsql.PostgresException e) when (e.SqlState == "23505")
             {
-                // handle is citext, so this catches a clash that differs only in case — which a
+                // handle is citext, so this catches a clash that differs only in case - which a
                 // `where handle = @candidate` pre-check would miss entirely. Ask the index.
                 return Results.Conflict(new
                 {
@@ -291,8 +294,8 @@ public static class AccountEndpoints
     /// <summary>
     /// Handle rules, kept deliberately narrower than a display name.
     ///
-    /// <para>A handle is an identifier people type at each other — in a collaborator invite, for
-    /// instance — so it takes the same ASCII-only discipline as a content id and for the same
+    /// <para>A handle is an identifier people type at each other - in a collaborator invite, for
+    /// instance - so it takes the same ASCII-only discipline as a content id and for the same
     /// reasons (spec §3). Anything expressive belongs in the display name, which has no rules.</para>
     /// </summary>
     private static string? ValidateHandle(string handle)

@@ -1,6 +1,6 @@
 # Shell scripts and Dockerfiles run inside Linux containers. If git checks them out with CRLF on
 # a Windows clone, the shebang becomes "#!/bin/sh\r" and the kernel reports
-# "bad interpreter: no such file or directory" — an error that names a file which plainly exists.
+# "bad interpreter: no such file or directory" - an error that names a file which plainly exists.
 * text=auto eol=lf
 
 *.sh        text eol=lf

@@ -51,7 +51,7 @@ public sealed record PublishResult
 /// <summary>
 /// Turns a draft into an immutable published version (backend.md §6.1, §6.2).
 ///
-/// <para>Pure, so the publish rules are testable without a database — which matters, because
+/// <para>Pure, so the publish rules are testable without a database - which matters, because
 /// this is where "curated and tested" either means something or does not.</para>
 /// </summary>
 public static class ModlistPublish

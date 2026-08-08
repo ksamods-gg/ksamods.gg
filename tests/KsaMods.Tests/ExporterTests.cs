@@ -122,7 +122,7 @@ public class IndexBuilderTests
     [Fact]
     public void Skips_a_listing_with_no_forums_link()
     {
-        // The site does not gate publishing on it, because app installation is stronger proof —
+        // The site does not gate publishing on it, because app installation is stronger proof -
         // but RFC 0031 requires it, so the export does.
         var result = IndexBuilder.Build(Input(
             listings: [Listing(links: new Dictionary<string, string>())],

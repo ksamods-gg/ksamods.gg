@@ -4,8 +4,8 @@ namespace KsaMods.Api;
 /// Self-probe for the container healthcheck.
 ///
 /// <para>The runtime image is chiselled, so there is no shell and no HTTP client to invoke from a
-/// HEALTHCHECK line. Shipping curl into the image to solve that would add a binary — and an attack
-/// surface — for the sake of one request the app can make itself.</para>
+/// HEALTHCHECK line. Shipping curl into the image to solve that would add a binary - and an attack
+/// surface - for the sake of one request the app can make itself.</para>
 /// </summary>
 public static class HealthProbe
 {

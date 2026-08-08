@@ -35,7 +35,7 @@ public sealed class GitMirrorException(string message, string? output = null)
 ///
 /// <para><b>This is required, not optional.</b> Postgres holds the record, so without the mirror
 /// the catalogue does not outlive the service. A tarball behind a CDN dies with the CDN; a public
-/// git repository survives because it gets forked — and forks happen before the outage, not
+/// git repository survives because it gets forked - and forks happen before the outage, not
 /// after. Nobody clones a backup they did not know existed.</para>
 ///
 /// <para>It is a follower, not a reviewer: it inherits whatever the writer produced. It

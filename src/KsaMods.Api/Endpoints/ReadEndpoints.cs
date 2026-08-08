@@ -21,8 +21,8 @@ public static class ReadEndpoints
     {
         var api = app.MapGroup("/api/v1").RequireRateLimiting("reads");
 
-        // /mods is a permanent alias for /content?type=mod. Type is a filter, not a route —
-        // RFC 0025 puts vehicles and saves in scope — but breaking an early client's URL to
+        // /mods is a permanent alias for /content?type=mod. Type is a filter, not a route -
+        // RFC 0025 puts vehicles and saves in scope - but breaking an early client's URL to
         // prove the point helps nobody.
         api.MapGet("/mods", SearchAsync);
         api.MapGet("/content", SearchAsync);
@@ -37,7 +37,7 @@ public static class ReadEndpoints
 
             if (mod.ListingState is "delisted" or "taken_down" && principal?.IsModerator != true)
             {
-                // Delisted content stays resolvable by id — modlists pin it and dependency graphs
+                // Delisted content stays resolvable by id - modlists pin it and dependency graphs
                 // reference it, and a hole in the graph is worse than a listing marked delisted.
                 // The record is served; the downloads are not.
                 return Results.Ok(new
@@ -227,7 +227,7 @@ public static class ReadEndpoints
             return Results.Ok(new
             {
                 satisfiable = plan.Satisfiable,
-                // The order to write into manifest.toml — not a promise about initialisation
+                // The order to write into manifest.toml - not a promise about initialisation
                 // order, which StarMap reorders through its waiting graph.
                 order = plan.Order.Select(p => new
                 {

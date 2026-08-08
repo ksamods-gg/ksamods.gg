@@ -1,4 +1,4 @@
-# ksamods.gg — deployment for Coolify.
+# ksamods.gg - deployment for Coolify.
 #
 # Three long-running services plus a one-shot migration. Only the frontend is reachable from
 # outside: the API and the database publish no ports, and the browser reaches the API through the
@@ -6,9 +6,9 @@
 # cookie stay HttpOnly and SameSite=Lax with no CORS policy anywhere.
 #
 # Coolify specifics used here:
-#   · SERVICE_FQDN_WEB_8080     — declared with no value so Coolify generates a domain, terminates
+#   · SERVICE_FQDN_WEB_8080     - declared with no value so Coolify generates a domain, terminates
 #                                 TLS, and routes it to this service's port 8080.
-#   · SERVICE_PASSWORD_POSTGRES — declared with no value so Coolify generates a password once and
+#   · SERVICE_PASSWORD_POSTGRES - declared with no value so Coolify generates a password once and
 #                                 injects the same value everywhere it is referenced.
 # Both can be overridden in the Coolify UI before the first deploy.
 
@@ -35,7 +35,7 @@ services:
   # it has applied in a schema_migration table, so re-running is a no-op rather than an error.
   #
   # Built rather than bind-mounted. A deployment tool that runs `docker compose` inside a helper
-  # container — Coolify does — resolves relative bind mounts against the helper's filesystem while
+  # container - Coolify does - resolves relative bind mounts against the helper's filesystem while
   # the daemon resolves them against the host's. The paths do not match, the daemon creates an
   # empty directory, and the migration file is silently absent. Baking it into the image makes
   # this work identically everywhere.
@@ -67,14 +67,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__Postgres=Host=postgres;Database=ksamods;Username=ksamods;Password=${SERVICE_PASSWORD_POSTGRES};Maximum Pool Size=20
       # The address people type. Required for sign-in, because the OAuth redirect_uri must match
-      # what is registered with the provider exactly — and inside the compose network the API's
+      # what is registered with the provider exactly - and inside the compose network the API's
       # own request host is "api:8080", which is not somewhere a browser can go.
       #
       # Defaults to the domain Coolify generated. Override PUBLIC_BASE_URL when you point a real
       # domain at this.
       - Site__PublicBaseUrl=${PUBLIC_BASE_URL:-${SERVICE_FQDN_WEB_8080:-}}
       # Sign-in is only offered when these are set. Left empty, the frontend hides the button and
-      # the auth routes explain what is missing — a working read-only site, not a broken button.
+      # the auth routes explain what is missing - a working read-only site, not a broken button.
       - OAuth__GitHub__ClientId=${GITHUB_CLIENT_ID:-}
       - OAuth__GitHub__ClientSecret=${GITHUB_CLIENT_SECRET:-}
       - OAuth__Discord__ClientId=${DISCORD_CLIENT_ID:-}
@@ -83,7 +83,7 @@ services:
     expose:
       - "8080"
     healthcheck:
-      # The runtime image is chiselled — no shell, no curl, no wget — so the app probes itself.
+      # The runtime image is chiselled - no shell, no curl, no wget - so the app probes itself.
       # See KsaMods.Api/HealthProbe.cs.
       test: ["CMD", "/app/KsaMods.Api", "--healthcheck"]
       interval: 15s
@@ -103,7 +103,7 @@ services:
       # No value: Coolify generates the domain and wires up its proxy.
       - SERVICE_FQDN_WEB_8080
       - ASPNETCORE_ENVIRONMENT=Production
-      # Service name, not localhost — these are separate containers.
+      # Service name, not localhost - these are separate containers.
       - Api__BaseUrl=http://api:8080
       # TLS terminates at Coolify's proxy. Redirecting to https here would loop, and an OAuth
       # redirect_uri built from the request scheme would come out as http://.

@@ -92,8 +92,8 @@ public static class ModEndpoints
             return Results.Created($"/api/v1/mods/{id.Value.Value}", new
             {
                 id = id.Value.Value,
-                // The forums link is not required to create — app installation is the stronger
-                // ownership proof — but it is required to appear in the exported index.
+                // The forums link is not required to create - app installation is the stronger
+                // ownership proof - but it is required to appear in the exported index.
                 note = links.ContainsKey("forums")
                     ? null
                     : "Add a KSA forums thread under links.forums; it is required for this listing to appear in the exported index.",
@@ -277,7 +277,7 @@ public static class ModEndpoints
                 """,
                 new { modId = id.ToLowerInvariant(), version, reason = body.Reason });
 
-            // A yank is the author's statement about one build — distinct from `deprecated`,
+            // A yank is the author's statement about one build - distinct from `deprecated`,
             // which covers the whole listing, and from a moderator delisting.
             return affected == 0 ? Results.NotFound() : Results.NoContent();
         });

@@ -34,7 +34,7 @@ public sealed class ModToml
         new Dictionary<string, IReadOnlyList<string>>();
 
     /// <summary>
-    /// <c>[StarMap].EntryAssembly</c>, without the <c>.dll</c>. Null when the section is absent —
+    /// <c>[StarMap].EntryAssembly</c>, without the <c>.dll</c>. Null when the section is absent -
     /// in which case the loader defaults it to the mod id, which is why AircraftHUD loads with no
     /// block at all (spec §5.2).
     /// </summary>
@@ -43,7 +43,7 @@ public sealed class ModToml
     public IReadOnlyList<string> ExportedAssemblies { get; private init; } = [];
 
     /// <summary>
-    /// <c>[[StarMap.ModDependencies]]</c> — the only machine-readable dependency data that exists
+    /// <c>[[StarMap.ModDependencies]]</c> - the only machine-readable dependency data that exists
     /// anywhere in the KSA ecosystem, and ground truth because the loader acts on it at runtime.
     /// </summary>
     public IReadOnlyList<StarMapDependency> ModDependencies { get; private init; } = [];

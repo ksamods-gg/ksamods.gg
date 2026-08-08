@@ -4,7 +4,7 @@ using KsaMods.Api.Data;
 using KsaMods.Api.Endpoints;
 using Microsoft.AspNetCore.HttpOverrides;
 
-// Container healthcheck. The runtime image is chiselled — no shell, no curl, no wget — so the
+// Container healthcheck. The runtime image is chiselled - no shell, no curl, no wget - so the
 // only thing available to probe the app is the app itself. Docker runs `KsaMods.Api --healthcheck`
 // and reads the exit code.
 if (args.Contains("--healthcheck"))
@@ -29,7 +29,7 @@ var sessionOptions = new SiteSessionOptions();
 builder.Services.AddSingleton(sessionOptions);
 
 // The address people actually type. Used to build the OAuth redirect_uri, which must match what
-// is registered with the provider exactly — see OAuthEndpoints.SiteOptions for why this is
+// is registered with the provider exactly - see OAuthEndpoints.SiteOptions for why this is
 // configured rather than read off the request.
 var siteOptions = new OAuthEndpoints.SiteOptions
 {
@@ -69,12 +69,12 @@ builder.Services.AddRateLimiter(limiter =>
 var app = builder.Build();
 
 // The API sits behind the frontend's proxy and a CDN, so the client address and scheme come from
-// forwarded headers. Without this the SSRF-adjacent bits — rate limiting by IP, the ip_hash on a
-// session — all record the proxy instead of the caller.
+// forwarded headers. Without this the SSRF-adjacent bits - rate limiting by IP, the ip_hash on a
+// session - all record the proxy instead of the caller.
 //
 // KnownNetworks and KnownProxies must be cleared or the headers are silently ignored: the
 // defaults trust only loopback, and in a container the caller is always another address. Safe
-// because this service is never exposed directly — see the compose file, which gives it no
+// because this service is never exposed directly - see the compose file, which gives it no
 // published port.
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {

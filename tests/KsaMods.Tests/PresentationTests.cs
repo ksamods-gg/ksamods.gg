@@ -133,7 +133,7 @@ public class ValidationPresentationTests
 public class FormattingTests
 {
     [Theory]
-    [InlineData(null, "—")]
+    [InlineData(null, "-")]
     [InlineData(0L, "0 B")]
     [InlineData(512L, "512 B")]
     [InlineData(1024L, "1 KiB")]

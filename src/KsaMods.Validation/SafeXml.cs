@@ -7,7 +7,7 @@ namespace KsaMods.Validation;
 /// XML reading hardened per backend.md §14.3.
 ///
 /// <para>Closes XXE, billion-laughs and external entity fetches. The last of those would
-/// otherwise be a second SSRF surface reachable from inside a mod archive — the container having
+/// otherwise be a second SSRF surface reachable from inside a mod archive - the container having
 /// no network makes it unexploitable rather than merely mitigated, which is defence in depth
 /// working as intended, not a reason to skip this.</para>
 /// </summary>

@@ -9,7 +9,7 @@ namespace KsaMods.Web.Services;
 /// Typed client for the ksamods.gg API.
 ///
 /// <para>Server-side calls forward the caller's session cookie from the incoming request, so a
-/// server-rendered page sees exactly what that user is allowed to see — a maintainer gets their
+/// server-rendered page sees exactly what that user is allowed to see - a maintainer gets their
 /// failed releases, a stranger does not. Rendering a page as though nobody were signed in and
 /// then correcting it on the client is how you leak a flash of the wrong content.</para>
 /// </summary>
@@ -439,7 +439,7 @@ public sealed record ApiOutcome(bool Success, string? Error, HttpStatusCode? Sta
     public static ApiOutcome Ok() => new(true, null, null);
     public static ApiOutcome Failed(string? error, HttpStatusCode status) => new(false, error, status);
 
-    /// <summary>True when the session expired mid-page — the caller should send them to sign in.</summary>
+    /// <summary>True when the session expired mid-page - the caller should send them to sign in.</summary>
     public bool NeedsSignIn => Status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 }
 

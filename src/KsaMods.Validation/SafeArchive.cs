@@ -31,7 +31,7 @@ public sealed record ArchiveEntry
 
 /// <summary>
 /// Reads a zip entry-by-entry with every guard from backend.md §14.2 applied before any entry is
-/// exposed. Nothing here writes to disk — the validator works entirely in memory, so the classic
+/// exposed. Nothing here writes to disk - the validator works entirely in memory, so the classic
 /// zip-slip write primitive does not exist in this codebase at all.
 /// </summary>
 public sealed class SafeArchive : IDisposable
@@ -303,7 +303,7 @@ public sealed class SafeArchive : IDisposable
     {
         // For a unix-produced zip the external attributes carry the st_mode in their high 16
         // bits. The host-OS indicator lives in the "version made by" header field, which .NET
-        // does not surface — so instead of guessing the producer, read the file-type nibble and
+        // does not surface - so instead of guessing the producer, read the file-type nibble and
         // treat an unset one as "regular". A Windows-produced entry stores DOS attributes in the
         // low byte and leaves the high half zero, which lands on exactly that case.
         var unixMode = (entry.ExternalAttributes >> 16) & 0xFFFF;

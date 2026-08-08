@@ -3,7 +3,7 @@ namespace KsaMods.Web;
 /// <summary>
 /// Self-probe for the container healthcheck.
 ///
-/// <para>The runtime image is chiselled — no shell, no curl, no wget — so the only thing that can
+/// <para>The runtime image is chiselled - no shell, no curl, no wget - so the only thing that can
 /// make an HTTP request inside the container is the app. It probes its own <c>/health</c>, which
 /// is deliberately liveness-only: it does not reach the API, so a backend blip cannot cause the
 /// orchestrator to restart the frontend and turn one outage into two.</para>

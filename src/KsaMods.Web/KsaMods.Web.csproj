@@ -7,7 +7,7 @@
       The SDK writes the compressed companions into obj/.../compressed/ with a literal "{0}"
       still in the filename, so at runtime MapStaticAssets advertises a gzip/br variant, fails to
       find it, and answers a browser's Accept-Encoding request with an empty 200 body. Stylesheets
-      then parse to zero rules and blazor.web.js aborts — with no error anywhere, because the
+      then parse to zero rules and blazor.web.js aborts - with no error anywhere, because the
       status is 200 and curl (which sends no Accept-Encoding) sees the correct file.
 
       Fingerprinting and long-lived caching still work; only the precompressed variants are

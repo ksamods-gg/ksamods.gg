@@ -4,7 +4,7 @@
 # will one day be defeated, and aims to make that worthless: no network, no capabilities, no
 # writable filesystem, no shell, no package manager, and a user with no privileges.
 #
-# The runtime flags matter as much as the image and are NOT expressed here — a Dockerfile cannot
+# The runtime flags matter as much as the image and are NOT expressed here - a Dockerfile cannot
 # set them. See docker-run.md next to this file, and KsaMods.Worker/ContainerRunner.cs, which is
 # what actually applies them.
 
@@ -32,7 +32,7 @@ RUN dotnet publish src/KsaMods.Validator.Host/KsaMods.Validator.Host.csproj \
 FROM mcr.microsoft.com/dotnet/runtime:10.0-noble-chiseled AS runtime
 
 # 64198 is the non-root `app` user the chiselled images ship. Stated explicitly so a base image
-# change that alters the default is a visible diff rather than a silent privilege gain — and it
+# change that alters the default is a visible diff rather than a silent privilege gain - and it
 # must stay in step with the --user flag in KsaMods.Worker/ContainerRunner.cs.
 USER 64198:64198
 

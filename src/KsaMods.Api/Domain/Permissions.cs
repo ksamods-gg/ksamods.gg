@@ -73,7 +73,7 @@ public static class Permissions
 {
     public static bool Allows(Principal principal, Capability capability) => capability switch
     {
-        // Moderators can edit listing metadata — that is how a takedown notice gets acted on
+        // Moderators can edit listing metadata - that is how a takedown notice gets acted on
         // without waiting for an absent author.
         Capability.EditModListing => principal.IsModMaintainer || principal.IsModerator,
 
@@ -115,7 +115,7 @@ public static class Permissions
     };
 
     /// <summary>
-    /// Whether a caller may see a modlist at all. Private lists are collaborators-only — but
+    /// Whether a caller may see a modlist at all. Private lists are collaborators-only - but
     /// still subject to moderation on report, and the interface should say so rather than
     /// implying privacy from staff.
     /// </summary>

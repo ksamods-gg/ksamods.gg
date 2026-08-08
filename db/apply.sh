@@ -60,7 +60,7 @@ for file in /migrations/*.sql; do
   echo "migrate: applying $name"
   # The migration and the record of it land in one transaction, so a failure half way through
   # cannot leave the database claiming a migration it did not finish. psql runs -f and -c in the
-  # order given, and --single-transaction wraps the lot — which is why the .sql files carry no
+  # order given, and --single-transaction wraps the lot - which is why the .sql files carry no
   # BEGIN/COMMIT of their own.
   psql -v ON_ERROR_STOP=1 --single-transaction \
     -f "$file" \

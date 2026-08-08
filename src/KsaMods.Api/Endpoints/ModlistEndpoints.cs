@@ -333,7 +333,7 @@ public static class ModlistEndpoints
             using var connection = await database.OpenAsync(ct);
 
             // The ::citext cast is required, not decorative. handle is citext, but a Dapper
-            // parameter arrives as text and there is no citext = text operator — Postgres casts
+            // parameter arrives as text and there is no citext = text operator - Postgres casts
             // the column down to text and compares case-sensitively, so inviting "SafeShows"
             // would fail to find the account whose handle is "safeshows".
             //
@@ -408,7 +408,7 @@ public static class ModlistEndpoints
         detail = "Draft writes must carry If-Match with the draft_revision you last read.",
     });
 
-    /// <summary>A 409 carries the current state, not just an error — that is what lets a UI merge.</summary>
+    /// <summary>A 409 carries the current state, not just an error - that is what lets a UI merge.</summary>
     private static async Task<IResult> ConflictWithCurrentStateAsync(
         ModlistRepository modlists, string id, DraftConflictException conflict, CancellationToken ct)
     {

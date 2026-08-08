@@ -2,7 +2,7 @@
 @using KsaMods.Web.Components.Ui
 @using KsaMods.Web.Services
 
-@* A form, not a link, because signing out changes state — and a GET that logs you out gets
+@* A form, not a link, because signing out changes state - and a GET that logs you out gets
    triggered by any prefetcher or link scanner that touches the page.
 
    No antiforgery token needed: the session cookie is SameSite=Lax, so a cross-site POST does not
@@ -11,7 +11,7 @@
 <div class="flex items-center gap-2">
     @* The identity itself is the way into the account page. A separate "Settings" item would be
        one more thing in a header that already has enough in it. *@
-    <a href="/account" title="@($"{User.DisplayName} — manage your account")"
+    <a href="/account" title="@($"{User.DisplayName} - manage your account")"
        class="hidden items-center gap-2 rounded-md px-1.5 py-1 text-sm transition-colors
               hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2
               focus-visible:outline-ring sm:flex">

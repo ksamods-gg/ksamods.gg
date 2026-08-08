@@ -63,7 +63,7 @@ public sealed record ResolvePlan
 ///
 /// <para>This ships as a library as well as running behind <c>POST /resolve</c>. The offline
 /// index export means clients must be able to solve locally, so a server-only solver would
-/// merely guarantee a second, subtly different implementation appears — which is how ecosystems
+/// merely guarantee a second, subtly different implementation appears - which is how ecosystems
 /// get divergent resolution behaviour.</para>
 ///
 /// <para><b>The returned order is not a promise about initialisation order.</b> StarMap walks the
@@ -84,7 +84,7 @@ public sealed class InstallPlanner(ICatalogue catalogue)
         {
             if (!catalogue.Exists(target.ModId))
             {
-                // An unlisted dependency warns and proceeds rather than blocking — punishing the
+                // An unlisted dependency warns and proceeds rather than blocking - punishing the
                 // user for someone else's missing listing helps nobody (backend.md §8).
                 problems.Add(new ResolveProblem(ProblemKind.UnknownMod, target.ModId,
                     "Not listed in the index. It may still exist elsewhere."));
@@ -108,7 +108,7 @@ public sealed class InstallPlanner(ICatalogue catalogue)
         // Backtracking happens here rather than inside the fixpoint: when a selected version
         // turns out to demand something unobtainable, that exact (mod, version) is struck out
         // and the whole thing is re-solved. Coarser than in-loop backtracking and far easier to
-        // reason about — which matters, because a second implementation has to match this.
+        // reason about - which matters, because a second implementation has to match this.
         var rejected = new HashSet<(string ModId, string Version)>();
 
         for (var attempt = 0; attempt < MaxRejections; attempt++)
@@ -221,7 +221,7 @@ public sealed class InstallPlanner(ICatalogue catalogue)
                 }
             }
 
-            // Drop anything no longer demanded — a dependent may have changed version and let go.
+            // Drop anything no longer demanded - a dependent may have changed version and let go.
             foreach (var stale in selected.Keys.Where(k => !bounds.ContainsKey(k)).ToList())
             {
                 selected.Remove(stale);
@@ -270,7 +270,7 @@ public sealed class InstallPlanner(ICatalogue catalogue)
 
             if (changed) continue;
 
-            // Stable. Conflicts are checked once, against the final set — checking them during
+            // Stable. Conflicts are checked once, against the final set - checking them during
             // selection misses the case where the conflicting mod is chosen afterwards.
             var conflicts = FindConflicts(selected);
             if (conflicts.Count > 0)
@@ -406,7 +406,7 @@ public sealed class InstallPlanner(ICatalogue catalogue)
     /// Topological order, dependencies first, with Core-overriding mods hoisted to the front.
     ///
     /// <para>Asset ids are first-wins, so a mod overriding stock content only works if it loads
-    /// before <c>Core</c> — which means being above it in <c>manifest.toml</c>, a file the game
+    /// before <c>Core</c> - which means being above it in <c>manifest.toml</c>, a file the game
     /// rewrites freely. Fragile, and a client should say so.</para>
     /// </summary>
     private static List<PlannedInstall> Order(

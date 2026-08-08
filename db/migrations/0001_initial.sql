@@ -433,7 +433,7 @@ create trigger moderation_action_no_update
   for each row execute function moderation_action_is_append_only();
 
 -- Intent, not installs. The site does not serve the files, so it can count outbound clicks and
--- API resolutions and nothing more — labelled honestly rather than presented as downloads.
+-- API resolutions and nothing more - labelled honestly rather than presented as downloads.
 create table resolution_event (
   subject_kind text        not null,
   subject_id   text        not null,

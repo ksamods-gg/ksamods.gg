@@ -32,7 +32,7 @@ public sealed record ContainerOutcome
 ///
 /// <para><b>This type is why the worker needs its own host.</b> It talks to the Docker daemon,
 /// which is root-equivalent, and it does so on behalf of bytes a stranger produced. The socket is
-/// never mounted into the container — the container has no idea a daemon exists.</para>
+/// never mounted into the container - the container has no idea a daemon exists.</para>
 /// </summary>
 public sealed class ContainerRunner(ContainerPolicy policy)
 {

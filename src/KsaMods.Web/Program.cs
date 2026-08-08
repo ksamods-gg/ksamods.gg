@@ -3,7 +3,7 @@ using KsaMods.Web;
 using KsaMods.Web.Components;
 using KsaMods.Web.Services;
 
-// Container healthcheck — the runtime image is chiselled, so the app probes itself. See
+// Container healthcheck - the runtime image is chiselled, so the app probes itself. See
 // HealthProbe for why that is preferable to adding curl to the image.
 if (args.Contains("--healthcheck"))
 {
@@ -23,7 +23,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<SiteBannerOptions>(builder.Configuration.GetSection("SiteBanner"));
 
 // One HttpClient for both the typed client and the proxy. AllowAutoRedirect is off because the
-// OAuth flow's redirects belong to the browser, not to us — we forward them verbatim.
+// OAuth flow's redirects belong to the browser, not to us - we forward them verbatim.
 builder.Services.AddHttpClient(ApiProxy.ClientName, client =>
 {
     client.BaseAddress = new Uri(apiBaseUrl);
@@ -38,7 +38,7 @@ builder.Services.AddHttpClient(ApiProxy.ClientName, client =>
 builder.Services.AddScoped<KsaModsApi>();
 
 // Singleton: the answer comes from the API's configuration, so caching it across requests is the
-// point — the layout would otherwise ask on every page render.
+// point - the layout would otherwise ask on every page render.
 builder.Services.AddSingleton<AuthAvailability>();
 
 // Behind a TLS-terminating reverse proxy (Coolify's Traefik, nginx, a CDN), the app only ever
@@ -48,7 +48,7 @@ builder.Services.AddSingleton<AuthAvailability>();
 //   · UseHttpsRedirection redirects to https, the proxy forwards the retry as http again, and the
 //     browser loops until it gives up.
 //   · The OAuth start endpoint builds its redirect_uri from Request.Scheme, so it would send
-//     users to http://…/auth/github/callback — which will not match the registered callback.
+//     users to http://…/auth/github/callback - which will not match the registered callback.
 //
 // KnownNetworks and KnownProxies are cleared because the defaults trust only loopback, and in a
 // container the proxy is always a different address. That is safe here precisely because the app
@@ -83,7 +83,7 @@ app.MapStaticAssets();
 
 // Everything the browser touches is one origin: the Blazor server forwards /api and /auth to the
 // .NET API. That is what lets the API keep its HttpOnly, SameSite=Lax session cookie with no CORS
-// policy and no token handling in JavaScript — the browser only ever sees ksamods.gg.
+// policy and no token handling in JavaScript - the browser only ever sees ksamods.gg.
 app.MapApiProxy();
 
 app.MapRazorComponents<App>()

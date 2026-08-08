@@ -29,7 +29,7 @@ public sealed record AuthenticatedUser
 /// <summary>
 /// Server-side sessions (backend.md §4.1).
 ///
-/// <para>Opaque ids in a cookie, backed by a table, rather than a self-contained token — because
+/// <para>Opaque ids in a cookie, backed by a table, rather than a self-contained token - because
 /// revocation has to actually work. A signed token cannot be withdrawn before it expires, and
 /// "log out everywhere" and "this account is suspended" both need to take effect now.</para>
 ///
@@ -115,7 +115,7 @@ public sealed class SessionStore(Database database, SiteSessionOptions options)
             new { sessionId });
     }
 
-    /// <summary>Called on any privilege change — role grant, ownership transfer, suspension.</summary>
+    /// <summary>Called on any privilege change - role grant, ownership transfer, suspension.</summary>
     public async Task RevokeAllAsync(long accountId, CancellationToken ct)
     {
         using var connection = await database.OpenAsync(ct);
@@ -128,9 +128,82 @@ public sealed class SessionStore(Database database, SiteSessionOptions options)
         value is null ? null : value.Length <= length ? value : value[..length];
 }
 
+public enum LinkResult
+{
+    /// <summary>Attached to the account for the first time.</summary>
+    Linked,
+
+    /// <summary>Already yours. Clicking connect twice should not be an error.</summary>
+    AlreadyYours,
+
+    /// <summary>Attached to a different account. Moving it would break their sign-in.</summary>
+    TakenByAnother,
+}
+
 /// <summary>Links an OAuth identity to an account, creating one on first sign-in.</summary>
 public sealed class AccountStore(Database database)
 {
+    /// <summary>
+    /// Attaches a provider identity to an account that already exists - the "also connect Discord"
+    /// path, as opposed to signing in.
+    ///
+    /// <para>An identity belongs to exactly one account, and this will not move one. If it were
+    /// allowed to, anyone could attach a provider that already signs somebody else in, and that
+    /// person would silently lose their way into their own account - or, worse, find that signing
+    /// in now lands them in a stranger's. Refusing is the only safe answer.</para>
+    /// </summary>
+    public async Task<LinkResult> LinkIdentityAsync(
+        long accountId, string provider, string subject, string? login, CancellationToken ct)
+    {
+        var (connection, transaction) = await database.BeginTransactionAsync(ct);
+
+        await using (connection)
+        await using (transaction)
+        {
+            var owner = await connection.ExecuteScalarAsync<long?>(
+                "select account_id from oauth_identity where provider = @provider and subject = @subject",
+                new { provider, subject }, transaction);
+
+            if (owner is { } existing)
+            {
+                await transaction.RollbackAsync(ct);
+                return existing == accountId ? LinkResult.AlreadyYours : LinkResult.TakenByAnother;
+            }
+
+            // The insert can still lose a race with another request linking the same identity, so
+            // the conflict clause decides rather than the lookup above.
+            var inserted = await connection.ExecuteAsync("""
+                insert into oauth_identity (account_id, provider, subject)
+                values (@accountId, @provider, @subject)
+                on conflict (provider, subject) do nothing
+                """,
+                new { accountId, provider, subject }, transaction);
+
+            if (inserted == 0)
+            {
+                await transaction.RollbackAsync(ct);
+                return LinkResult.TakenByAnother;
+            }
+
+            // Keep the denormalised column in step; it is what repository ownership checks read.
+            if (provider == "github")
+            {
+                await connection.ExecuteAsync(
+                    "update account set github_login = @login where id = @accountId",
+                    new { login, accountId }, transaction);
+            }
+            else if (provider == "discord")
+            {
+                await connection.ExecuteAsync(
+                    "update account set discord_id = @subject where id = @accountId",
+                    new { subject, accountId }, transaction);
+            }
+
+            await transaction.CommitAsync(ct);
+            return LinkResult.Linked;
+        }
+    }
+
     /// <summary>Candidate handles to try before falling back to a generated one.</summary>
     private const int HandleAttempts = 100;
 
@@ -175,8 +248,8 @@ public sealed class AccountStore(Database database)
 
             if (linked is null)
             {
-                // They won. Roll back — which also discards the account row we just made, so the
-                // loser leaves nothing behind — and use the account they created.
+                // They won. Roll back - which also discards the account row we just made, so the
+                // loser leaves nothing behind - and use the account they created.
                 await transaction.RollbackAsync(ct);
 
                 return await connection.ExecuteScalarAsync<long>(
@@ -192,8 +265,8 @@ public sealed class AccountStore(Database database)
     /// <summary>
     /// Inserts an account, letting the unique index pick the handle rather than asking first.
     ///
-    /// <para>The obvious implementation — <c>select exists(... where handle = @attempt)</c> then
-    /// insert — is wrong twice over. It is check-then-act, so two concurrent sign-ins deriving the
+    /// <para>The obvious implementation - <c>select exists(... where handle = @attempt)</c> then
+    /// insert - is wrong twice over. It is check-then-act, so two concurrent sign-ins deriving the
     /// same handle both see it free. And <c>account.handle</c> is <c>citext</c>: there is no
     /// <c>citext = text</c> operator, so Postgres implicitly casts the column down to <c>text</c>
     /// and compares case-<i>sensitively</i>, while the unique index still compares

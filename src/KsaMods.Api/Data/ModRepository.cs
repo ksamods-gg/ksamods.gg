@@ -264,7 +264,7 @@ public sealed class ModRepository(Database database)
     }
 
     /// <summary>
-    /// Every release declaring an asset id — the collision query.
+    /// Every release declaring an asset id - the collision query.
     ///
     /// <para>KSA registers ids with <c>TryAdd</c> into one global table, so a duplicate from a
     /// later mod is silently discarded with no error a user will ever find. One indexed lookup

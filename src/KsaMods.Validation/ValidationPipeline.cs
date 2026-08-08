@@ -19,7 +19,7 @@ public sealed record ValidationRequest
 }
 
 /// <summary>
-/// Stages 3 to 8 of backend.md §7.3. Stages 1 and 2 — fetch and hash — happen on the worker,
+/// Stages 3 to 8 of backend.md §7.3. Stages 1 and 2 - fetch and hash - happen on the worker,
 /// outside the container, because SSRF is a network-policy problem and this is a parsing one.
 ///
 /// <para>This type does no I/O: no HttpClient, no File, no database. The caller supplies bytes.
@@ -138,7 +138,7 @@ public static class ValidationPipeline
 
         var root = roots[0];
 
-        // Case-insensitive comparison, because that is how the namespace compares — but the
+        // Case-insensitive comparison, because that is how the namespace compares - but the
         // mismatch itself is fatal: the folder name is the identity the game will see, and no
         // amount of correct metadata survives getting it wrong.
         if (!string.Equals(root, expectedId, StringComparison.OrdinalIgnoreCase))
@@ -251,7 +251,7 @@ public static class ValidationPipeline
                 if (value.Length == 0) continue;
 
                 // Stage 6: collect every Id attribute. Asset registration is a TryAdd into one
-                // global table, so a duplicate from a later mod is silently discarded — this
+                // global table, so a duplicate from a later mod is silently discarded - this
                 // index is the only way anyone finds out.
                 if (attribute.Name.LocalName.Equals("Id", StringComparison.Ordinal))
                 {
@@ -289,7 +289,7 @@ public static class ValidationPipeline
     /// declared XML.
     ///
     /// <para>Reachability rather than declaration is the whole point (spec §7). Textures, meshes
-    /// and shaders are correctly absent from mod.toml — they are referenced from inside the XML
+    /// and shaders are correctly absent from mod.toml - they are referenced from inside the XML
     /// that <i>is</i> declared. Warning on everything not named in mod.toml would fire on the
     /// normal shape of every content mod, and the warning authors ignore is worth less than no
     /// warning at all.</para>
@@ -320,7 +320,7 @@ public static class ValidationPipeline
                 $"'{relative}' is not declared in mod.toml and is not referenced from any declared XML, so the game will never load it.",
                 relative));
 
-        next: ;
+        next:;
         }
     }
 
@@ -357,7 +357,7 @@ public static class ValidationPipeline
             }
 
             // Metadata-only inspection. PEReader/MetadataReader never runs a static constructor
-            // or a module initialiser — it is the layer MetadataLoadContext is built on, and it
+            // or a module initialiser - it is the layer MetadataLoadContext is built on, and it
             // needs no resolver and no file path, so it is the stricter choice here (§14.4).
             string? assemblyName = null;
             string? assemblyVersion = null;
@@ -409,7 +409,7 @@ public static class ValidationPipeline
 
         if (assemblies.Count == 0) return assemblies;
 
-        // The entry assembly is [StarMap].EntryAssembly when set, otherwise the mod id — that
+        // The entry assembly is [StarMap].EntryAssembly when set, otherwise the mod id - that
         // default is why AircraftHUD loads with no [StarMap] block at all.
         var entryName = toml.EntryAssembly ?? expectedId;
         var expectedPath = $"{root}/{entryName}.dll";
@@ -456,7 +456,7 @@ public static class ValidationPipeline
 
         if (commands.Count > 0)
         {
-            // A legitimate feature — Core uses it for the opening camera angle — and also the
+            // A legitimate feature - Core uses it for the opening camera angle - and also the
             // most direct scripted-behaviour vector in a mod.toml. Displayed verbatim, never
             // silently stripped.
             findings.Add(new Finding(8, Severity.Info, FindingCodes.ConsoleBlockPresent,
@@ -476,7 +476,7 @@ public static class ValidationPipeline
             if (!coreIds.Contains(asset.Id)) continue;
 
             // Overriding stock content requires the mod to load before Core, which means editing
-            // manifest.toml order — a file the game rewrites freely. A fragile category, and
+            // manifest.toml order - a file the game rewrites freely. A fragile category, and
             // users deserve to know before installing.
             findings.Add(new Finding(8, Severity.Warning, FindingCodes.CoreIdOverride,
                 $"Asset id '{asset.Id}' also exists in Core, so this mod overrides stock content. " +
