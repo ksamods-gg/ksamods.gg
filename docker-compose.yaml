@@ -31,28 +31,27 @@ services:
       retries: 20
       start_period: 20s
 
-  # One-shot: runs to completion before the API starts, and again on every deploy. It checks for
-  # the schema before applying, so re-running is a no-op rather than an error.
+  # One-shot: runs to completion before the API starts, and again on every deploy. It tracks what
+  # it has applied in a schema_migration table, so re-running is a no-op rather than an error.
+  #
+  # Built rather than bind-mounted. A deployment tool that runs `docker compose` inside a helper
+  # container — Coolify does — resolves relative bind mounts against the helper's filesystem while
+  # the daemon resolves them against the host's. The paths do not match, the daemon creates an
+  # empty directory, and the migration file is silently absent. Baking it into the image makes
+  # this work identically everywhere.
   migrate:
-    image: postgres:17-alpine
+    build:
+      context: ./db
+      dockerfile: Dockerfile
     restart: "no"
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      - PGHOST=postgres
+      - PGUSER=ksamods
+      - PGDATABASE=ksamods
       - PGPASSWORD=${SERVICE_PASSWORD_POSTGRES}
-    volumes:
-      - ./db:/db:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        if [ "$$(psql -h postgres -U ksamods -d ksamods -tAc "select to_regclass('public.mod') is not null")" = "t" ]; then
-          echo "schema already present; nothing to apply"
-        else
-          echo "applying 0001_initial.sql"
-          psql -h postgres -U ksamods -d ksamods -v ON_ERROR_STOP=1 -f /db/migrations/0001_initial.sql
-        fi
 
   api:
     build:
