@@ -1,7 +1,16 @@
+using KsaMods.Api;
 using KsaMods.Api.Auth;
 using KsaMods.Api.Data;
 using KsaMods.Api.Endpoints;
 using Microsoft.AspNetCore.HttpOverrides;
+
+// Container healthcheck. The runtime image is chiselled — no shell, no curl, no wget — so the
+// only thing available to probe the app is the app itself. Docker runs `KsaMods.Api --healthcheck`
+// and reads the exit code.
+if (args.Contains("--healthcheck"))
+{
+    return await HealthProbe.RunAsync(Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS") ?? "8080");
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,12 +59,20 @@ builder.Services.AddRateLimiter(limiter =>
 
 var app = builder.Build();
 
-// The API sits behind a CDN and a reverse proxy, so the client address and scheme come from
+// The API sits behind the frontend's proxy and a CDN, so the client address and scheme come from
 // forwarded headers. Without this the SSRF-adjacent bits — rate limiting by IP, the ip_hash on a
 // session — all record the proxy instead of the caller.
+//
+// KnownNetworks and KnownProxies must be cleared or the headers are silently ignored: the
+// defaults trust only loopback, and in a container the caller is always another address. Safe
+// because this service is never exposed directly — see the compose file, which gives it no
+// published port.
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        | ForwardedHeaders.XForwardedHost,
+    KnownIPNetworks = { },
+    KnownProxies = { },
 });
 
 app.UseExceptionHandler();
@@ -111,5 +128,7 @@ app.MapModlistEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
+return 0;
 
 public partial class Program;

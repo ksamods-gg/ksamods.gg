@@ -78,6 +78,56 @@ deprecated listing with a successor, and an asset id collision between two mods.
 states the UI most needs to get right, and a seed of nothing but healthy mods lets every one of
 them ship broken.
 
+## Deploying to Coolify
+
+[`docker-compose.yaml`](docker-compose.yaml) is written for Coolify. Point a new Docker Compose
+resource at this repository and deploy; the only thing you must set is whether you want sign-in.
+
+Coolify fills two values in automatically because they are declared with no value:
+
+| Variable | What Coolify does |
+|---|---|
+| `SERVICE_FQDN_WEB_8080` | Assigns a domain, terminates TLS, routes it to the frontend |
+| `SERVICE_PASSWORD_POSTGRES` | Generates a password once and injects it into both services |
+
+Optional, for sign-in — leave them unset and the auth routes are simply not mapped, which is a
+working read-only site rather than a broken sign-in button:
+
+```
+GITHUB_CLIENT_ID       GITHUB_CLIENT_SECRET
+DISCORD_CLIENT_ID      DISCORD_CLIENT_SECRET
+```
+
+The GitHub OAuth app's callback URL must be `https://<your-domain>/auth/github/callback`.
+
+**Only the frontend is exposed.** The API and Postgres publish no ports; the browser reaches the
+API through the frontend's own proxy. That is deliberate — it is what lets the session cookie stay
+HttpOnly and `SameSite=Lax` with no CORS policy anywhere. It also means `docker compose up` locally
+gives you nothing to curl; add a `ports:` mapping to the `web` service if you want that.
+
+Schema is applied by a one-shot `migrate` service that runs before the API starts. It checks for
+the schema first, so re-running on every deploy is a no-op rather than an error.
+
+### Verified
+
+Built and run: all three services reach healthy, `migrate` completes, the frontend serves its
+pages, the proxy reaches the API, and re-running `migrate` correctly reports `schema already
+present; nothing to apply`.
+
+### Two things that had to change for this to work
+
+**Forwarded headers.** Behind a TLS-terminating proxy both apps see plain HTTP on an internal
+address. Left alone, `UseHttpsRedirection` redirects to https, the proxy forwards the retry as
+http, and the browser loops; and the OAuth start endpoint builds its `redirect_uri` from
+`Request.Scheme`, producing an `http://` callback that will not match what you registered.
+`KnownIPNetworks` and `KnownProxies` must be *cleared* or the headers are silently ignored, since
+the defaults trust only loopback and in a container the proxy is always another address.
+
+**Healthchecks probe from inside the app.** The runtime images are chiselled — no shell, no curl,
+no wget — so `HealthProbe.cs` gives each app a `--healthcheck` argument that requests its own
+`/health` and exits 0 or 1. Adding curl to the image to avoid this would mean shipping a binary,
+and an attack surface, for one request the app can make itself.
+
 ## The frontend
 
 Blazor Web App, server-rendered by default so mod pages are indexable, with interactive

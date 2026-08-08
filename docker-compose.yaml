@@ -1,0 +1,115 @@
+# ksamods.gg — deployment for Coolify.
+#
+# Three long-running services plus a one-shot migration. Only the frontend is reachable from
+# outside: the API and the database publish no ports, and the browser reaches the API through the
+# frontend's own reverse proxy (KsaMods.Web/Services/ApiProxy.cs). That is what lets the session
+# cookie stay HttpOnly and SameSite=Lax with no CORS policy anywhere.
+#
+# Coolify specifics used here:
+#   · SERVICE_FQDN_WEB_8080     — declared with no value so Coolify generates a domain, terminates
+#                                 TLS, and routes it to this service's port 8080.
+#   · SERVICE_PASSWORD_POSTGRES — declared with no value so Coolify generates a password once and
+#                                 injects the same value everywhere it is referenced.
+# Both can be overridden in the Coolify UI before the first deploy.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=ksamods
+      - POSTGRES_USER=ksamods
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # A real query rather than pg_isready alone: accepting connections and being ready to answer
+      # are not the same thing, and the dependent services need the second one.
+      test: ["CMD-SHELL", "psql -U ksamods -d ksamods -c 'select 1' > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  # One-shot: runs to completion before the API starts, and again on every deploy. It checks for
+  # the schema before applying, so re-running is a no-op rather than an error.
+  migrate:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=${SERVICE_PASSWORD_POSTGRES}
+    volumes:
+      - ./db:/db:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ "$$(psql -h postgres -U ksamods -d ksamods -tAc "select to_regclass('public.mod') is not null")" = "t" ]; then
+          echo "schema already present; nothing to apply"
+        else
+          echo "applying 0001_initial.sql"
+          psql -h postgres -U ksamods -d ksamods -v ON_ERROR_STOP=1 -f /db/migrations/0001_initial.sql
+        fi
+
+  api:
+    build:
+      context: .
+      dockerfile: src/KsaMods.Api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__Postgres=Host=postgres;Database=ksamods;Username=ksamods;Password=${SERVICE_PASSWORD_POSTGRES};Maximum Pool Size=20
+      # Sign-in is only offered when these are set. Left empty, the auth routes are simply not
+      # mapped — a working read-only site rather than a broken sign-in button.
+      - OAuth__GitHub__ClientId=${GITHUB_CLIENT_ID:-}
+      - OAuth__GitHub__ClientSecret=${GITHUB_CLIENT_SECRET:-}
+      - OAuth__Discord__ClientId=${DISCORD_CLIENT_ID:-}
+      - OAuth__Discord__ClientSecret=${DISCORD_CLIENT_SECRET:-}
+    # No published ports: reachable only from the web service, over the compose network.
+    expose:
+      - "8080"
+    healthcheck:
+      # The runtime image is chiselled — no shell, no curl, no wget — so the app probes itself.
+      # See KsaMods.Api/HealthProbe.cs.
+      test: ["CMD", "/app/KsaMods.Api", "--healthcheck"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  web:
+    build:
+      context: .
+      dockerfile: src/KsaMods.Web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # No value: Coolify generates the domain and wires up its proxy.
+      - SERVICE_FQDN_WEB_8080
+      - ASPNETCORE_ENVIRONMENT=Production
+      # Service name, not localhost — these are separate containers.
+      - Api__BaseUrl=http://api:8080
+      # TLS terminates at Coolify's proxy. Redirecting to https here would loop, and an OAuth
+      # redirect_uri built from the request scheme would come out as http://.
+      - BehindProxy=true
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "/app/KsaMods.Web", "--healthcheck"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  postgres-data:
