@@ -1,6 +1,8 @@
 @namespace KsaMods.Web.Components.Layout
 @inherits LayoutComponentBase
 @using KsaMods.Web.Components.Ui
+@inject AuthAvailability Auth
+@inject NavigationManager Nav
 
 <div class="flex min-h-screen flex-col">
     <SiteBanner />
@@ -22,7 +24,21 @@
 
             <div class="ml-auto flex items-center gap-2">
                 <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
-                <Button Href="/auth/github/start?returnTo=/" Size="sm">Sign in</Button>
+
+                @* Offered only when the API has credentials for it. A sign-in button that 404s is
+                   worse than none: the reader cannot tell a misconfiguration from an outage. *@
+                @if (_providers.Contains("github"))
+                {
+                    <Button Href="@($"/auth/github/start?returnTo={ReturnTo}")" Size="sm">
+                        Sign in with GitHub
+                    </Button>
+                }
+                else if (_providers.Contains("discord"))
+                {
+                    <Button Href="@($"/auth/discord/start?returnTo={ReturnTo}")" Size="sm">
+                        Sign in with Discord
+                    </Button>
+                }
             </div>
         </div>
     </header>
@@ -90,3 +106,14 @@
     Something went wrong. Reload the page to continue.
     <a href="" class="dismiss">✕</a>
 </div>
+
+@code {
+    private IReadOnlyList<string> _providers = [];
+
+    /// <summary>Come back to the page the user was on, not to the home page.</summary>
+    private string ReturnTo => Uri.EscapeDataString(
+        "/" + Nav.ToBaseRelativePath(Nav.Uri));
+
+    protected override async Task OnInitializedAsync() =>
+        _providers = await Auth.ProvidersAsync();
+}

@@ -30,9 +30,19 @@ public static class OAuthEndpoints
         IReadOnlyDictionary<string, OAuthProviderOptions> providers,
         SiteSessionOptions sessionOptions)
     {
+        // Which providers actually have credentials. The frontend asks this so it can hide a
+        // sign-in button that could only ever 404 — an operator who has not set the credentials
+        // gets a working read-only site, not a broken button.
+        //
+        // Under /api/v1 rather than /auth: this is data about the flow, not a step in it.
+        app.MapGet("/api/v1/auth/providers", () => Results.Ok(new
+        {
+            providers = providers.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray(),
+        }));
+
         app.MapGet("/auth/{provider}/start", (string provider, HttpContext http, string? returnTo) =>
         {
-            if (!providers.TryGetValue(provider, out var options)) return Results.NotFound();
+            if (!providers.TryGetValue(provider, out var options)) return NotConfigured(provider);
 
             // CSRF protection for the callback. Bound to the browser via a cookie so a state
             // value alone is not enough to complete somebody else's sign-in.
@@ -70,7 +80,7 @@ public static class OAuthEndpoints
             SessionStore sessions,
             CancellationToken ct) =>
         {
-            if (!providers.TryGetValue(provider, out var options)) return Results.NotFound();
+            if (!providers.TryGetValue(provider, out var options)) return NotConfigured(provider);
             if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state)) return Results.BadRequest();
 
             if (!http.Request.Cookies.TryGetValue(StateCookie, out var stored)) return Results.BadRequest();
@@ -160,6 +170,24 @@ public static class OAuthEndpoints
             return Results.NoContent();
         });
     }
+
+    /// <summary>
+    /// A bare 404 here sends whoever deployed this hunting through routing for an endpoint that
+    /// exists and is simply unconfigured. Name the environment variables instead.
+    /// </summary>
+    private static IResult NotConfigured(string provider) => Results.Problem(
+        title: "Sign-in is not configured",
+        detail: $"No OAuth credentials are set for '{provider}'. Set OAuth__{Capitalise(provider)}__ClientId "
+              + $"and OAuth__{Capitalise(provider)}__ClientSecret on the API, then redeploy. "
+              + "Until then the site works read-only.",
+        statusCode: StatusCodes.Status404NotFound);
+
+    private static string Capitalise(string value) => value.ToLowerInvariant() switch
+    {
+        "github" => "GitHub",
+        "discord" => "Discord",
+        _ => value,
+    };
 
     private static (string Subject, string DisplayName, string? Login, string? AvatarUrl)? ReadProfile(
         string provider, JsonElement root) => provider switch
