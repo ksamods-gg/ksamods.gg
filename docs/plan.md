@@ -1,7 +1,7 @@
 # ksamods.gg Feature Plan
 
 **Status:** Draft v0.3
-**Companion to:** KSA Mod Archive Structure Standard v0.4, KSA Mod Registry Specification
+**Companion to:** [KSA Mod Archive Structure Standard v0.4](spec.md), [Backend Specification v0.1](backend.md)
 **Grounded on:** KSA build `2026.8.5.5168`, StarMap `0.4.6`
 **Aligned with:** KSAModding [RFC 0017](../content-manager-design/rfcs/0017-game-version-ordering-and-compatibility.md),
 [RFC 0025](../content-manager-design/rfcs/0025-scope.md),
