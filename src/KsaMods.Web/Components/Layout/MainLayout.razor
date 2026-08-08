@@ -47,8 +47,15 @@
                            sign-in button that 404s is worse than none: the reader cannot tell a
                            misconfiguration from an outage. Which providers exist is the sign-in
                            page's problem, not the header's, so adding Discord later changes one
-                           page rather than every layout. *@
-                        <Button Href="@($"/signin?returnTo={ReturnTo}")" Size="sm">Sign in</Button>
+                           page rather than every layout.
+
+                           Outline rather than solid, with the reason on hover. Most visitors are
+                           here to install something and never need an account; a primary button
+                           in the corner asks them to justify not pressing it. *@
+                        <Button Href="@($"/signin?returnTo={ReturnTo}")" Variant="outline" Size="sm"
+                                title="Only needed to publish a mod or build a modlist.">
+                            Sign in
+                        </Button>
                     }
                 </div>
             </div>

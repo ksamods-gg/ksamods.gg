@@ -4,21 +4,25 @@
 <PageTitle>ksamods.gg | Mods for Kitten Space Agency</PageTitle>
 
 @*
-    No hero graphic. This is a catalogue, and the useful things are the search field and the
-    list, so the page spends four lines establishing what the site is and then gets out of the
-    way. A panel of ornament to the right of the headline was filling space rather than earning
-    it, whichever ornament it happened to be.
+    No hero graphic. This is a catalogue, and the useful things are the search field and the list.
+
+    The headline says what the site is before it says what it does differently. It used to open
+    with "Find mods that actually load", which is the interesting claim and a poor introduction:
+    somebody arriving cold cannot tell from it whether this is a mod index, a compatibility
+    checker or a launcher. The differentiator earns its place in the sentence underneath, once
+    the reader knows what they are looking at.
 *@
 <section class="max-w-2xl pb-10">
     <p class="eyebrow text-primary">Kitten Space Agency</p>
 
     <h1 class="mt-4 text-balance text-[2.5rem] font-bold leading-[1.05] tracking-tight sm:text-[3.25rem]">
-        Find mods that actually load.
+        Find mods for KSA.
     </h1>
 
     <p class="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-muted-foreground">
-        We unpack every release and read it the same way the game does. If an archive is broken,
-        you find out here instead of after you've installed it.
+        A catalogue of what people have made, with every release unpacked and read the same way
+        the game reads it. If an archive is broken, you find out here rather than after you have
+        installed it.
     </p>
 
     <form action="/mods" method="get" class="mt-7 flex gap-2">
@@ -28,6 +32,11 @@
                       focus-visible:outline-offset-2 focus-visible:outline-ring" />
         <Button Type="submit" Class="h-10 px-5">Search</Button>
     </form>
+
+    @* Answers the question the header's Sign in button raises for everyone who does not need it. *@
+    <p class="mt-3 text-xs text-muted-foreground">
+        Browsing and downloading need no account.
+    </p>
 </section>
 
 <section class="border-t border-border pt-10">
@@ -65,6 +74,54 @@
             }
         </div>
     }
+</section>
+
+@*
+    Two audiences with almost nothing in common: one wants to install things, the other wants to
+    publish them. Writing for both at once produced copy that told players about repositories and
+    authors about compatibility badges. Splitting them is also the honest place to answer "why
+    would I sign up" - the answer is that most people never need to, and the ones who do are
+    signing in to prove a listing is theirs.
+*@
+<section class="mt-14 border-t border-border pt-10">
+    <div class="grid gap-4 md:grid-cols-2">
+        <Card Header="@(b => b.AddContent(0, "Playing"))">
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                Search the catalogue, tell us which game build you are on, and see what fits it.
+                Every listing says where the download really comes from and what the archive
+                contains - including which mods lay claim to the same parts, which is the usual
+                reason two of them will not run together.
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <Button Href="/mods" Size="sm">Browse mods</Button>
+                <Button Href="/collisions" Variant="outline" Size="sm">Check asset ids</Button>
+            </div>
+
+            <p class="mt-3 text-xs text-muted-foreground">
+                None of this needs an account, and there is nothing to install to use it.
+            </p>
+        </Card>
+
+        <Card Header="@(b => b.AddContent(0, "Making mods"))">
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                Keep publishing exactly as you do now. Connect the repository you release from and
+                every tag you push turns into a listing on its own - unpacked, checked, and
+                pointing at your own download. We never host the file or stand between you and the
+                people installing it.
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <Button Href="/mods/new" Size="sm">List a mod</Button>
+                <Button Href="/api-reference" Variant="outline" Size="sm">Read the API</Button>
+            </div>
+
+            <p class="mt-3 text-xs text-muted-foreground">
+                This is the part that needs an account: connecting the repository is how we know
+                the listing is yours.
+            </p>
+        </Card>
+    </div>
 </section>
 
 @code {
