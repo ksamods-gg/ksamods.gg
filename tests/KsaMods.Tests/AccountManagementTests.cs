@@ -174,6 +174,118 @@ public sealed class AccountManagementTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task Linking_a_second_provider_attaches_to_the_same_account()
+    {
+        // The whole point: connecting Discord to an account that signs in with GitHub must give
+        // that account a second way in, not create a second account.
+        var accounts = new AccountStore(Db);
+        var id = await NewAccountAsync();
+
+        var result = await accounts.LinkIdentityAsync(
+            id, "discord", $"d-{Guid.NewGuid():N}", "discorduser", default);
+
+        Assert.Equal(LinkResult.Linked, result);
+
+        using var connection = await Db.OpenAsync(CancellationToken.None);
+
+        var linked = await connection.QueryAsync<string>(
+            "select provider from oauth_identity where account_id = @id order by provider", new { id });
+
+        Assert.Equal(["discord", "github"], linked);
+
+        // The denormalised column has to move with it — repository ownership checks read it.
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            "select count(*) from account where id = @id and discord_id is not null", new { id }));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Linking_the_same_provider_twice_is_not_an_error()
+    {
+        var accounts = new AccountStore(Db);
+        var id = await NewAccountAsync();
+        var subject = $"d-{Guid.NewGuid():N}";
+
+        Assert.Equal(LinkResult.Linked,
+            await accounts.LinkIdentityAsync(id, "discord", subject, "u", default));
+
+        // Clicking connect twice, or reloading the callback, must be idempotent rather than a
+        // scary error about an account being taken.
+        Assert.Equal(LinkResult.AlreadyYours,
+            await accounts.LinkIdentityAsync(id, "discord", subject, "u", default));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Linking_an_identity_that_belongs_to_someone_else_is_refused()
+    {
+        // The one that matters. Moving an identity would take away its owner's way into their own
+        // account — and hand it to whoever asked. Refusing is the only safe answer.
+        var accounts = new AccountStore(Db);
+        var theirs = await NewAccountAsync();
+        var mine = await NewAccountAsync();
+
+        var subject = $"d-{Guid.NewGuid():N}";
+        Assert.Equal(LinkResult.Linked,
+            await accounts.LinkIdentityAsync(theirs, "discord", subject, "u", default));
+
+        Assert.Equal(LinkResult.TakenByAnother,
+            await accounts.LinkIdentityAsync(mine, "discord", subject, "u", default));
+
+        using var connection = await Db.OpenAsync(CancellationToken.None);
+
+        // Still theirs, and their sign-in still works.
+        var owner = await connection.ExecuteScalarAsync<long>(
+            "select account_id from oauth_identity where provider = 'discord' and subject = @subject",
+            new { subject });
+
+        Assert.Equal(theirs, owner);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Linking_a_provider_that_already_signs_someone_in_cannot_hijack_them()
+    {
+        // Same rule from the other direction: an identity created by a real sign-in is just as
+        // protected as one created by linking.
+        var accounts = new AccountStore(Db);
+        var victimSubject = $"gh-{Guid.NewGuid():N}";
+
+        var victim = await accounts.UpsertAsync(
+            "github", victimSubject, "Victim", $"victim{Guid.NewGuid():N}"[..12], null, default);
+        _created.Add(victim);
+
+        var attacker = await NewAccountAsync();
+
+        Assert.Equal(LinkResult.TakenByAnother,
+            await accounts.LinkIdentityAsync(attacker, "github", victimSubject, "victim", default));
+
+        // Signing in with the victim's provider still lands in the victim's account.
+        Assert.Equal(victim, await accounts.UpsertAsync(
+            "github", victimSubject, "Victim", "victim", null, default));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Concurrent_links_of_one_identity_leave_exactly_one_owner()
+    {
+        // Two accounts racing to claim the same provider identity. Exactly one may win, and the
+        // loser must be told rather than throwing.
+        var accounts = new AccountStore(Db);
+        var first = await NewAccountAsync();
+        var second = await NewAccountAsync();
+        var subject = $"d-{Guid.NewGuid():N}";
+
+        var results = await Task.WhenAll(
+            accounts.LinkIdentityAsync(first, "discord", subject, "u", default),
+            accounts.LinkIdentityAsync(second, "discord", subject, "u", default));
+
+        Assert.Single(results, r => r == LinkResult.Linked);
+        Assert.Single(results, r => r == LinkResult.TakenByAnother);
+
+        using var connection = await Db.OpenAsync(CancellationToken.None);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            "select count(*) from oauth_identity where provider = 'discord' and subject = @subject",
+            new { subject }));
+    }
+
+    [RequiresPostgresFact]
     public async Task Unlinking_counts_identities_before_removing_one()
     {
         // The guard the API relies on: an account with one identity has no other way in, so the
