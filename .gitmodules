@@ -1,0 +1,3 @@
+[submodule "content-manager-design"]
+	path = content-manager-design
+	url = https://github.com/KSAModding/content-manager-design.git
