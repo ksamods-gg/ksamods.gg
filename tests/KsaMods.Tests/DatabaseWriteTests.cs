@@ -113,6 +113,69 @@ public sealed class DatabaseWriteTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task A_handle_differing_only_in_case_does_not_break_sign_in()
+    {
+        // The 23505 that reached production. account.handle is citext, so the unique index
+        // compares case-insensitively — but a `where handle = @param` lookup does not, because
+        // Postgres casts the column down to text to find an operator. Anyone whose login differed
+        // only in case from an existing handle got a duplicate-key crash instead of an account.
+        var accounts = new AccountStore(Db);
+        var stem = $"Case{Guid.NewGuid():N}"[..12];
+
+        var first = await accounts.UpsertAsync("github", $"c1-{Guid.NewGuid():N}", "A", stem, null, default);
+        var second = await accounts.UpsertAsync(
+            "discord", $"c2-{Guid.NewGuid():N}", "B", stem.ToUpperInvariant(), null, default);
+
+        Assert.NotEqual(first, second);
+
+        using (var connection = await Db.OpenAsync(CancellationToken.None))
+        {
+            var handles = (await connection.QueryAsync<string>(
+                "select handle from account where id = any(@ids)",
+                new { ids = new[] { first, second } })).ToList();
+
+            // Distinct even ignoring case, which is the only kind of distinct the index accepts.
+            Assert.Equal(2, handles.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        }
+
+        await DeleteAccountsAsync(first, second);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Concurrent_first_time_sign_ins_settle_on_one_account()
+    {
+        // Check-then-act on the handle meant two simultaneous sign-ins could both see a name free
+        // and both try to take it. Same subject twice must converge on one account, not throw.
+        var accounts = new AccountStore(Db);
+        var subject = $"race-{Guid.NewGuid():N}";
+
+        var results = await Task.WhenAll(
+            Enumerable.Range(0, 4).Select(_ =>
+                accounts.UpsertAsync("github", subject, "Racer", $"racer{Guid.NewGuid():N}"[..10], null, default)));
+
+        Assert.Single(results.Distinct());
+
+        await DeleteAccountsAsync(results.Distinct().ToArray());
+    }
+
+    [RequiresPostgresFact]
+    public async Task Concurrent_sign_ins_sharing_a_login_stem_all_succeed()
+    {
+        // Different people, same derived handle, at the same moment. Every one must end up with
+        // an account: losing a sign-in to someone else's name clash is not an acceptable outcome.
+        var accounts = new AccountStore(Db);
+        var stem = $"shared{Guid.NewGuid():N}"[..10];
+
+        var results = await Task.WhenAll(
+            Enumerable.Range(0, 5).Select(i =>
+                accounts.UpsertAsync("github", $"s{i}-{Guid.NewGuid():N}", "Person", stem, null, default)));
+
+        Assert.Equal(5, results.Distinct().Count());
+
+        await DeleteAccountsAsync(results);
+    }
+
+    [RequiresPostgresFact]
     public async Task Issuing_and_revoking_a_session_round_trips()
     {
         var accounts = new AccountStore(Db);

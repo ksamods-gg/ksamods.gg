@@ -332,8 +332,15 @@ public static class ModlistEndpoints
 
             using var connection = await database.OpenAsync(ct);
 
+            // The ::citext cast is required, not decorative. handle is citext, but a Dapper
+            // parameter arrives as text and there is no citext = text operator — Postgres casts
+            // the column down to text and compares case-sensitively, so inviting "SafeShows"
+            // would fail to find the account whose handle is "safeshows".
+            //
+            // The id_lower lookups elsewhere need no cast because both sides are already
+            // lowercase; handles are the only citext column that preserves case.
             var accountId = await connection.ExecuteScalarAsync<long?>(
-                "select id from account where handle = @handle", new { handle = body.Handle });
+                "select id from account where handle = @handle::citext", new { handle = body.Handle });
 
             if (accountId is null) return Results.NotFound(new { error = "no_such_account" });
 

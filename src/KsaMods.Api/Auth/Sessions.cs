@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Dapper;
+using Npgsql;
 using KsaMods.Api.Data;
 using KsaMods.Api.Domain;
 
@@ -130,74 +131,123 @@ public sealed class SessionStore(Database database, SiteSessionOptions options)
 /// <summary>Links an OAuth identity to an account, creating one on first sign-in.</summary>
 public sealed class AccountStore(Database database)
 {
+    /// <summary>Candidate handles to try before falling back to a generated one.</summary>
+    private const int HandleAttempts = 100;
+
     public async Task<long> UpsertAsync(
         string provider, string subject, string displayName, string? login, string? avatarUrl,
         CancellationToken ct)
     {
-        using var connection = await database.OpenAsync(ct);
-        using var transaction = connection.BeginTransaction();
+        var (connection, transaction) = await database.BeginTransactionAsync(ct);
 
-        var existing = await connection.ExecuteScalarAsync<long?>(
-            "select account_id from oauth_identity where provider = @provider and subject = @subject",
-            new { provider, subject }, transaction);
-
-        if (existing is { } accountId)
+        await using (connection)
+        await using (transaction)
         {
-            if (provider == "github")
+            var existing = await connection.ExecuteScalarAsync<long?>(
+                "select account_id from oauth_identity where provider = @provider and subject = @subject",
+                new { provider, subject }, transaction);
+
+            if (existing is { } accountId)
             {
-                await connection.ExecuteAsync(
-                    "update account set github_login = @login where id = @accountId",
-                    new { login, accountId }, transaction);
+                if (provider == "github")
+                {
+                    await connection.ExecuteAsync(
+                        "update account set github_login = @login where id = @accountId",
+                        new { login, accountId }, transaction);
+                }
+
+                await transaction.CommitAsync(ct);
+                return accountId;
             }
 
-            transaction.Commit();
-            return accountId;
+            var created = await CreateAccountAsync(
+                connection, transaction, provider, displayName, login, avatarUrl);
+
+            // Another request may have linked this identity between our lookup and here. The
+            // conflict clause turns that race into a null rather than an exception.
+            var linked = await connection.ExecuteScalarAsync<long?>("""
+                insert into oauth_identity (account_id, provider, subject)
+                values (@created, @provider, @subject)
+                on conflict (provider, subject) do nothing
+                returning account_id
+                """,
+                new { created, provider, subject }, transaction);
+
+            if (linked is null)
+            {
+                // They won. Roll back — which also discards the account row we just made, so the
+                // loser leaves nothing behind — and use the account they created.
+                await transaction.RollbackAsync(ct);
+
+                return await connection.ExecuteScalarAsync<long>(
+                    "select account_id from oauth_identity where provider = @provider and subject = @subject",
+                    new { provider, subject });
+            }
+
+            await transaction.CommitAsync(ct);
+            return created;
+        }
+    }
+
+    /// <summary>
+    /// Inserts an account, letting the unique index pick the handle rather than asking first.
+    ///
+    /// <para>The obvious implementation — <c>select exists(... where handle = @attempt)</c> then
+    /// insert — is wrong twice over. It is check-then-act, so two concurrent sign-ins deriving the
+    /// same handle both see it free. And <c>account.handle</c> is <c>citext</c>: there is no
+    /// <c>citext = text</c> operator, so Postgres implicitly casts the column down to <c>text</c>
+    /// and compares case-<i>sensitively</i>, while the unique index still compares
+    /// case-<i>insensitively</i>. The check says free, the index says duplicate, and sign-in dies
+    /// with a 23505 nobody can reproduce locally.</para>
+    ///
+    /// <para><c>on conflict do nothing</c> asks the index itself, which is the only thing that
+    /// knows the answer.</para>
+    /// </summary>
+    private static async Task<long> CreateAccountAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction,
+        string provider, string displayName, string? login, string? avatarUrl)
+    {
+        var seed = Sanitise(login ?? displayName);
+
+        for (var suffix = 0; suffix < HandleAttempts; suffix++)
+        {
+            var handle = suffix == 0 ? seed : $"{seed}{suffix}";
+
+            var id = await connection.ExecuteScalarAsync<long?>("""
+                insert into account (handle, display_name, github_login, avatar_url)
+                values (@handle, @displayName, @githubLogin, @avatarUrl)
+                on conflict (handle) do nothing
+                returning id
+                """,
+                new
+                {
+                    handle,
+                    displayName,
+                    githubLogin = provider == "github" ? login : null,
+                    avatarUrl,
+                },
+                transaction);
+
+            if (id is { } created) return created;
         }
 
-        // Handles are user-facing and must be unique; derive a candidate and disambiguate rather
-        // than failing sign-in on a collision the user did not cause.
-        var handle = await UniqueHandleAsync(connection, transaction, login ?? displayName);
+        // A hundred people sharing one login stem is not a thing that happens, but failing a
+        // sign-in because it did would be worse than an ugly handle the user can change later.
+        var fallback = $"user{Guid.NewGuid():N}"[..16];
 
-        var created = await connection.ExecuteScalarAsync<long>("""
+        return await connection.ExecuteScalarAsync<long>("""
             insert into account (handle, display_name, github_login, avatar_url)
-            values (@handle, @displayName, @githubLogin, @avatarUrl)
+            values (@fallback, @displayName, @githubLogin, @avatarUrl)
             returning id
             """,
             new
             {
-                handle,
+                fallback,
                 displayName,
                 githubLogin = provider == "github" ? login : null,
                 avatarUrl,
             },
             transaction);
-
-        await connection.ExecuteAsync("""
-            insert into oauth_identity (account_id, provider, subject) values (@created, @provider, @subject)
-            """,
-            new { created, provider, subject }, transaction);
-
-        transaction.Commit();
-        return created;
-    }
-
-    private static async Task<string> UniqueHandleAsync(
-        System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, string seed)
-    {
-        var candidate = Sanitise(seed);
-
-        for (var suffix = 0; suffix < 1000; suffix++)
-        {
-            var attempt = suffix == 0 ? candidate : $"{candidate}{suffix}";
-
-            var taken = await connection.ExecuteScalarAsync<bool>(
-                "select exists (select 1 from account where handle = @attempt)",
-                new { attempt }, transaction);
-
-            if (!taken) return attempt;
-        }
-
-        return $"user{Guid.NewGuid():N}"[..16];
     }
 
     private static string Sanitise(string seed)
