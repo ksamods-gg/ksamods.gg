@@ -1,36 +1,25 @@
 # ksamods.gg - deployment for Coolify.
 #
-# Three long-running services plus a one-shot migration. Only the frontend is reachable from
-# outside: the API and the database publish no ports, and the browser reaches the API through the
-# frontend's own reverse proxy (KsaMods.Web/Services/ApiProxy.cs). That is what lets the session
-# cookie stay HttpOnly and SameSite=Lax with no CORS policy anywhere.
+# Two long-running services plus a one-shot migration, against a Postgres you run elsewhere. Only
+# the frontend is reachable from outside: the API publishes no ports, and the browser reaches it
+# through the frontend's own reverse proxy (KsaMods.Web/Services/ApiProxy.cs). That is what lets
+# the session cookie stay HttpOnly and SameSite=Lax with no CORS policy anywhere.
+#
+# DATABASE_URL is required and has no default. A default would be worse than a failed deploy:
+# every service would quietly come up pointing at a database that is not yours, and the first sign
+# of it would be an empty site. `${DATABASE_URL:?...}` makes compose refuse to start instead.
+#
+#   DATABASE_URL=postgres://user:password@host:5432/ksamods
+#
+# Add ?sslmode=require for a managed database that expects TLS. The API accepts this URL form and
+# the libpq key/value form equally (KsaMods.Api/Data/Database.cs).
 #
 # Coolify specifics used here:
-#   · SERVICE_FQDN_WEB_8080     - declared with no value so Coolify generates a domain, terminates
-#                                 TLS, and routes it to this service's port 8080.
-#   · SERVICE_PASSWORD_POSTGRES - declared with no value so Coolify generates a password once and
-#                                 injects the same value everywhere it is referenced.
-# Both can be overridden in the Coolify UI before the first deploy.
+#   · SERVICE_FQDN_WEB_8080 - declared with no value so Coolify generates a domain, terminates TLS,
+#                             and routes it to this service's port 8080. Override it in the UI
+#                             before the first deploy if you have a domain ready.
 
 services:
-  postgres:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=ksamods
-      - POSTGRES_USER=ksamods
-      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      # A real query rather than pg_isready alone: accepting connections and being ready to answer
-      # are not the same thing, and the dependent services need the second one.
-      test: ["CMD-SHELL", "psql -U ksamods -d ksamods -c 'select 1' > /dev/null || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
-
   # One-shot: runs to completion before the API starts, and again on every deploy. It tracks what
   # it has applied in a schema_migration table, so re-running is a no-op rather than an error.
   #
@@ -44,14 +33,8 @@ services:
       context: ./db
       dockerfile: Dockerfile
     restart: "no"
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      - PGHOST=postgres
-      - PGUSER=ksamods
-      - PGDATABASE=ksamods
-      - PGPASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - DATABASE_URL=${DATABASE_URL:?set DATABASE_URL to postgres://user:password@host:5432/dbname}
 
   api:
     build:
@@ -59,13 +42,11 @@ services:
       dockerfile: src/KsaMods.Api/Dockerfile
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__Postgres=Host=postgres;Database=ksamods;Username=ksamods;Password=${SERVICE_PASSWORD_POSTGRES};Maximum Pool Size=20
+      - DATABASE_URL=${DATABASE_URL:?set DATABASE_URL to postgres://user:password@host:5432/dbname}
       # The address people type. Required for sign-in, because the OAuth redirect_uri must match
       # what is registered with the provider exactly - and inside the compose network the API's
       # own request host is "api:8080", which is not somewhere a browser can go.
@@ -116,6 +97,3 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
-
-volumes:
-  postgres-data:

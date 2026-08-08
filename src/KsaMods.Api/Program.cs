@@ -14,7 +14,12 @@ if (args.Contains("--healthcheck"))
 
 var builder = WebApplication.CreateBuilder(args);
 
+// DATABASE_URL is what every managed provider gives you, and what the compose file passes. The
+// explicit setting wins where both are present, so a deployment can override one service without
+// touching the shared value. Either may be a postgres:// URL or libpq key/value - Database
+// normalises it.
 var connectionString = builder.Configuration.GetConnectionString("Postgres")
+    ?? builder.Configuration["DATABASE_URL"]
     ?? "Host=localhost;Database=ksamods;Username=ksamods;Password=ksamods";
 
 builder.Services.AddSingleton(Database.CreateDataSource(connectionString));

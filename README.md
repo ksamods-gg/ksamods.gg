@@ -80,15 +80,27 @@ them ship broken.
 
 ## Deploying to Coolify
 
-[`docker-compose.yaml`](docker-compose.yaml) is written for Coolify. Point a new Docker Compose
-resource at this repository and deploy; the only thing you must set is whether you want sign-in.
+[`docker-compose.yaml`](docker-compose.yaml) is written for Coolify. It brings up the API, the
+frontend and a one-shot migration; the database is yours to run, so create a Postgres resource
+first and point this at it.
 
-Coolify fills two values in automatically because they are declared with no value:
+One variable is required, and deliberately has no default — a default would mean every service
+quietly coming up against a database that is not yours, and the first sign of it would be an empty
+site. Compose refuses to start without it:
+
+```
+DATABASE_URL=postgres://user:password@host:5432/ksamods
+```
+
+Add `?sslmode=require` if your provider expects TLS. Percent-encode a password containing `@ : / #`.
+Both this URL form and libpq's `Host=…;Username=…` form work — the API normalises whichever it
+gets ([`Database.Normalise`](src/KsaMods.Api/Data/Database.cs)), and so does the migration runner.
+
+Coolify fills one value in automatically because it is declared with no value:
 
 | Variable | What Coolify does |
 |---|---|
 | `SERVICE_FQDN_WEB_8080` | Assigns a domain, terminates TLS, routes it to the frontend |
-| `SERVICE_PASSWORD_POSTGRES` | Generates a password once and injects it into both services |
 
 Optional, for sign-in. Leave them unset and the auth routes are simply not mapped, which is a
 working read-only site rather than a broken sign-in button:
@@ -114,16 +126,17 @@ If it is missing, the API says so three ways rather than failing obscurely: a wa
 `500` naming the setting when a request arrives with an internal host, and the frontend hiding the
 sign-in button entirely when no provider is configured.
 
-**Only the frontend is exposed.** The API and Postgres publish no ports; the browser reaches the
-API through the frontend's own proxy. That is deliberate: it is what lets the session cookie stay
+**Only the frontend is exposed.** The API publishes no ports; the browser reaches it
+through the frontend's own proxy. That is deliberate: it is what lets the session cookie stay
 HttpOnly and `SameSite=Lax` with no CORS policy anywhere. It also means `docker compose up` locally
 gives you nothing to curl; add a `ports:` mapping to the `web` service if you want that.
 
 ### Migrations
 
-A one-shot `migrate` service runs before the API starts. It records what it has applied in a
-`schema_migration` table, so re-running on every deploy is a no-op, and adding `0002_*.sql` later
-applies only that file.
+A one-shot `migrate` service runs before the API starts, against the same `DATABASE_URL`. It
+records what it has applied in a `schema_migration` table, so re-running on every deploy is a
+no-op, and adding `0002_*.sql` later applies only that file. It retries for a minute before giving
+up, because a managed database may still be waking up when the deploy reaches it.
 
 **The SQL is baked into an image rather than bind-mounted, and that is load-bearing.** Coolify runs
 `docker compose` inside a helper container while talking to the host's Docker daemon, so a relative

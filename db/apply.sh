@@ -2,22 +2,41 @@
 # Applies pending migrations, then exits. Runs on every deploy, so it must be a no-op when the
 # schema is already present.
 #
+# Connects via DATABASE_URL - the same value the API takes. The individual PG* variables still
+# work if that is unset, because psql reads them itself and a local run is easier with them.
+#
 # Everything is echoed, because this runs unattended and a deploy that fails here gives you the
 # container log and nothing else.
 
 set -eu
 
-: "${PGHOST:=postgres}"
-: "${PGUSER:=ksamods}"
-: "${PGDATABASE:=ksamods}"
+CONN="${DATABASE_URL:-}"
 
-export PGHOST PGUSER PGDATABASE
+# One place that knows how we connect, so every call below is just arguments. psql takes the
+# connection URI as a positional argument and options in any order.
+pg() {
+  if [ -n "$CONN" ]; then
+    psql "$CONN" "$@"
+  else
+    psql "$@"
+  fi
+}
 
-echo "migrate: host=$PGHOST db=$PGDATABASE user=$PGUSER"
+if [ -n "$CONN" ]; then
+  # Host and database only. The password is in there too, and this line goes to a deploy log.
+  echo "migrate: $(echo "$CONN" | sed -e 's#//[^@]*@#//#')"
+else
+  : "${PGHOST:=postgres}"
+  : "${PGUSER:=ksamods}"
+  : "${PGDATABASE:=ksamods}"
+  export PGHOST PGUSER PGDATABASE
 
-if [ -z "${PGPASSWORD:-}" ]; then
-  echo "migrate: FATAL - PGPASSWORD is empty. Check SERVICE_PASSWORD_POSTGRES is set." >&2
-  exit 1
+  echo "migrate: host=$PGHOST db=$PGDATABASE user=$PGUSER"
+
+  if [ -z "${PGPASSWORD:-}" ]; then
+    echo "migrate: FATAL - no DATABASE_URL, and PGPASSWORD is empty." >&2
+    exit 1
+  fi
 fi
 
 if [ ! -d /migrations ]; then
@@ -25,13 +44,13 @@ if [ ! -d /migrations ]; then
   exit 1
 fi
 
-# Postgres reports healthy once it accepts connections, which can still be a moment before it
-# answers queries. A short retry here is cheaper than a flaky deploy.
+# A database that has just started accepting connections can still be a moment from answering
+# queries, and a managed one may be waking up. A short retry here is cheaper than a flaky deploy.
 attempt=1
-until psql -tAc 'select 1' >/dev/null 2>&1; do
+until pg -tAc 'select 1' >/dev/null 2>&1; do
   if [ "$attempt" -ge 30 ]; then
     echo "migrate: FATAL - could not reach the database after $attempt attempts." >&2
-    psql -tAc 'select 1' || true
+    pg -tAc 'select 1' || true
     exit 1
   fi
   echo "migrate: waiting for the database (attempt $attempt)"
@@ -41,7 +60,7 @@ done
 
 # A record of what has been applied, so adding 0002 later does not mean re-running 0001. Created
 # before anything else, and harmless if it already exists.
-psql -v ON_ERROR_STOP=1 -q -c "
+pg -v ON_ERROR_STOP=1 -q -c "
   create table if not exists schema_migration (
     filename    text        primary key,
     applied_at  timestamptz not null default now()
@@ -52,7 +71,7 @@ for file in /migrations/*.sql; do
   [ -e "$file" ] || continue
   name=$(basename "$file")
 
-  if [ "$(psql -tAc "select exists (select 1 from schema_migration where filename = '$name')")" = "t" ]; then
+  if [ "$(pg -tAc "select exists (select 1 from schema_migration where filename = '$name')")" = "t" ]; then
     echo "migrate: $name already applied"
     continue
   fi
@@ -62,7 +81,7 @@ for file in /migrations/*.sql; do
   # cannot leave the database claiming a migration it did not finish. psql runs -f and -c in the
   # order given, and --single-transaction wraps the lot - which is why the .sql files carry no
   # BEGIN/COMMIT of their own.
-  psql -v ON_ERROR_STOP=1 --single-transaction \
+  pg -v ON_ERROR_STOP=1 --single-transaction \
     -f "$file" \
     -c "insert into schema_migration (filename) values ('$name');"
 
