@@ -30,7 +30,7 @@ public class CompatibilityPresentationTests
         var untested = Presentation.Compatibility(5300, 5000, 5200);
         Assert.Equal("Untested", untested.Label);
         Assert.Equal("warning", untested.Variant);
-        Assert.Contains("may still work", untested.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("might still work", untested.Explanation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class AvailabilityPresentationTests
 
         Assert.DoesNotContain("Verified", pill.Label, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("warning", pill.Variant);
-        Assert.Contains("differs", pill.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't the one we imported", pill.Explanation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class AvailabilityPresentationTests
         var pill = Presentation.Availability("quarantined", null);
 
         Assert.Equal("error", pill.Variant);
-        Assert.Contains("materially", pill.Explanation, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("different assemblies", pill.Explanation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

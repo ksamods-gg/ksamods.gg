@@ -124,7 +124,7 @@
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
-            _error = "The API is not responding right now.";
+            _error = "The API isn't responding right now.";
         }
     }
 }

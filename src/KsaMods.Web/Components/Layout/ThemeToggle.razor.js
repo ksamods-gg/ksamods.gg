@@ -1,30 +1,50 @@
-// Click handling for the theme toggle.
+// Theme choice: applying it, flipping it, and keeping it applied.
 //
-// The initial class is applied by a blocking snippet in App.razor, not here: a module runs after
-// first paint, so doing it in this file would show every dark-theme visitor a white page for a
-// frame. All this does is flip the choice and remember it.
+// The first paint is handled by a blocking snippet in App.razor, not here. A module runs after
+// first paint, so doing it in this file would show every dark-theme visitor a white flash.
+//
+// What this file exists for beyond the click: enhanced navigation swaps in server-rendered HTML
+// whose <html> element carries no theme class, and Blazor's diff then strips the class off the
+// live document. The theme is still stored, so it survives a reload, but it visibly reverts the
+// moment you follow a link, which reads as "the setting does not save". So the class has to be
+// re-applied after every enhanced navigation, not only on first load.
 
 const STORAGE_KEY = 'ksamods.theme';
 
-function current() {
+// Private browsing and blocked storage throw on access rather than returning null.
+function read() {
+    try {
+        return localStorage.getItem(STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function write(theme) {
+    try {
+        localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+        /* The choice still holds for this page. */
+    }
+}
+
+/// Puts the stored choice back on the root element. No stored choice means both classes come
+/// off, which hands the decision back to prefers-color-scheme.
+function applyStored() {
+    const stored = read();
+    const root = document.documentElement;
+
+    root.classList.toggle('dark', stored === 'dark');
+    root.classList.toggle('light', stored === 'light');
+}
+
+function currentTheme() {
     const root = document.documentElement;
     if (root.classList.contains('dark')) return 'dark';
     if (root.classList.contains('light')) return 'light';
 
-    // No explicit choice yet, so the effective theme is whatever the machine asked for.
+    // Nothing chosen yet, so the effective theme is whatever the machine asked for.
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function apply(theme) {
-    const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    root.classList.toggle('light', theme === 'light');
-
-    try {
-        localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-        /* Storage blocked. The choice still holds for this page. */
-    }
 }
 
 function wire() {
@@ -32,11 +52,18 @@ function wire() {
     if (!button || button.dataset.themeWired === 'true') return;
 
     button.dataset.themeWired = 'true';
-    button.addEventListener('click', () => apply(current() === 'dark' ? 'light' : 'dark'));
+    button.addEventListener('click', () => {
+        write(currentTheme() === 'dark' ? 'light' : 'dark');
+        applyStored();
+    });
 }
 
+applyStored();
 wire();
 
-// Enhanced navigation swaps the document without re-running module scripts, so the button in the
-// new DOM needs wiring again.
-Blazor?.addEventListener?.('enhancedload', wire);
+// window.Blazor rather than a bare Blazor: optional chaining does not save you from a
+// ReferenceError on an undeclared identifier, only from a null property.
+window.Blazor?.addEventListener?.('enhancedload', () => {
+    applyStored();
+    wire();
+});

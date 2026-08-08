@@ -50,6 +50,8 @@ public enum Capability
     AmendRelease,
     ManageMaintainers,
     TransferModOwnership,
+    SetModVisibility,
+    DeleteMod,
 
     EditModlistDraft,
     PublishModlistVersion,
@@ -85,6 +87,16 @@ public static class Permissions
 
         Capability.ManageMaintainers => principal.IsModOwner || principal.IsModerator,
         Capability.TransferModOwnership => principal.IsModOwner || principal.IsModerator,
+
+        // Publishing puts a listing in front of everyone, and unlisting takes it back out. Both
+        // are the owner's call rather than a maintainer's: a maintainer helps run a listing,
+        // they do not decide whether it exists in public.
+        Capability.SetModVisibility => principal.IsModOwner || principal.IsModerator,
+
+        // Owner only, and never a moderator. A moderator removing content has delisting, which
+        // is reversible and leaves the id resolvable; handing them a destructive delete as well
+        // would make the reversible tool the harder one to reach for.
+        Capability.DeleteMod => principal.IsModOwner,
 
         Capability.EditModlistDraft => principal.IsListEditor,
 

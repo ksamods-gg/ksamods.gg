@@ -65,6 +65,11 @@ public static class ReadEndpoints
                 superseded_by = mod.SupersededBy,
                 listing_state = mod.ListingState,
                 banner_url = mod.BannerUrl,
+
+                // The caller's own role on this listing, so the frontend can offer management
+                // controls only to people they will work for. The principal is already loaded
+                // above for the visibility check, so this costs nothing extra.
+                your_role = principal?.ModRole,
                 updated_at = mod.UpdatedAt,
                 releases = releases
                     .Where(r => Permissions.CanViewRelease(principal, r.ValidationState, mod.ListingState))
