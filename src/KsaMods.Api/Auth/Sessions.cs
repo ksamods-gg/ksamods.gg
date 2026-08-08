@@ -135,7 +135,6 @@ public sealed class AccountStore(Database database)
         CancellationToken ct)
     {
         using var connection = await database.OpenAsync(ct);
-        connection.Open();
         using var transaction = connection.BeginTransaction();
 
         var existing = await connection.ExecuteScalarAsync<long?>(

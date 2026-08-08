@@ -43,7 +43,6 @@ public static class ModlistEndpoints
             }
 
             using var connection = await database.OpenAsync(ct);
-            connection.Open();
             using var transaction = connection.BeginTransaction();
 
             await connection.ExecuteAsync("""

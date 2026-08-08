@@ -91,7 +91,6 @@ public sealed class ModRepository(Database database)
     public async Task CreateAsync(ModRow mod, long ownerAccountId, CancellationToken ct)
     {
         using var connection = await database.OpenAsync(ct);
-        connection.Open();
         using var transaction = connection.BeginTransaction();
 
         await connection.ExecuteAsync("""

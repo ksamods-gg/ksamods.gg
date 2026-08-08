@@ -10,8 +10,38 @@ namespace KsaMods.Api.Data;
 /// </summary>
 public sealed class Database(NpgsqlDataSource source)
 {
-    public async Task<IDbConnection> OpenAsync(CancellationToken ct) =>
+    /// <summary>
+    /// Returns a connection that is <b>already open</b>. Callers must not call <c>Open()</c> on it.
+    ///
+    /// <para>Npgsql throws "Connection already open" rather than ignoring a redundant open, and
+    /// because only transactional writes bothered to open explicitly, that mistake sat undetected
+    /// through every read path until the first person tried to sign in. The return type is
+    /// <see cref="NpgsqlConnection"/> rather than <see cref="IDbConnection"/> partly so that
+    /// <see cref="BeginTransactionAsync"/> below is reachable without a cast.</para>
+    /// </summary>
+    public async Task<NpgsqlConnection> OpenAsync(CancellationToken ct) =>
         await source.OpenConnectionAsync(ct);
+
+    /// <summary>
+    /// Opens a connection and starts a transaction on it, so no call site has to remember which
+    /// of the two steps the factory already did.
+    /// </summary>
+    public async Task<(NpgsqlConnection Connection, NpgsqlTransaction Transaction)> BeginTransactionAsync(
+        CancellationToken ct)
+    {
+        var connection = await source.OpenConnectionAsync(ct);
+
+        try
+        {
+            return (connection, await connection.BeginTransactionAsync(ct));
+        }
+        catch
+        {
+            // Otherwise a failure between open and begin leaks the connection back to nobody.
+            await connection.DisposeAsync();
+            throw;
+        }
+    }
 
     public static NpgsqlDataSource CreateDataSource(string connectionString)
     {
