@@ -43,6 +43,8 @@ var siteOptions = new OAuthEndpoints.SiteOptions
 builder.Services.AddSingleton(siteOptions);
 
 builder.Services.AddHttpClient("oauth");
+builder.Services.AddHttpClient(ForgeFactory.ClientName);
+builder.Services.AddSingleton<IForgeFactory, ForgeFactory>();
 builder.Services.AddProblemDetails();
 builder.Services.AddResponseCompression();
 
@@ -58,6 +60,18 @@ builder.Services.AddRateLimiter(limiter =>
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
                 PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1),
+            }));
+
+    // Webhooks have no session, so they cannot share the per-account bucket - every forge in the
+    // world would land in one partition and a single busy repository would lock out the rest.
+    // Partitioned by the sender instead, and generous: a burst of releases is a normal morning.
+    limiter.AddPolicy("webhooks", http =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
                 Window = TimeSpan.FromMinutes(1),
             }));
 
@@ -154,6 +168,10 @@ app.MapModEndpoints();
 app.MapModlistEndpoints();
 app.MapAccountEndpoints();
 app.MapAdminEndpoints();
+
+// Off unless a secret is configured: without one, every caller is anonymous and the endpoint is a
+// way to make the site do work on request.
+app.MapWebhooks(builder.Configuration["GitHub:WebhookSecret"]);
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 

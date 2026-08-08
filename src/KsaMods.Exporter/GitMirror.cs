@@ -128,7 +128,13 @@ public sealed class GitMirror(GitMirrorOptions options)
 
             foreach (var file in Directory.EnumerateFiles(path, "*.json", SearchOption.AllDirectories))
             {
-                if (expected.Contains(file)) continue;
+                // GetFullPath on both sides, because `expected` holds normalised paths and this
+                // does not: EnumerateFiles prefixes results with the string it was given, so a
+                // working directory written with forward slashes comes back with forward slashes
+                // and matches nothing. The symptom is the mirror deleting every document it just
+                // wrote, on every run, leaving an index that lists content it no longer carries.
+                if (expected.Contains(Path.GetFullPath(file))) continue;
+
                 File.Delete(file);
                 deleted++;
             }

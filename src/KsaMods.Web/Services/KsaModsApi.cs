@@ -255,23 +255,49 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
             : new CreateModResult(false, null, null, await ReadProblemAsync(response, ct), response.StatusCode);
     }
 
-    public async Task<bool> ConnectRepositoryAsync(
+    /// <summary>
+    /// Claims a repository. This does not connect it: the answer carries a challenge to publish in
+    /// the repository, which <see cref="VerifyRepositoryAsync"/> then reads back.
+    /// </summary>
+    public async Task<RepoLinkResult> ConnectRepositoryAsync(
         string modId, ConnectRepoRequest request, CancellationToken ct = default)
     {
         using var client = CreateClient();
         using var response = await client.PostAsJsonAsync(
             $"/api/v1/mods/{Uri.EscapeDataString(modId)}/repo-link", request, Json, ct);
 
-        return response.IsSuccessStatusCode;
+        if (!response.IsSuccessStatusCode)
+        {
+            return new RepoLinkResult(false, null, await ReadProblemAsync(response, ct));
+        }
+
+        return new RepoLinkResult(
+            true, await response.Content.ReadFromJsonAsync<RepoLinkChallenge>(Json, ct), null);
     }
 
-    public async Task<bool> ImportReleasesAsync(string modId, CancellationToken ct = default)
+    public async Task<RepoLinkResult> VerifyRepositoryAsync(string modId, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsync(
+            $"/api/v1/mods/{Uri.EscapeDataString(modId)}/repo-link/verify", content: null, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new RepoLinkResult(false, null, await ReadProblemAsync(response, ct));
+        }
+
+        return new RepoLinkResult(true, null, null);
+    }
+
+    public async Task<ApiOutcome> ImportReleasesAsync(string modId, CancellationToken ct = default)
     {
         using var client = CreateClient();
         using var response = await client.PostAsync(
             $"/api/v1/mods/{Uri.EscapeDataString(modId)}/releases/import", content: null, ct);
 
-        return response.IsSuccessStatusCode;
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
     }
 
     public async Task<bool> YankAsync(string modId, string version, string reason, CancellationToken ct = default)
@@ -693,9 +719,25 @@ public sealed record EditModRequest(
     string? License = null, string[]? Tags = null,
     Dictionary<string, string>? Links = null, string? BannerUrl = null);
 
+/// <summary>
+/// RepoId is no longer asked of the author: the API resolves it from the forge, which is one less
+/// number to go and find and one less way to connect the wrong repository.
+/// </summary>
 public sealed record ConnectRepoRequest(
-    string Provider, string RepoId, string RepoFullName,
-    string? InstallationId = null, string? AssetGlob = null);
+    string Provider, string RepoFullName, string? AssetGlob = null,
+    string? RepoId = null, string? InstallationId = null);
+
+public sealed record RepoLinkResult(bool Success, RepoLinkChallenge? Challenge, string? Error);
+
+public sealed record RepoLinkChallenge
+{
+    [JsonPropertyName("repo_full_name")] public string RepoFullName { get; init; } = "";
+    [JsonPropertyName("default_branch")] public string DefaultBranch { get; init; } = "main";
+    [JsonPropertyName("verified")] public bool Verified { get; init; }
+    [JsonPropertyName("challenge")] public string Challenge { get; init; } = "";
+    [JsonPropertyName("file_path")] public string FilePath { get; init; } = ".ksamods-verify";
+    [JsonPropertyName("instructions")] public string Instructions { get; init; } = "";
+}
 
 public sealed record CreateModResponse
 {

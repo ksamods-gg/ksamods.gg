@@ -89,21 +89,15 @@ else
 
             <div class="mt-5 space-y-4">
                 <Field Id="provider" Label="Forge">
+                    @* GitHub only, because GitHub is the only adapter. Offering forges nothing can
+                       read would produce a listing that looks connected and imports nothing. *@
                     <select id="provider" @bind="_repo.Provider" class="@InputClass">
                         <option value="github">GitHub</option>
-                        <option value="gitlab">GitLab</option>
-                        <option value="codeberg">Codeberg</option>
                     </select>
                 </Field>
 
                 <Field Id="repoFullName" Label="Repository" Hint="Owner and name, like yourname/YourMod.">
                     <input id="repoFullName" @bind="_repo.RepoFullName" placeholder="yourname/YourMod"
-                           autocomplete="off" spellcheck="false" class="@InputClass" />
-                </Field>
-
-                <Field Id="repoId" Label="Repository id"
-                       Hint="The forge's own numeric id for the repository. On GitHub it's in the URL of the repository's API page, or under Settings.">
-                    <input id="repoId" @bind="_repo.RepoId" placeholder="123456789"
                            autocomplete="off" spellcheck="false" class="@InputClass" />
                 </Field>
 
@@ -116,13 +110,42 @@ else
             <div class="mt-5 flex flex-wrap items-center gap-3">
                 <Button Size="sm" Disabled="_busy || !CanConnect" Pending="_busy"
                         @onclick="ConnectRepositoryAsync">
-                    Connect repository
+                    @(_challenge is null ? "Connect repository" : "Start over")
                 </Button>
                 <Button Size="sm" Variant="outline" Disabled="_busy" Pending="_busy"
                         @onclick="ImportReleasesAsync">
                     Import releases now
                 </Button>
             </div>
+
+            @if (_challenge is { Verified: false })
+            {
+                @* The proof. Anyone can type somebody else's repository into the box above; only
+                   somebody who can write to it can put this file in it, which is exactly the claim
+                   being made. *@
+                <div class="mt-5 rounded-lg border border-border bg-card/50 p-4">
+                    <h3 class="eyebrow text-muted-foreground">One more step</h3>
+                    <p class="mt-2 text-sm leading-relaxed">
+                        Add a file called
+                        <code class="font-mono text-xs">@_challenge.FilePath</code>
+                        to the <code class="font-mono text-xs">@_challenge.DefaultBranch</code>
+                        branch of
+                        <code class="font-mono text-xs">@_challenge.RepoFullName</code>,
+                        containing exactly this line:
+                    </p>
+
+                    <pre class="mt-3 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"><code>@_challenge.Challenge</code></pre>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-3">
+                        <Button Size="sm" Disabled="_busy" Pending="_busy" @onclick="VerifyRepositoryAsync">
+                            Added it - verify
+                        </Button>
+                        <span class="text-xs text-muted-foreground">
+                            You can delete the file afterwards. We record that the check passed, not the file.
+                        </span>
+                    </div>
+                </div>
+            }
         </Card>
 
         <Card Class="mt-6" Header="@(b => b.AddContent(0, "Listing details"))">
@@ -229,8 +252,9 @@ else
         "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
         "focus-visible:outline-ring";
 
-    private bool CanConnect =>
-        !string.IsNullOrWhiteSpace(_repo.RepoFullName) && !string.IsNullOrWhiteSpace(_repo.RepoId);
+    private RepoLinkChallenge? _challenge;
+
+    private bool CanConnect => !string.IsNullOrWhiteSpace(_repo.RepoFullName);
 
     protected override async Task OnInitializedAsync()
     {
@@ -333,18 +357,54 @@ else
 
         try
         {
-            var ok = await Api.ConnectRepositoryAsync(Id, new ConnectRepoRequest(
-                _repo.Provider, _repo.RepoId.Trim(), _repo.RepoFullName.Trim(),
-                AssetGlob: string.IsNullOrWhiteSpace(_repo.AssetGlob) ? null : _repo.AssetGlob.Trim()));
+            var result = await Api.ConnectRepositoryAsync(Id, new ConnectRepoRequest(
+                _repo.Provider, _repo.RepoFullName.Trim(),
+                string.IsNullOrWhiteSpace(_repo.AssetGlob) ? null : _repo.AssetGlob.Trim()));
 
-            if (ok)
+            if (result.Success)
             {
-                _message = "Repository connected. Import releases when you've tagged one.";
+                _challenge = result.Challenge;
+
+                _message = result.Challenge?.Verified == true
+                    ? "Repository connected. Import releases when you've tagged one."
+                    : null;
+            }
+            else
+            {
+                _error = result.Error ?? "The API refused that repository.";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task VerifyRepositoryAsync()
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+
+        try
+        {
+            var result = await Api.VerifyRepositoryAsync(Id);
+
+            if (result.Success)
+            {
+                _challenge = null;
+                _message = "Verified. This repository is connected, and you can import releases from it.";
                 await LoadAsync();
             }
             else
             {
-                _error = "The API refused that repository. It may already be connected to another listing.";
+                // Usually "not there yet": a new commit takes a moment to appear in the API, and
+                // the honest answer says so rather than implying the file is wrong.
+                _error = result.Error ?? "We could not find the file yet.";
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
@@ -365,17 +425,17 @@ else
 
         try
         {
-            _message = await Api.ImportReleasesAsync(Id)
-                ? "Import started. Releases appear once validation finishes."
-                : null;
+            var result = await Api.ImportReleasesAsync(Id);
 
-            if (_message is null)
+            if (result.Success)
             {
-                _error = "Nothing to import. Connect a repository and tag a release first.";
+                _message = "Import started. Releases appear once each archive has been validated, "
+                         + "which takes a moment per release.";
+                await LoadAsync();
             }
             else
             {
-                await LoadAsync();
+                _error = result.Error ?? "Nothing to import. Connect a repository and tag a release first.";
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
@@ -430,7 +490,6 @@ else
     {
         public string Provider { get; set; } = "github";
         public string RepoFullName { get; set; } = "";
-        public string RepoId { get; set; } = "";
         public string AssetGlob { get; set; } = "";
     }
 }

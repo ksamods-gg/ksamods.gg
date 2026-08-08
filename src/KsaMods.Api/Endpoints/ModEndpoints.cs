@@ -2,9 +2,39 @@ using Dapper;
 using KsaMods.Api.Auth;
 using KsaMods.Api.Data;
 using KsaMods.Api.Domain;
+using KsaMods.Forge;
 using KsaMods.Metadata;
 
 namespace KsaMods.Api.Endpoints;
+
+internal sealed record ExistingLink
+{
+    public string ModId { get; init; } = "";
+    public DateTime? VerifiedAt { get; init; }
+}
+
+internal sealed record PendingLink
+{
+    public string Provider { get; init; } = "";
+    public string RepoFullName { get; init; } = "";
+
+    // Lower case deliberately: Dapper matches case-insensitively, and naming it after the column
+    // keeps the one field that is a secret looking like a value rather than a property.
+    public string? challenge { get; init; }
+
+    public DateTime? VerifiedAt { get; init; }
+}
+
+internal sealed record JobStatusRow
+{
+    public long Id { get; init; }
+    public string Kind { get; init; } = "";
+    public string State { get; init; } = "";
+    public int Attempts { get; init; }
+    public string? LastError { get; init; }
+    public string? ModId { get; init; }
+    public DateTime CreatedAt { get; init; }
+}
 
 public sealed record CreateModBody(
     string Id, string Name, string Abstract, string License,
@@ -177,39 +207,105 @@ public static class ModEndpoints
             return Results.NoContent();
         });
 
+        // Claiming a repository. This does not connect it: it issues a challenge, and the link
+        // stays unproven until the claimant publishes that challenge in the repository.
+        //
+        // The unique constraint alone was making this first-come, which stops two listings
+        // fighting over one repository but does nothing about the first claim being a stranger's -
+        // and since the repository link is the ownership proof for a listing, that was the whole
+        // trust model resting on nobody having tried (§5.2).
         api.MapPost("/mods/{id}/repo-link", async (
-            string id, ConnectRepoBody body, HttpContext http,
-            ModRepository mods, Database database, CancellationToken ct) =>
+            string id, ConnectRepoBody body, HttpContext http, ModRepository mods,
+            Database database, IForgeFactory forges, CancellationToken ct) =>
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
 
             // Only the owner. A maintainer who could re-point the repository could quietly take
-            // over the listing, since the repository link is the ownership proof.
+            // over the listing.
             if (!Permissions.Allows(principal, Capability.ConnectRepository)) return ApiResults.Forbidden();
 
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
 
-            using var connection = await database.OpenAsync(ct);
-
-            var existing = await connection.ExecuteScalarAsync<string?>(
-                "select mod_id from repo_link where provider = @provider and repo_id = @repoId",
-                new { provider = body.Provider, repoId = body.RepoId });
-
-            if (existing is not null && !string.Equals(existing, mod.Id, StringComparison.OrdinalIgnoreCase))
+            if (!ForgeAllowlist.Allows(body.Provider))
             {
-                // A repository already linked elsewhere is a dispute, not an error to work around.
-                return Results.Conflict(new
+                return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
-                    error = "repository_already_linked",
-                    detail = $"That repository is already connected to '{existing}'. If you believe this is wrong, open a dispute.",
+                    ["provider"] = [$"'{body.Provider}' is not a forge this site can read. Supported: "
+                                    + string.Join(", ", ForgeAllowlist.ApiHosts.Keys) + "."],
                 });
             }
 
+            if (!RepoName.IsValid(body.RepoFullName))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["repoFullName"] = ["Give this as owner/repository."],
+                });
+            }
+
+            // Ask the forge before writing anything: a typo caught here is a sentence, and caught
+            // later is an import job that dies five times and lands in the dead queue.
+            ForgeRepository repository;
+
+            try
+            {
+                repository = await forges.For(body.Provider).GetRepositoryAsync(body.RepoFullName, ct);
+            }
+            catch (ForgeException e)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["repoFullName"] = [e.Message],
+                });
+            }
+
+            if (repository.Private)
+            {
+                // The download link on a listing has to work for everybody, and a private
+                // repository's release assets do not.
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["repoFullName"] = ["That repository is private, so nobody could download the releases."],
+                });
+            }
+
+            using var connection = await database.OpenAsync(ct);
+
+            var existing = await connection.QuerySingleOrDefaultAsync<ExistingLink>("""
+                select mod_id as ModId, verified_at as VerifiedAt
+                from repo_link where provider = @provider and repo_id = @repoId
+                """,
+                new { provider = body.Provider, repoId = repository.Id });
+
+            if (existing is not null && !string.Equals(existing.ModId, mod.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                // A repository already linked elsewhere is a dispute, not an error to work around -
+                // but only once that claim is proven. An unproven claim has established nothing,
+                // so it does not get to hold the repository hostage.
+                if (existing.VerifiedAt is not null)
+                {
+                    return Results.Conflict(new
+                    {
+                        error = "repository_already_linked",
+                        detail = $"That repository is connected to '{existing.ModId}', and that claim is verified. "
+                               + "If you believe this is wrong, report it.",
+                    });
+                }
+
+                await connection.ExecuteAsync(
+                    "delete from repo_link where provider = @provider and repo_id = @repoId",
+                    new { provider = body.Provider, repoId = repository.Id });
+            }
+
+            var challenge = RepositoryProof.NewChallenge();
+
             await connection.ExecuteAsync("""
-                insert into repo_link (mod_id, provider, installation_id, repo_id, repo_full_name, linked_by, asset_glob)
-                values (@modId, @provider, @installationId, @repoId, @repoFullName, @linkedBy, @assetGlob)
+                insert into repo_link (mod_id, provider, installation_id, repo_id, repo_full_name,
+                                       linked_by, asset_glob, challenge)
+                values (@modId, @provider, @installationId, @repoId, @repoFullName,
+                        @linkedBy, @assetGlob, @challenge)
                 on conflict (mod_id) do update set
                     provider = excluded.provider,
                     installation_id = excluded.installation_id,
@@ -217,6 +313,13 @@ public static class ModEndpoints
                     repo_full_name = excluded.repo_full_name,
                     linked_by = excluded.linked_by,
                     asset_glob = excluded.asset_glob,
+                    challenge = excluded.challenge,
+                    -- Re-pointing at a different repository drops the proof with it. Carrying it
+                    -- over would let a verified link be redirected to somebody else's code.
+                    verified_at = case when repo_link.repo_id = excluded.repo_id
+                                       then repo_link.verified_at end,
+                    verified_by = case when repo_link.repo_id = excluded.repo_id
+                                       then repo_link.verified_by end,
                     linked_at = now()
                 """,
                 new
@@ -224,17 +327,96 @@ public static class ModEndpoints
                     modId = mod.Id,
                     provider = body.Provider,
                     installationId = body.InstallationId,
-                    repoId = body.RepoId,
-                    repoFullName = body.RepoFullName,
+                    repoId = repository.Id,
+                    repoFullName = repository.FullName,
                     linkedBy = principal.AccountId,
                     assetGlob = body.AssetGlob,
+                    challenge,
                 });
 
-            return Results.NoContent();
+            var verified = await connection.ExecuteScalarAsync<DateTime?>(
+                "select verified_at from repo_link where mod_id = @modId", new { modId = mod.Id });
+
+            return Results.Ok(new
+            {
+                repo_full_name = repository.FullName,
+                default_branch = repository.DefaultBranch,
+                verified = verified is not null,
+                challenge,
+                file_path = RepositoryProof.FilePath,
+                instructions =
+                    $"Commit a file called {RepositoryProof.FilePath} to the {repository.DefaultBranch} branch of "
+                  + $"{repository.FullName}, containing exactly this line, then verify. Only somebody who can write "
+                  + "to the repository can do that, which is the thing being checked. You can delete it afterwards.",
+            });
+        });
+
+        api.MapPost("/mods/{id}/repo-link/verify", async (
+            string id, HttpContext http, ModRepository mods,
+            Database database, IForgeFactory forges, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.ConnectRepository)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            using var connection = await database.OpenAsync(ct);
+
+            var link = await connection.QuerySingleOrDefaultAsync<PendingLink>("""
+                select provider, repo_full_name as RepoFullName, challenge, verified_at as VerifiedAt
+                from repo_link where mod_id = @modId
+                """,
+                new { modId = mod.Id });
+
+            if (link is null) return Results.NotFound();
+            if (link.VerifiedAt is not null) return Results.Ok(new { verified = true });
+
+            string? published;
+
+            try
+            {
+                published = await forges.For(link.Provider)
+                    .ReadVerificationFileAsync(link.RepoFullName, RepositoryProof.FilePath, ct);
+            }
+            catch (ForgeException e)
+            {
+                return Results.Json(new { error = "forge_unreachable", detail = e.Message },
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
+
+            if (!RepositoryProof.Satisfies(published, link.challenge))
+            {
+                return Results.Conflict(new
+                {
+                    error = "not_verified",
+                    detail = published is null
+                        ? $"No {RepositoryProof.FilePath} on the default branch yet. A new commit can take a "
+                          + "moment to show up in the API."
+                        : "That file does not contain the challenge for this listing.",
+                    challenge = link.challenge,
+                    file_path = RepositoryProof.FilePath,
+                });
+            }
+
+            await connection.ExecuteAsync("""
+                update repo_link
+                set verified_at = now(), verified_by = 'challenge', challenge = null
+                where mod_id = @modId
+                """,
+                new { modId = mod.Id });
+
+            return Results.Ok(new
+            {
+                verified = true,
+                note = "Connected. You can delete the verification file; the proof is recorded.",
+            });
         });
 
         api.MapPost("/mods/{id}/releases/import", async (
-            string id, HttpContext http, ModRepository mods, JobQueue jobs, CancellationToken ct) =>
+            string id, HttpContext http, ModRepository mods, Database database,
+            JobQueue jobs, CancellationToken ct) =>
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
@@ -243,11 +425,82 @@ public static class ModEndpoints
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
 
+            using var connection = await database.OpenAsync(ct);
+
+            var link = await connection.QuerySingleOrDefaultAsync<PendingLink>("""
+                select provider, repo_full_name as RepoFullName, challenge, verified_at as VerifiedAt
+                from repo_link where mod_id = @modId
+                """,
+                new { modId = mod.Id });
+
+            if (link is null)
+            {
+                return Results.Conflict(new
+                {
+                    error = "no_repository",
+                    detail = "Connect a repository first. Releases are imported from it; the site never holds the file.",
+                });
+            }
+
+            if (link.VerifiedAt is null)
+            {
+                // Importing from an unproven link would publish somebody else's release under this
+                // listing, which is the exact outcome the proof exists to prevent.
+                return Results.Conflict(new
+                {
+                    error = "repository_not_verified",
+                    detail = "That repository connection has not been verified yet.",
+                });
+            }
+
             var jobId = await jobs.EnqueueAsync("import_release", new { modId = mod.Id }, ct);
 
-            // Importing runs the pipeline in a container and takes seconds to minutes; the UI
-            // polls rather than blocking.
+            // Importing fetches, hashes and runs a container per release, so it takes seconds to
+            // minutes. The UI polls the job rather than holding a request open.
             return Results.Accepted($"/api/v1/jobs/{jobId}", new { job_id = jobId, state = "queued" });
+        });
+
+        // What the Accepted above points at. Scoped to the caller's own mods: job payloads name
+        // listings, and the queue is otherwise a list of who is publishing what and when.
+        api.MapGet("/jobs/{jobId:long}", async (
+            long jobId, HttpContext http, ModRepository mods, Database database, CancellationToken ct) =>
+        {
+            var user = http.User();
+            if (user is null) return Results.Unauthorized();
+
+            using var connection = await database.OpenAsync(ct);
+
+            var job = await connection.QuerySingleOrDefaultAsync<JobStatusRow>("""
+                select id, kind, state, attempts, last_error as LastError,
+                       payload ->> 'modId' as ModId, created_at as CreatedAt
+                from job where id = @jobId
+                """,
+                new { jobId });
+
+            if (job is null) return Results.NotFound();
+
+            var principal = job.ModId is null
+                ? null
+                : await http.PrincipalForModAsync(mods, job.ModId, ct);
+
+            if (principal is null
+                || !(Permissions.Allows(principal, Capability.ImportRelease) || principal.IsModerator))
+            {
+                return Results.NotFound();
+            }
+
+            return Results.Ok(new
+            {
+                id = job.Id,
+                kind = job.Kind,
+                state = job.State,
+                attempts = job.Attempts,
+                // Surfaced to the author on purpose: "the asset was not a zip" is something only
+                // they can fix, and hiding it behind a support request helps nobody.
+                last_error = job.LastError,
+                created_at = job.CreatedAt,
+                done = job.State is "done" or "dead",
+            });
         });
 
         api.MapPost("/mods/{id}/releases/{version}/yank", async (

@@ -8,6 +8,7 @@ COPY Directory.Build.props BannedSymbols.txt ./
 COPY src/KsaMods.Metadata/ src/KsaMods.Metadata/
 COPY src/KsaMods.Resolver/ src/KsaMods.Resolver/
 COPY src/KsaMods.Exporter/ src/KsaMods.Exporter/
+COPY src/KsaMods.Forge/ src/KsaMods.Forge/
 COPY src/KsaMods.Api/ src/KsaMods.Api/
 
 RUN dotnet publish src/KsaMods.Api/KsaMods.Api.csproj -c Release -o /app --no-self-contained
