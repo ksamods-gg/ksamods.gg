@@ -10,6 +10,8 @@
     <ProjectReference Include="..\..\src\KsaMods.Validation\KsaMods.Validation.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Resolver\KsaMods.Resolver.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Worker\KsaMods.Worker.csproj" />
+    <ProjectReference Include="..\..\src\KsaMods.Exporter\KsaMods.Exporter.csproj" />
+    <ProjectReference Include="..\..\src\KsaMods.Api\KsaMods.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>
