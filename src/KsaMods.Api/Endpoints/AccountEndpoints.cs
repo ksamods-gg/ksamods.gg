@@ -5,7 +5,9 @@ using KsaMods.Metadata;
 
 namespace KsaMods.Api.Endpoints;
 
-public sealed record UpdateProfileBody(string? DisplayName, string? Handle, string? ForumsUrl);
+public sealed record UpdateProfileBody(
+    string? DisplayName, string? Handle, string? ForumsUrl,
+    string? Bio = null, Dictionary<string, string>? Links = null);
 
 /// <summary>
 /// Managing your own account (backend.md §4).
@@ -20,6 +22,90 @@ public static class AccountEndpoints
     private const int MinHandle = 2;
     private const int MaxHandle = 24;
 
+    /// <summary>
+    /// Somebody else's profile, as anyone may see it.
+    ///
+    /// <para>Under /accounts rather than /me, and a read route rather than a write one, so it sits
+    /// with the rest of the public catalogue: a listing names an author, and the author has to be
+    /// somewhere to click through to.</para>
+    ///
+    /// <para>Carries only what the person chose to publish. No email, no linked identities, no
+    /// sessions, no site role: a moderator is not marked out to strangers, and the account page
+    /// stays the only place any of that is visible.</para>
+    /// </summary>
+    public static void MapPublicProfileEndpoints(this IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/v1").RequireRateLimiting("reads");
+
+        api.MapGet("/accounts/{handle}", async (
+            string handle, Database database, CancellationToken ct) =>
+        {
+            using var connection = await database.OpenAsync(ct);
+
+            var account = await connection.QuerySingleOrDefaultAsync<PublicProfileRow>("""
+                select id as Id, handle as Handle, display_name as DisplayName,
+                       avatar_url as AvatarUrl, forums_url as ForumsUrl, bio as Bio,
+                       links::text as Links, created_at as CreatedAt
+                from account
+                where handle = @handle and deleted_at is null and suspended_at is null
+                """,
+                new { handle });
+
+            // Deleted and suspended accounts read as absent rather than as an error. A profile
+            // that answers differently for "never existed" and "was removed" is a way to find out
+            // which handles have been taken down.
+            if (account is null) return Results.NotFound();
+
+            // Listed mods only, and the owner's, not everything they hold a role on. A profile is
+            // "what this person publishes", and drafts are unpublished by definition.
+            var mods = await connection.QueryAsync<PublicProfileModRow>("""
+                select m.id as Id, m.name as Name, m.abstract as "Abstract", m.type as Type,
+                       m.tags as Tags, m.icon_url as IconUrl, m.updated_at as UpdatedAt,
+                       (select sum(a.download_count)::int
+                          from release_artifact a join mod_release r on r.id = a.release_id
+                         where r.mod_id = m.id and a.is_mirror = false) as Downloads
+                from mod m
+                join mod_maintainer mm on mm.mod_id = m.id and mm.role = 'owner'
+                where mm.account_id = @id and m.listing_state = 'listed'
+                order by m.updated_at desc
+                """,
+                new { id = account.Id });
+
+            var list = mods.ToList();
+
+            return Results.Ok(new
+            {
+                spec_version = 1,
+                handle = account.Handle,
+                display_name = account.DisplayName,
+                avatar_url = account.AvatarUrl,
+                bio = account.Bio,
+                links = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    account.Links ?? "{}") ?? [],
+                forums_url = account.ForumsUrl,
+                created_at = account.CreatedAt,
+
+                // Summed over their listed mods. Null when nothing has been counted, for the same
+                // reason it is null on a listing: not counted is not the same as nobody wanted it.
+                downloads = list.Any(m => m.Downloads is not null)
+                    ? list.Sum(m => m.Downloads ?? 0)
+                    : (int?)null,
+
+                mods = list.Select(m => new
+                {
+                    id = m.Id,
+                    name = m.Name,
+                    @abstract = m.Abstract,
+                    type = m.Type,
+                    tags = m.Tags,
+                    icon_url = m.IconUrl,
+                    downloads = m.Downloads,
+                    updated_at = m.UpdatedAt,
+                }),
+            });
+        });
+    }
+
     public static void MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api/v1/me").RequireRateLimiting("writes");
@@ -33,7 +119,8 @@ public static class AccountEndpoints
 
             var account = await connection.QuerySingleOrDefaultAsync<AccountProfileRow>("""
                 select handle as Handle, display_name as DisplayName, avatar_url as AvatarUrl,
-                       forums_url as ForumsUrl, site_role as SiteRole, created_at as CreatedAt
+                       forums_url as ForumsUrl, bio as Bio, links::text as Links,
+                       site_role as SiteRole, created_at as CreatedAt
                 from account where id = @id and deleted_at is null
                 """,
                 new { id = user.AccountId });
@@ -66,6 +153,9 @@ public static class AccountEndpoints
                 display_name = account.DisplayName,
                 avatar_url = account.AvatarUrl,
                 forums_url = account.ForumsUrl,
+                bio = account.Bio,
+                links = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    account.Links ?? "{}") ?? [],
                 site_role = account.SiteRole,
                 created_at = account.CreatedAt,
                 identities = identities.Select(i => new { provider = i.Provider, linked_at = i.LinkedAt }),
@@ -107,6 +197,26 @@ public static class AccountEndpoints
                 errors["forumsUrl"] = ["Must be an https:// link."];
             }
 
+            if (body.Bio is { Length: > 600 })
+            {
+                errors["bio"] = ["Keep it to 600 characters or fewer."];
+            }
+
+            // Same rule as the forums link, for the same reason: these are rendered as anchors on
+            // a public page, so a javascript: or http:// target would be ours to have allowed.
+            if (body.Links is not null)
+            {
+                foreach (var (name, url) in body.Links)
+                {
+                    if (!string.IsNullOrWhiteSpace(url)
+                        && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        errors["links"] = [$"'{name}' must be an https:// link."];
+                        break;
+                    }
+                }
+            }
+
             if (errors.Count > 0) return Results.ValidationProblem(errors);
 
             using var connection = await database.OpenAsync(ct);
@@ -118,12 +228,24 @@ public static class AccountEndpoints
                         display_name = coalesce(@displayName, display_name),
                         handle       = coalesce(@handle, handle),
                         forums_url   = case when @clearForums then null
-                                            else coalesce(@forumsUrl, forums_url) end
+                                            else coalesce(@forumsUrl, forums_url) end,
+                        bio          = case when @bio is null then bio
+                                            when @bio = '' then null
+                                            else @bio end,
+                        links        = coalesce(@links::jsonb, links)
                     where id = @id and deleted_at is null
                     """,
                     new
                     {
                         id = user.AccountId,
+                        // Empty string clears the bio, absent leaves it alone. Two different
+                        // intentions that a single nullable string cannot otherwise tell apart.
+                        bio = body.Bio?.Trim(),
+                        links = body.Links is null
+                            ? null
+                            : System.Text.Json.JsonSerializer.Serialize(
+                                body.Links.Where(l => !string.IsNullOrWhiteSpace(l.Value))
+                                          .ToDictionary(l => l.Key, l => l.Value.Trim())),
                         displayName = string.IsNullOrWhiteSpace(body.DisplayName) ? null : body.DisplayName.Trim(),
                         handle = string.IsNullOrWhiteSpace(body.Handle) ? null : body.Handle.Trim(),
                         forumsUrl = string.IsNullOrWhiteSpace(body.ForumsUrl) ? null : body.ForumsUrl.Trim(),
@@ -407,12 +529,38 @@ public static class AccountEndpoints
         public string? LastImportError { get; init; }
     }
 
+    private sealed record PublicProfileRow
+    {
+        public long Id { get; init; }
+        public string Handle { get; init; } = "";
+        public string DisplayName { get; init; } = "";
+        public string? AvatarUrl { get; init; }
+        public string? ForumsUrl { get; init; }
+        public string? Bio { get; init; }
+        public string? Links { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+    }
+
+    private sealed record PublicProfileModRow
+    {
+        public string Id { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string Abstract { get; init; } = "";
+        public string Type { get; init; } = "mod";
+        public string[] Tags { get; init; } = [];
+        public string? IconUrl { get; init; }
+        public int? Downloads { get; init; }
+        public DateTimeOffset UpdatedAt { get; init; }
+    }
+
     private sealed record AccountProfileRow
     {
         public string Handle { get; init; } = "";
         public string DisplayName { get; init; } = "";
         public string? AvatarUrl { get; init; }
         public string? ForumsUrl { get; init; }
+        public string? Bio { get; init; }
+        public string? Links { get; init; }
         public string SiteRole { get; init; } = "user";
         public DateTimeOffset CreatedAt { get; init; }
     }

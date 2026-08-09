@@ -79,6 +79,22 @@ else
                     @* The id, verbatim: this is the folder name the game loads it under. *@
                     <code class="mt-1 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
 
+                    @if (_mod.Author is { } author)
+                    {
+                        <a href="@($"/u/{author.Handle}")"
+                           class="mt-2 inline-flex items-center gap-2 rounded-sm text-sm
+                                  text-muted-foreground transition-colors hover:text-foreground
+                                  focus-visible:outline-2 focus-visible:outline-offset-2">
+                            @if (!string.IsNullOrWhiteSpace(author.AvatarUrl))
+                            {
+                                <img src="@author.AvatarUrl" alt="" width="20" height="20"
+                                     class="size-5 rounded-full border border-border object-cover"
+                                     loading="lazy" referrerpolicy="no-referrer" />
+                            }
+                            <span>by <span class="font-medium text-foreground">@author.DisplayName</span></span>
+                        </a>
+                    }
+
                     <p class="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                         @_mod.Abstract
                     </p>
@@ -146,14 +162,14 @@ else
             and the release list scroll.
         *@
         <div class="mt-6 flex flex-col gap-6 lg:flex-row lg:gap-8">
-            <div class="min-w-0 flex-1">
+            <div class="min-w-0 flex-1 space-y-6">
 
         @if (_mod.Tags.Count > 0)
         {
             @* The anchor carries the height, not the badge inside it. A bare <a> wrapped around a
                22px pill is a 22px target, and these are a standalone row rather than links inside
                a sentence, so the inline exemption does not apply to them. *@
-            <div class="mt-3 flex flex-wrap gap-1.5">
+            <div class="flex flex-wrap gap-1.5">
                 @foreach (var tag in _mod.Tags)
                 {
                     <a href="@($"/mods?tag={Uri.EscapeDataString(tag)}")"
@@ -166,7 +182,7 @@ else
 
         @if (!string.IsNullOrWhiteSpace(_mod.Description))
         {
-            <Card Class="mt-6" Header="@(b => b.AddContent(0, "About"))">
+            <Card Header="@(b => b.AddContent(0, "About"))">
                 @* Rendered as plain text, not HTML. This is user input shown to other users, which
                    makes it the most likely XSS vector on the site; Markdown rendering needs a
                    sanitiser before it is worth it. *@
@@ -174,7 +190,7 @@ else
             </Card>
         }
 
-        <Card Class="mt-6" Padded="false"
+        <Card Padded="false"
               Header="@(b => b.AddContent(0, "Releases"))"
               Description="@(b => b.AddContent(0, $"{_mod.Releases.Count} published"))">
 
@@ -245,6 +261,20 @@ else
                                 <div class="flex items-baseline justify-between gap-3">
                                     <dt class="text-muted-foreground">Latest</dt>
                                     <dd class="min-w-0 truncate font-mono text-xs">@_latest.Version</dd>
+                                </div>
+                            }
+
+                            @* Only when the forge has actually reported a figure. Rendering 0
+                               for "not counted" would state something about the mod that we do
+                               not know, and it is the author's number being misreported. *@
+                            @if (_mod.Downloads is { } downloads)
+                            {
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="text-muted-foreground">Downloads</dt>
+                                    <dd class="font-mono text-xs tabular"
+                                        title="Counted by the forge that serves the file.">
+                                        @Presentation.Compact(downloads)
+                                    </dd>
                                 </div>
                             }
 

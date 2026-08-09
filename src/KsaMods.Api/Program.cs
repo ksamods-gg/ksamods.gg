@@ -168,6 +168,7 @@ app.MapReadEndpoints();
 app.MapModEndpoints();
 app.MapModlistEndpoints();
 app.MapAccountEndpoints();
+app.MapPublicProfileEndpoints();
 app.MapAdminEndpoints();
 app.MapTagEndpoints();
 

@@ -50,12 +50,26 @@ public static class ReadEndpoints
             }
 
             var releases = await mods.ReleasesAsync(mod.Id, ct);
+            var owner = await mods.OwnerAsync(mod.Id, ct);
+            var downloads = await mods.DownloadsAsync(mod.Id, ct);
 
             return Results.Ok(new
             {
                 spec_version = 1,
                 id = mod.Id,
                 type = mod.Type,
+
+                // Who is answerable for this listing. Absent only if the owner's account is gone,
+                // which anonymisation leaves behind rather than deleting the listing with it.
+                author = owner is null ? null : new
+                {
+                    handle = owner.Handle,
+                    display_name = owner.DisplayName,
+                    avatar_url = owner.AvatarUrl,
+                },
+
+                // Null means not counted, not zero. See ModRepository.DownloadsAsync.
+                downloads,
                 name = mod.Name,
                 @abstract = mod.Abstract,
                 description = mod.Description,

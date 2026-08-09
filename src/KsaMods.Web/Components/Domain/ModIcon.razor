@@ -13,8 +13,15 @@
     worse than one that plainly stands in for it.
 *@
 
+@*
+    The tint is translucent, so it needs something opaque behind it. Painted as an image layer over
+    a solid card-coloured background rather than as a bare background colour: on the listing header
+    the icon overlaps the banner, and a lone translucent fill let the photo show through its top
+    half and the card through its bottom, which read as a hole cut through the page rather than a
+    mark sitting on it.
+*@
 <span class="@Cx.Of(Base, SizeClasses, Class)"
-      style="@(HasImage ? null : $"background: {Tint}; color: {Ink};")"
+      style="@(HasImage ? null : $"background-color: var(--color-card); background-image: linear-gradient({Tint}, {Tint}); color: {Ink};")"
       aria-hidden="true">
 
     @if (HasImage)

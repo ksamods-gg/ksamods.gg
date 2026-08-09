@@ -75,6 +75,18 @@ else
                            autocomplete="off" spellcheck="false" />
                 </Field>
 
+                <Field Context="field" Id="bio" Label="About you" Required="false"
+                       Hint="Shown on your public profile. A few sentences about what you make. 600 characters at most.">
+                    <textarea @attributes="field" @bind="_form.Bio" rows="4" class="@InputClass"></textarea>
+                </Field>
+
+                <Field Context="field" Id="links" Label="Links" Required="false"
+                       Hint="One per line, as name = https://… . These appear on your profile. Anything not https is refused.">
+                    <textarea @attributes="field" @bind="_form.Links" rows="3"
+                              placeholder="Discord = https://discord.gg/…&#10;YouTube = https://youtube.com/@@you"
+                              class="@Cx.Of(InputClass, "font-mono text-xs")"></textarea>
+                </Field>
+
                 <Field Context="field" Id="forums" Label="KSA forums thread" Required="false"
                        Hint="Your thread on the KSA forums. Not needed to use the site, but a mod of yours needs one before it appears in the exported index other clients read.">
                     <input @attributes="field" type="url" @bind="_form.ForumsUrl"
@@ -358,6 +370,8 @@ else
                 _form.DisplayName = _profile.DisplayName;
                 _form.Handle = _profile.Handle;
                 _form.ForumsUrl = _profile.ForumsUrl ?? "";
+                _form.Bio = _profile.Bio ?? "";
+                _form.Links = string.Join("\n", _profile.Links.Select(l => $"{l.Key} = {l.Value}"));
                 _originalHandle = _profile.Handle;
             }
         }
@@ -369,6 +383,32 @@ else
         {
             _loading = false;
         }
+    }
+
+    /// <summary>
+    /// Turns the "name = url" textarea into the map the API takes.
+    ///
+    /// <para>A textarea rather than a repeating row of paired inputs because people have one or
+    /// two links, not ten, and a widget with add and remove buttons is more to operate than the
+    /// thing it is collecting. Lines without an '=' are dropped rather than reported: the hint
+    /// above the box says the shape, and a half-typed line is not an error yet.</para>
+    /// </summary>
+    private static Dictionary<string, string> ParseLinks(string? text)
+    {
+        var links = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in (text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var split = line.IndexOf('=');
+            if (split <= 0) continue;
+
+            var name = line[..split].Trim();
+            var url = line[(split + 1)..].Trim();
+
+            if (name.Length > 0 && url.Length > 0) links[name] = url;
+        }
+
+        return links;
     }
 
     private async Task SaveProfileAsync()
@@ -384,7 +424,9 @@ else
                 _form.Handle?.Trim(),
                 // Empty string means "clear it"; null means "leave it alone". The API tells them
                 // apart, so the form must too.
-                _form.ForumsUrl?.Trim() ?? ""));
+                _form.ForumsUrl?.Trim() ?? "",
+                _form.Bio?.Trim() ?? "",
+                ParseLinks(_form.Links)));
 
             if (result.Success)
             {
@@ -503,5 +545,7 @@ else
         public string? DisplayName { get; set; }
         public string? Handle { get; set; }
         public string? ForumsUrl { get; set; }
+        public string? Bio { get; set; }
+        public string? Links { get; set; }
     }
 }

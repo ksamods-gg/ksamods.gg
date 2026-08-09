@@ -24,6 +24,15 @@ public sealed record ForgeAsset
     public required string DownloadUrl { get; init; }
     public long Size { get; init; }
     public string ContentType { get; init; } = "application/octet-stream";
+
+    /// <summary>
+    /// How many times the forge has served this file. Null when the forge does not report it.
+    ///
+    /// <para>This is the only download figure the site can state honestly. Counting outbound
+    /// clicks here would measure intent rather than installs, and presenting that as "downloads"
+    /// would be a number about us dressed up as a number about the mod.</para>
+    /// </summary>
+    public int? DownloadCount { get; init; }
 }
 
 public sealed record ForgeRepository

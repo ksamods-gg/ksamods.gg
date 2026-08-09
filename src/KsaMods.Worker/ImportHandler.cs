@@ -262,8 +262,10 @@ public sealed class ImportHandler(
         }
 
         await connection.ExecuteAsync("""
-            insert into release_artifact (release_id, url, asset_id, sha256, size, content_type)
-            values (@releaseId, @url, @assetId, @sha256, @size, @contentType)
+            insert into release_artifact (release_id, url, asset_id, sha256, size, content_type,
+                                          download_count, counted_at)
+            values (@releaseId, @url, @assetId, @sha256, @size, @contentType,
+                    @downloadCount, case when @downloadCount is null then null else now() end)
             """,
             new
             {
@@ -275,6 +277,10 @@ public sealed class ImportHandler(
                 sha256 = fetched.Sha256,
                 size = fetched.Size,
                 contentType = fetched.ContentType,
+
+                // Stamped with when it was read, because it is a figure that keeps moving and a
+                // count with no date on it invites being read as current when it is months old.
+                downloadCount = asset.DownloadCount,
             },
             transaction);
 
