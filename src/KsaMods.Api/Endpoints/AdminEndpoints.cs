@@ -12,6 +12,19 @@ public sealed record SuspendBody(bool Suspended, string Rationale);
 public sealed record SiteRoleBody(string Role, string Rationale);
 public sealed record ClearReviewBody(string? Notes);
 
+/// <summary>
+/// Which validator finding to set aside, and why.
+///
+/// <para>A null <c>Code</c> means every suppressible finding on the release, which is the
+/// "ignore the warnings on this version" case. It still writes one row and one log entry per
+/// code, so the record afterwards says what was actually set aside rather than "all of them at
+/// the time", which stops being true the moment a re-import adds one.</para>
+///
+/// <para><c>Reason</c> is required to suppress and optional to restore: putting a warning back
+/// is the safe direction, and demanding a justification for it discourages the correction.</para>
+/// </summary>
+public sealed record SuppressFindingBody(string? Code, string? Reason);
+
 /// <summary>Requests permitted per window, per partition.</summary>
 public sealed record RateLimitBody(int Reads, int Writes, int Webhooks, int WindowSeconds);
 
@@ -468,6 +481,165 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
+        // ── findings a moderator has set aside ────────────────────────────
+
+        // Addressed by mod and version rather than by release id, because that is what a moderator
+        // has in front of them: they arrived from the release page, not from the jobs table.
+        api.MapGet("/mods/{modId}/releases/{version}/findings", async (
+            string modId, string version, HttpContext http, Database database, CancellationToken ct) =>
+        {
+            if (Deny(http, Capability.Moderate) is { } denied) return denied;
+
+            using var connection = await database.OpenAsync(ct);
+
+            var releaseId = await ReleaseIdAsync(connection, null, modId, version);
+            if (releaseId is null) return Results.NotFound();
+
+            var rows = await connection.QueryAsync<SuppressibleFindingRow>("""
+                select f.severity as Severity, f.code as Code, f.message as Message,
+                       s.reason as SuppressedReason, s.suppressed_at as SuppressedAt,
+                       a.display_name as SuppressedBy
+                from release_finding f
+                left join release_finding_suppression s
+                       on s.release_id = f.release_id and s.code = f.code
+                left join account a on a.id = s.suppressed_by
+                where f.release_id = @releaseId
+                order by case f.severity when 'error' then 0 when 'warning' then 1 else 2 end, f.code
+                """,
+                new { releaseId });
+
+            return Results.Ok(new
+            {
+                spec_version = 1,
+                mod_id = modId,
+                version,
+                findings = rows.Select(r => new
+                {
+                    severity = r.Severity,
+                    code = r.Code,
+                    message = r.Message,
+
+                    // Errors are never suppressible, and saying so here means the UI does not have
+                    // to know the rule and cannot get it wrong on its own.
+                    suppressible = r.Severity != "error",
+                    suppressed = r.SuppressedReason is not null,
+                    suppressed_reason = r.SuppressedReason,
+                    suppressed_by = r.SuppressedBy,
+                    suppressed_at = r.SuppressedAt,
+                }),
+            });
+        });
+
+        api.MapPost("/mods/{modId}/releases/{version}/findings/suppress", async (
+            string modId, string version, SuppressFindingBody body, HttpContext http,
+            Database database, CancellationToken ct) =>
+        {
+            if (Deny(http, Capability.Moderate) is { } denied) return denied;
+
+            var reason = body.Reason?.Trim() ?? "";
+
+            if (reason.Length is 0 or > 500)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["reason"] = ["Say why, in 500 characters or less. This one goes in the log."],
+                });
+            }
+
+            var actor = http.Require().AccountId;
+            var (connection, transaction) = await database.BeginTransactionAsync(ct);
+
+            await using (connection)
+            await using (transaction)
+            {
+                var releaseId = await ReleaseIdAsync(connection, transaction, modId, version);
+                if (releaseId is null) return Results.NotFound();
+
+                // Which codes are in play: the one named, or every warning on the release. Read
+                // from release_finding either way, so a code that is not on this release, or is an
+                // error, simply is not in the list and nothing is written for it.
+                var codes = (await connection.QueryAsync<string>("""
+                    select code from release_finding
+                    where release_id = @releaseId
+                      and severity <> 'error'
+                      and (@code::text is null or code = @code)
+                    """,
+                    new { releaseId, code = body.Code }, transaction)).ToList();
+
+                if (codes.Count == 0)
+                {
+                    // Told apart from success on purpose. "Nothing matched" and "done" look the
+                    // same from the outside, and the difference here is whether a moderator walks
+                    // away believing a warning is handled.
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        ["code"] = [body.Code is null
+                            ? "This release has no warnings to set aside."
+                            : $"'{body.Code}' is not a suppressible finding on this release. Errors cannot be set aside."],
+                    });
+                }
+
+                foreach (var code in codes)
+                {
+                    await connection.ExecuteAsync("""
+                        insert into release_finding_suppression (release_id, code, reason, suppressed_by)
+                        values (@releaseId, @code, @reason, @actor)
+                        on conflict (release_id, code)
+                          do update set reason = @reason, suppressed_by = @actor, suppressed_at = now()
+                        """,
+                        new { releaseId, code, reason, actor }, transaction);
+
+                    // One log entry per code rather than one per action. The log is read by subject,
+                    // and "why is this warning not showing" is a question about a code.
+                    await LogAsync(connection, transaction, actor, "finding_suppressed", "release",
+                        $"{modId}@{version}", $"{code}: {reason}");
+                }
+
+                await transaction.CommitAsync(ct);
+
+                return Results.Ok(new { suppressed = codes });
+            }
+        });
+
+        api.MapPost("/mods/{modId}/releases/{version}/findings/restore", async (
+            string modId, string version, SuppressFindingBody body, HttpContext http,
+            Database database, CancellationToken ct) =>
+        {
+            if (Deny(http, Capability.Moderate) is { } denied) return denied;
+
+            var actor = http.Require().AccountId;
+            var (connection, transaction) = await database.BeginTransactionAsync(ct);
+
+            await using (connection)
+            await using (transaction)
+            {
+                var releaseId = await ReleaseIdAsync(connection, transaction, modId, version);
+                if (releaseId is null) return Results.NotFound();
+
+                var restored = (await connection.QueryAsync<string>("""
+                    delete from release_finding_suppression
+                    where release_id = @releaseId and (@code::text is null or code = @code)
+                    returning code
+                    """,
+                    new { releaseId, code = body.Code }, transaction)).ToList();
+
+                foreach (var code in restored)
+                {
+                    // Putting a warning back is as much a moderation act as taking it down, and the
+                    // log is append-only, so this is a new entry rather than an erasure of the old.
+                    await LogAsync(connection, transaction, actor, "finding_restored", "release",
+                        $"{modId}@{version}",
+                        string.IsNullOrWhiteSpace(body.Reason)
+                            ? $"{code}: shown again."
+                            : $"{code}: {body.Reason.Trim()}");
+                }
+
+                await transaction.CommitAsync(ct);
+
+                return Results.Ok(new { restored });
+            }
+        });
+
         // ── listings ──────────────────────────────────────────────────────
 
         api.MapGet("/listings", async (
@@ -814,6 +986,20 @@ public static class AdminEndpoints
         """;
 
     /// <summary>
+    /// One release, found the way a moderator refers to it: mod id and version, both matched
+    /// without regard to case, because neither is case-sensitive anywhere else on the site.
+    /// </summary>
+    private static Task<long?> ReleaseIdAsync(
+        NpgsqlConnection connection, NpgsqlTransaction? transaction, string modId, string version) =>
+        connection.QuerySingleOrDefaultAsync<long?>("""
+            select r.id
+            from mod_release r
+            join mod m on m.id = r.mod_id
+            where m.id_lower = lower(@modId) and lower(r.version) = lower(@version)
+            """,
+            new { modId, version }, transaction);
+
+    /// <summary>
     /// Writes the audit row. Always takes the caller's transaction, so the record and the thing it
     /// records commit together or not at all (§13.4).
     /// </summary>
@@ -916,6 +1102,16 @@ public static class AdminEndpoints
     {
         public string SubjectKind { get; init; } = "";
         public string SubjectId { get; init; } = "";
+    }
+
+    private sealed record SuppressibleFindingRow
+    {
+        public string Severity { get; init; } = "";
+        public string Code { get; init; } = "";
+        public string Message { get; init; } = "";
+        public string? SuppressedReason { get; init; }
+        public string? SuppressedBy { get; init; }
+        public DateTimeOffset? SuppressedAt { get; init; }
     }
 
     private sealed record ReleaseKeyRow

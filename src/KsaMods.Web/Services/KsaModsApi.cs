@@ -249,6 +249,27 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
     public Task<ApiOutcome> ClearReviewAsync(long releaseId, string? notes, CancellationToken ct = default) =>
         PostAsync($"/api/v1/admin/reviews/{releaseId}/clear", new { notes }, ct);
 
+    /// <summary>
+    /// Every finding on one release, with whether a moderator has set it aside. Moderator-only,
+    /// and a separate call from the public release document on purpose: it carries who suppressed
+    /// what and why, which nobody else has any business reading.
+    /// </summary>
+    public Task<ReleaseFindingModeration?> GetFindingModerationAsync(
+        string modId, string version, CancellationToken ct = default) =>
+        GetAsync<ReleaseFindingModeration>(
+            $"/api/v1/admin/mods/{Uri.EscapeDataString(modId)}/releases/{Uri.EscapeDataString(version)}/findings", ct);
+
+    /// <summary>A null <paramref name="code"/> sets aside every warning on the release.</summary>
+    public Task<ApiOutcome> SuppressFindingAsync(
+        string modId, string version, string? code, string reason, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/mods/{Uri.EscapeDataString(modId)}/releases/{Uri.EscapeDataString(version)}/findings/suppress",
+            new { code, reason }, ct);
+
+    public Task<ApiOutcome> RestoreFindingAsync(
+        string modId, string version, string? code, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/mods/{Uri.EscapeDataString(modId)}/releases/{Uri.EscapeDataString(version)}/findings/restore",
+            new { code, reason = (string?)null }, ct);
+
     public Task<IReadOnlyList<AdminListing>?> GetAdminListingsAsync(
         string? q = null, string? state = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AdminListing>>($"/api/v1/admin/listings{Query(("q", q), ("state", state))}", ct);
@@ -743,6 +764,41 @@ public sealed record FindingInfo
     [JsonPropertyName("code")] public string Code { get; init; } = "";
     [JsonPropertyName("message")] public string Message { get; init; } = "";
     [JsonPropertyName("path")] public string? Path { get; init; }
+
+    /// <summary>
+    /// A moderator has set this one aside. The finding is still here and still shown: it moves
+    /// out of the outstanding list and into a group that says who set it aside and why, rather
+    /// than disappearing.
+    /// </summary>
+    [JsonPropertyName("suppressed")] public bool Suppressed { get; init; }
+
+    [JsonPropertyName("suppressed_reason")] public string? SuppressedReason { get; init; }
+}
+
+/// <summary>What the moderation view of one release's findings looks like.</summary>
+public sealed record ReleaseFindingModeration
+{
+    [JsonPropertyName("mod_id")] public string ModId { get; init; } = "";
+    [JsonPropertyName("version")] public string Version { get; init; } = "";
+    [JsonPropertyName("findings")] public IReadOnlyList<ModeratedFinding> Findings { get; init; } = [];
+
+    /// <summary>Warnings still showing. What the "set aside all warnings" button would act on.</summary>
+    public int OutstandingWarnings => Findings.Count(f => f.Suppressible && !f.Suppressed);
+}
+
+public sealed record ModeratedFinding
+{
+    [JsonPropertyName("severity")] public string Severity { get; init; } = "info";
+    [JsonPropertyName("code")] public string Code { get; init; } = "";
+    [JsonPropertyName("message")] public string Message { get; init; } = "";
+
+    /// <summary>False for errors, which are never suppressible. Decided by the API, not here.</summary>
+    [JsonPropertyName("suppressible")] public bool Suppressible { get; init; }
+
+    [JsonPropertyName("suppressed")] public bool Suppressed { get; init; }
+    [JsonPropertyName("suppressed_reason")] public string? SuppressedReason { get; init; }
+    [JsonPropertyName("suppressed_by")] public string? SuppressedBy { get; init; }
+    [JsonPropertyName("suppressed_at")] public DateTimeOffset? SuppressedAt { get; init; }
 }
 
 public sealed record ModMatch

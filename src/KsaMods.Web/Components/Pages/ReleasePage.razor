@@ -91,6 +91,10 @@ else
                 </ChildContent>
             </Card>
 
+            @* Renders nothing for anybody who is not staff. Reloads the card above when it changes
+               something, so a moderator sees the reader's view of their own decision. *@
+            <FindingModeration ModId="@Id" Version="@Version" Changed="ReloadAsync" />
+
             @if (_release.Console.Count > 0)
             {
                 @* The single most direct scripted-behaviour vector in a mod.toml. Shown verbatim
@@ -228,9 +232,18 @@ else
     private bool _notFound;
     private string? _error;
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync()
     {
         _release = null;
+        return ReloadAsync();
+    }
+
+    /// <summary>
+    /// Also called by the staff finding controls after they change something, so a moderator sees
+    /// the reader's view of their own decision rather than having to reload the page to trust it.
+    /// </summary>
+    private async Task ReloadAsync()
+    {
         _error = null;
         _notFound = false;
 

@@ -125,6 +125,17 @@ public static class ReadEndpoints
 
             var findings = await mods.FindingsAsync(release.Id, ct);
 
+            // Findings a moderator has set aside. Read alongside rather than filtered out in SQL,
+            // because they are still served: this site says elsewhere that what the validator found
+            // is shown verbatim and never silently stripped, and a warning that vanishes when
+            // somebody with a role dislikes it would make that untrue. It is marked, with who set
+            // it aside and why, and the client stops treating it as outstanding.
+            var suppressed = (await connection.QueryAsync<(string Code, string Reason)>("""
+                select code, reason from release_finding_suppression where release_id = @id
+                """,
+                new { id = release.Id }))
+                .ToDictionary(r => r.Code, r => r.Reason, StringComparer.Ordinal);
+
             var dependencies = await connection.QueryAsync<(string? DepId, string Kind, string? MinVersion, string? MaxVersion, string Source)>("""
                 select dep_id, kind, min_version, max_version, source
                 from release_dependency where release_id = @id
@@ -189,6 +200,12 @@ public static class ReadEndpoints
                     code = f.Code,
                     message = f.Message,
                     path = f.Path,
+
+                    // Both fields, always. A client that knows nothing about suppression keeps
+                    // showing every finding exactly as before, which is the safe default for a
+                    // field that makes a warning quieter.
+                    suppressed = suppressed.ContainsKey(f.Code),
+                    suppressed_reason = suppressed.GetValueOrDefault(f.Code),
                 }),
             });
         });
