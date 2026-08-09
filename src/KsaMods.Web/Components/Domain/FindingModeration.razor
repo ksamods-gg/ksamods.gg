@@ -41,6 +41,17 @@
                             </p>
                             <code class="mt-1 block font-mono text-xs text-muted-foreground">@finding.Code</code>
 
+                            @if (finding.ClearsRelease && !finding.Suppressed)
+                            {
+                                @* An error is the reason a release is hidden from everybody who is
+                                   not staff, so this button does more than quieten a line on a
+                                   page. Said before the press rather than discovered after it. *@
+                                <p class="mt-1.5 text-xs leading-relaxed text-severity-warning">
+                                    This is the error failing the release. Setting it aside makes
+                                    the release visible and downloadable again.
+                                </p>
+                            }
+
                             @if (finding.Suppressed)
                             {
                                 <p class="mt-1.5 text-xs leading-relaxed text-muted-foreground">
@@ -67,12 +78,6 @@
                                         @onclick="() => RestoreAsync(finding.Code)">
                                     Show it again
                                 </Button>
-                            }
-                            else if (!finding.Suppressible)
-                            {
-                                @* Errors. Said rather than left as a missing button, so nobody goes
-                                   looking for the control that would have been here. *@
-                                <span class="text-xs text-muted-foreground">Errors can't be set aside</span>
                             }
                             else
                             {
