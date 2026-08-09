@@ -685,8 +685,21 @@ public sealed record ModDetail
     /// <summary>Not in browse or search. Still reachable by anyone with the link.</summary>
     public bool IsDraft => ListingState == "unlisted";
 
+    /// <summary>
+    /// Held the role of owner. Still exactly that, and deliberately not widened to include staff:
+    /// some copy on the manage page speaks to the person whose listing it is.
+    /// </summary>
     public bool IsOwner => YourRole == "owner";
-    public bool CanManage => YourRole is "owner" or "maintainer";
+
+    /// <summary>
+    /// May manage this listing, which includes staff holding no role on it. Answered by the API
+    /// rather than derived from <see cref="YourRole"/>, so it cannot drift from what the write
+    /// endpoints will actually allow.
+    /// </summary>
+    [JsonPropertyName("can_manage")] public bool CanManage { get; init; }
+
+    /// <summary>Owner-level reach: the owner, or staff acting in their place.</summary>
+    [JsonPropertyName("can_manage_as_owner")] public bool CanManageAsOwner { get; init; }
 }
 
 public sealed record ReleaseSummary

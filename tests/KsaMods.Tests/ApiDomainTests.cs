@@ -28,13 +28,25 @@ public class PermissionTests
     }
 
     [Fact]
-    public void Only_the_mod_owner_may_connect_the_repository()
+    public void A_maintainer_may_not_connect_the_repository()
     {
-        // The repository link is the ownership proof. A maintainer who could re-point it could
-        // quietly take over the listing.
+        // The repository link is the ownership proof, and this is the rule it exists for: a
+        // maintainer who could re-point it could quietly take over the listing. That is a
+        // different person from staff, and only this one is refused.
         Assert.True(Permissions.Allows(ModOwner, Capability.ConnectRepository));
         Assert.False(Permissions.Allows(ModMaintainer, Capability.ConnectRepository));
-        Assert.False(Permissions.Allows(Moderator, Capability.ConnectRepository));
+    }
+
+    [Fact]
+    public void Staff_may_connect_the_repository()
+    {
+        // Withholding this never bought anything. A moderator already holds
+        // TransferModOwnership, so the long way round was to move the listing to themselves and
+        // then connect: same end state, more steps, and a transfer in the log where a repository
+        // change belonged. What it cost was the honest case, an author who has vanished leaving a
+        // listing pointing at a dead repository that nobody could repair.
+        Assert.True(Permissions.Allows(Moderator, Capability.ConnectRepository));
+        Assert.True(Permissions.Allows(Admin, Capability.ConnectRepository));
     }
 
     [Fact]
@@ -99,15 +111,69 @@ public class PermissionTests
     }
 
     [Fact]
-    public void Moderation_never_reaches_the_destructive_delete()
+    public void Deleting_is_owner_level_and_a_maintainer_is_not_owner_level()
     {
-        // Delisting is reversible and keeps the id resolvable. Handing staff a hard delete as well
-        // would make the reversible tool the harder one to reach for.
-        Assert.False(Permissions.Allows(Moderator, Capability.DeleteMod));
-        Assert.False(Permissions.Allows(Admin, Capability.DeleteMod));
+        // Staff now hold the owner's reach here, including this. The guard that actually keeps
+        // deletion narrow is not the role: ModReferences refuses any listing with a release, a
+        // pin, a dependent or a successor, so what stays deletable is an empty listing nothing
+        // can be pointing at.
+        //
+        // Delisting remains the right tool for anything with content in it, and it is the one a
+        // moderator lands on anyway the moment a listing has a single release.
+        Assert.True(Permissions.Allows(ModOwner, Capability.DeleteMod));
+        Assert.True(Permissions.Allows(Moderator, Capability.DeleteMod));
+        Assert.True(Permissions.Allows(Admin, Capability.DeleteMod));
 
-        // What they do get is the withdrawal power.
+        // A maintainer helps run a listing. They do not get to end it.
+        Assert.False(Permissions.Allows(ModMaintainer, Capability.DeleteMod));
+
+        // And the withdrawal power is still there alongside it.
         Assert.True(Permissions.Allows(Moderator, Capability.SetModVisibility));
+    }
+
+    [Fact]
+    public void Staff_reach_every_listing_control_the_owner_reaches()
+    {
+        // The parity claim, asserted as a whole rather than one capability at a time, so a
+        // capability added later that quietly excludes staff shows up here.
+        Capability[] listingControls =
+        [
+            Capability.EditModListing,
+            Capability.ConnectRepository,
+            Capability.ImportRelease,
+            Capability.YankRelease,
+            Capability.AmendRelease,
+            Capability.ManageMaintainers,
+            Capability.TransferModOwnership,
+            Capability.SetModVisibility,
+            Capability.DeleteMod,
+        ];
+
+        foreach (var capability in listingControls)
+        {
+            Assert.True(Permissions.Allows(ModOwner, capability), $"owner: {capability}");
+            Assert.True(Permissions.Allows(Moderator, capability), $"moderator: {capability}");
+        }
+    }
+
+    [Fact]
+    public void A_stranger_reaches_none_of_it()
+    {
+        // The other half of the parity test. Widening staff must not have widened everybody.
+        Capability[] listingControls =
+        [
+            Capability.EditModListing,
+            Capability.ConnectRepository,
+            Capability.ImportRelease,
+            Capability.ManageMaintainers,
+            Capability.SetModVisibility,
+            Capability.DeleteMod,
+        ];
+
+        foreach (var capability in listingControls)
+        {
+            Assert.False(Permissions.Allows(Nobody, capability), $"stranger: {capability}");
+        }
     }
 
     [Fact]

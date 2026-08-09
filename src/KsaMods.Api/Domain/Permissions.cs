@@ -82,9 +82,15 @@ public static class Permissions
         // without waiting for an absent author.
         Capability.EditModListing => principal.IsModMaintainer || principal.IsModerator,
 
-        // Connecting a repository is the ownership proof, so only the owner may change it.
-        // A maintainer who could re-point it could quietly take over the listing.
-        Capability.ConnectRepository => principal.IsModOwner,
+        // Connecting a repository is the ownership proof, so a maintainer may not change it: one
+        // who could re-point it could quietly take over the listing.
+        //
+        // Staff can, and withholding it never bought anything. A moderator already holds
+        // TransferModOwnership, so the long way round was to move the listing to themselves and
+        // then connect - same end state, more steps, and a transfer in the log where a repository
+        // change belonged. What it cost was the honest case: an author who has vanished leaving a
+        // listing pointing at a dead repository, which nobody could repair.
+        Capability.ConnectRepository => principal.IsModOwner || principal.IsModerator,
 
         // Vouching is not connecting. Staff cannot point a listing at a different repository,
         // which is the takeover risk the rule above exists for; they can only attest that the
@@ -105,10 +111,14 @@ public static class Permissions
         // they do not decide whether it exists in public.
         Capability.SetModVisibility => principal.IsModOwner || principal.IsModerator,
 
-        // Owner only, and never a moderator. A moderator removing content has delisting, which
-        // is reversible and leaves the id resolvable; handing them a destructive delete as well
-        // would make the reversible tool the harder one to reach for.
-        Capability.DeleteMod => principal.IsModOwner,
+        // Deleting is still the narrowest thing here, and the guard that matters is not the role:
+        // ModReferences refuses any listing with a release, a pin, a dependent or a successor, so
+        // what remains deletable is an empty listing nothing can be pointing at. Within that,
+        // staff get the same reach as the owner.
+        //
+        // Delisting is still the right tool for anything with content in it, and it is the one a
+        // moderator lands on anyway the moment a listing has a single release.
+        Capability.DeleteMod => principal.IsModOwner || principal.IsModerator,
 
         Capability.EditModlistDraft => principal.IsListEditor,
 
