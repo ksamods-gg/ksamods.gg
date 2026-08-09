@@ -380,6 +380,17 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
     public Task<RepoLinkChallenge?> GetRepoLinkAsync(string modId, CancellationToken ct = default) =>
         GetAsync<RepoLinkChallenge>($"/api/v1/mods/{Uri.EscapeDataString(modId)}/repo-link", ct);
 
+    /// <summary>
+    /// Files a report against a mod, release, modlist or account.
+    ///
+    /// <para>Needs a session: a report is attributable so a person who files nonsense repeatedly
+    /// can be stopped. Filing the same thing twice while the first is still open answers 409.</para>
+    /// </summary>
+    public Task<ApiOutcome> FileReportAsync(
+        string subjectKind, string subjectId, string category, string? body, CancellationToken ct = default) =>
+        PostAsync("/api/v1/reports",
+            new { subjectKind, subjectId, category, body }, ct);
+
     /// <summary>Somebody's public profile and the mods they publish. Null when there is no such handle.</summary>
     public Task<PublicProfile?> GetPublicProfileAsync(string handle, CancellationToken ct = default) =>
         GetAsync<PublicProfile>($"/api/v1/accounts/{Uri.EscapeDataString(handle)}", ct);
