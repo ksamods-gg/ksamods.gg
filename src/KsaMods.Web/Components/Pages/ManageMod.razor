@@ -37,7 +37,7 @@ else if (_mod is null)
         @(_loadError ?? "No listing with that id.")
     </Alert>
 }
-else if (!_mod.CanManage)
+else if (!MayManage)
 {
     @* Reachable by typing the URL. Say why rather than showing an empty page. *@
     <div class="mx-auto max-w-3xl">
@@ -214,6 +214,114 @@ else
             or a modlist pins it, the honest option is unlisting: ids stay resolvable so other
             people's modlists keep working, and the site promises exactly that.
         *@
+        @*
+            Who works on this listing. Collaborators can edit it and import releases; the owner
+            additionally decides who is here, who owns it next, and whether it exists at all.
+        *@
+        <Card Class="mt-6"
+              Header="@(b => b.AddContent(0, "People"))"
+              Description="@(b => b.AddContent(0, "Who can work on this listing"))">
+
+            @if (_people is null)
+            {
+                <p class="font-mono text-xs text-muted-foreground">Loading…</p>
+            }
+            else
+            {
+                <ul class="divide-y divide-border">
+                    @foreach (var person in _people)
+                    {
+                        <li class="flex items-center gap-3 py-2.5 first:pt-0">
+                            @if (!string.IsNullOrWhiteSpace(person.AvatarUrl))
+                            {
+                                <img src="@person.AvatarUrl" alt="" width="28" height="28"
+                                     class="size-7 shrink-0 rounded-full border border-border object-cover"
+                                     loading="lazy" referrerpolicy="no-referrer" />
+                            }
+                            else
+                            {
+                                <span class="flex size-7 shrink-0 items-center justify-center rounded-full
+                                             border border-border bg-muted font-mono text-[0.6875rem]
+                                             text-muted-foreground" aria-hidden="true">
+                                    @person.Handle[..1].ToUpperInvariant()
+                                </span>
+                            }
+
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium">@person.DisplayName</p>
+                                <code class="font-mono text-xs text-muted-foreground">@person.Handle</code>
+                            </div>
+
+                            <div class="ml-auto flex shrink-0 items-center gap-2">
+                                <Badge Variant="@(person.IsOwner ? "info" : "outline")">@person.Role</Badge>
+
+                                @* The owner has no remove button: removing them would leave the
+                                   listing with nobody who can hand it on. Transfer first. *@
+                                @if (!person.IsOwner && MayManagePeople)
+                                {
+                                    <Button Size="sm" Variant="ghost" Disabled="Busy"
+                                            Pending="@(_busy == $"remove:{person.Handle}")"
+                                            PendingLabel="Removing…"
+                                            @onclick="() => RemoveMaintainerAsync(person.Handle)">
+                                        Remove
+                                    </Button>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (MayManagePeople)
+            {
+                <div class="mt-5 border-t border-border pt-5">
+                    <Field Context="field" Id="addHandle" Label="Add a collaborator"
+                           Hint="Their handle on this site. They can edit the listing and import releases, but not transfer or delete it.">
+                        <div class="flex gap-2">
+                            <input @attributes="field" @bind="_addHandle" placeholder="handle"
+                                   autocomplete="off" spellcheck="false" class="@InputClass" />
+                            <Button Size="sm" Class="h-auto shrink-0"
+                                    Disabled="Busy || string.IsNullOrWhiteSpace(_addHandle)"
+                                    Pending="@(_busy == "add")" PendingLabel="Adding…"
+                                    @onclick="AddMaintainerAsync">
+                                Add
+                            </Button>
+                        </div>
+                    </Field>
+                </div>
+
+                <div class="mt-5 border-t border-border pt-5">
+                    <Field Context="field" Id="transferHandle" Label="Change the author"
+                           Hint="Hands the listing over. You stay on as a collaborator, and they get everything you can do here, including this.">
+                        <div class="flex gap-2">
+                            <input @attributes="field" @bind="_transferHandle" placeholder="handle"
+                                   autocomplete="off" spellcheck="false" class="@InputClass" />
+                            @if (!_confirmTransfer)
+                            {
+                                <Button Size="sm" Variant="outline" Class="h-auto shrink-0"
+                                        Disabled="Busy || string.IsNullOrWhiteSpace(_transferHandle)"
+                                        @onclick="() => _confirmTransfer = true">
+                                    Transfer
+                                </Button>
+                            }
+                            else
+                            {
+                                <Button Size="sm" Variant="destructive" Class="h-auto shrink-0"
+                                        Disabled="Busy" Pending="@(_busy == "transfer")"
+                                        PendingLabel="Transferring…" @onclick="TransferOwnershipAsync">
+                                    Confirm
+                                </Button>
+                                <Button Size="sm" Variant="ghost" Class="h-auto shrink-0" Disabled="Busy"
+                                        @onclick="() => _confirmTransfer = false">
+                                    Cancel
+                                </Button>
+                            }
+                        </div>
+                    </Field>
+                </div>
+            }
+        </Card>
+
         @if (_mod.IsOwner)
         {
             <Card Class="mt-6 border-severity-error/30" Header="@(b => b.AddContent(0, "Delete this listing"))">
@@ -295,11 +403,32 @@ else
 
     private bool CanConnect => !string.IsNullOrWhiteSpace(_repo.RepoFullName);
 
+    private CurrentAccount? _me;
+
+    /// <summary>Everyone with a role on this listing. Null until it has loaded.</summary>
+    private IReadOnlyList<Maintainer>? _people;
+
+    private string _addHandle = "";
+    private string _transferHandle = "";
+    private bool _confirmTransfer;
+
+    /// <summary>
+    /// A moderator holds no role on the listing, so <c>_mod.CanManage</c> is false for them and
+    /// the page would tell an admin it is not their listing. The API already lets them act here,
+    /// which is the point of moderation: reaching a listing whose owner has gone quiet.
+    /// </summary>
+    private bool MayManage => _mod?.CanManage == true || _me?.IsModerator == true;
+
+    /// <summary>Transferring and changing who else is here belong to the owner, or to staff.</summary>
+    private bool MayManagePeople => _mod?.IsOwner == true || _me?.IsModerator == true;
+
     protected override async Task OnInitializedAsync()
     {
         // Managing anything needs a session, so send signed-out visitors to sign in rather than
         // letting them read a page of controls that would all fail.
-        if (await Api.GetCurrentUserAsync() is null)
+        _me = await Api.GetCurrentUserAsync();
+
+        if (_me is null)
         {
             Nav.NavigateTo($"/signin?returnTo={Uri.EscapeDataString($"/mods/{Id}/manage")}");
             return;
@@ -325,6 +454,12 @@ else
                 _edit.License = _mod.License ?? "";
                 _tags = [.. _mod.Tags];
                 _edit.BannerUrl = _mod.BannerUrl ?? "";
+
+                // Only for people the endpoint will answer for. Asking as a stranger would 403
+                // and paint an error over a page that is otherwise fine.
+                _people = MayManage
+                    ? (await Api.GetMaintainersAsync(Id))?.Maintainers
+                    : null;
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
@@ -336,6 +471,42 @@ else
             _loading = false;
         }
     }
+
+    private async Task AddMaintainerAsync()
+    {
+        var handle = _addHandle.Trim();
+        await RunAsync("add", () => Api.AddMaintainerAsync(Id, handle), $"{handle} can work on this listing now.");
+
+        if (_error is null) _addHandle = "";
+    }
+
+    private Task RemoveMaintainerAsync(string handle) => RunAsync(
+        $"remove:{handle}",
+        () => Api.RemoveMaintainerAsync(Id, handle),
+        $"{handle} no longer works on this listing.");
+
+    private async Task TransferOwnershipAsync()
+    {
+        var handle = _transferHandle.Trim();
+        await RunAsync("transfer", () => Api.TransferOwnershipAsync(Id, handle),
+            $"{handle} owns this listing now. You're still on it as a collaborator.");
+
+        _confirmTransfer = false;
+        if (_error is null) _transferHandle = "";
+    }
+
+    /// <summary>
+    /// The same flow for the endpoints that answer with <see cref="ApiOutcome"/> rather than
+    /// <see cref="CreateModResult"/>. Both carry success, an error and a status; only the type
+    /// differs, and duplicating the sign-in and reload handling per call site is how the two
+    /// paths drift apart.
+    /// </summary>
+    private Task RunAsync(string key, Func<Task<ApiOutcome>> action, string success) =>
+        RunAsync(key, async () =>
+        {
+            var outcome = await action();
+            return new CreateModResult(outcome.Success, Id, null, outcome.Error, outcome.Status);
+        }, success);
 
     private async Task RunAsync(string key, Func<Task<CreateModResult>> action, string success)
     {

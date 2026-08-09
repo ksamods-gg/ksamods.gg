@@ -51,6 +51,9 @@ public sealed record EditModBody(
 
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
+/// <summary>A person, named the way the site names people. Used for both adding and transferring.</summary>
+public sealed record MaintainerBody(string Handle);
+
 public sealed record YankBody(string Reason);
 
 public static class ModEndpoints
@@ -247,6 +250,128 @@ public static class ModEndpoints
         // fighting over one repository but does nothing about the first claim being a stranger's -
         // and since the repository link is the ownership proof for a listing, that was the whole
         // trust model resting on nobody having tried (§5.2).
+        // Who works on this listing. Visible to anyone who can manage it, so the manage screen can
+        // show the list without a second permission concept.
+        api.MapGet("/mods/{id}/maintainers", async (
+            string id, HttpContext http, ModRepository mods, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.ManageMaintainers)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            var people = await mods.MaintainersAsync(mod.Id, ct);
+
+            return Results.Ok(new
+            {
+                spec_version = 1,
+                maintainers = people.Select(p => new
+                {
+                    handle = p.Handle,
+                    display_name = p.DisplayName,
+                    avatar_url = p.AvatarUrl,
+                    role = p.Role,
+                    added_at = p.AddedAt,
+                }),
+            });
+        });
+
+        api.MapPost("/mods/{id}/maintainers", async (
+            string id, MaintainerBody body, HttpContext http, ModRepository mods, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.ManageMaintainers)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            var account = await mods.FindAccountAsync(body.Handle.Trim(), ct);
+            if (account is null)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["handle"] = [$"Nobody here goes by '{body.Handle.Trim()}'. They need an account before you can add them."],
+                });
+            }
+
+            // A suspended account cannot act, so adding one would look like it worked and do
+            // nothing. Say so instead.
+            if (account.SuspendedAt is not null)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["handle"] = ["That account is suspended and can't be added."],
+                });
+            }
+
+            return await mods.AddMaintainerAsync(mod.Id, account.Id, principal.AccountId, ct)
+                ? Results.NoContent()
+                : Results.Conflict(new { error = "already_a_maintainer", detail = $"{account.Handle} already works on this listing." });
+        });
+
+        api.MapDelete("/mods/{id}/maintainers/{handle}", async (
+            string id, string handle, HttpContext http, ModRepository mods, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.ManageMaintainers)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            var account = await mods.FindAccountAsync(handle, ct);
+            if (account is null) return Results.NotFound();
+
+            // The repository refuses to remove an owner, so a false here means either "not on this
+            // listing" or "is the owner". Both answer the same way: transfer first.
+            return await mods.RemoveMaintainerAsync(mod.Id, account.Id, ct)
+                ? Results.NoContent()
+                : Results.Conflict(new
+                {
+                    error = "cannot_remove",
+                    detail = "The owner can't be removed. Transfer the listing to somebody else first.",
+                });
+        });
+
+        // Changing the author.
+        //
+        // Owners hand their own listings over; moderators and admins can do it for them, which is
+        // how an abandoned listing gets a maintainer who can actually act on it. The old owner
+        // stays on as a maintainer rather than being removed.
+        api.MapPost("/mods/{id}/owner", async (
+            string id, MaintainerBody body, HttpContext http, ModRepository mods, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.TransferModOwnership)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            var account = await mods.FindAccountAsync(body.Handle.Trim(), ct);
+            if (account is null)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["handle"] = [$"Nobody here goes by '{body.Handle.Trim()}'."],
+                });
+            }
+
+            if (account.SuspendedAt is not null)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["handle"] = ["That account is suspended, so it can't take ownership."],
+                });
+            }
+
+            await mods.TransferOwnershipAsync(mod.Id, account.Id, principal.AccountId, ct);
+            return Results.NoContent();
+        });
+
         api.MapPost("/mods/{id}/repo-link", async (
             string id, ConnectRepoBody body, HttpContext http, ModRepository mods,
             Database database, IForgeFactory forges, CancellationToken ct) =>

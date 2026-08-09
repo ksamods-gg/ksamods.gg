@@ -24,6 +24,24 @@ public sealed record ModRow
     public required DateTimeOffset UpdatedAt { get; init; }
 }
 
+/// <summary>Somebody with a role on a listing, as the manage screen shows them.</summary>
+public sealed record MaintainerRow
+{
+    public required string Handle { get; init; }
+    public required string DisplayName { get; init; }
+    public string? AvatarUrl { get; init; }
+    public required string Role { get; init; }
+    public required DateTimeOffset AddedAt { get; init; }
+}
+
+/// <summary>Just enough of an account to add it to something.</summary>
+public sealed record AccountRef
+{
+    public required long Id { get; init; }
+    public required string Handle { get; init; }
+    public DateTimeOffset? SuspendedAt { get; init; }
+}
+
 /// <summary>What currently points at a mod. All zero means nothing breaks if it goes away.</summary>
 public sealed record ModReferences
 {
@@ -238,6 +256,102 @@ public sealed class ModRepository(Database database)
             where mod_id = (select id from mod where id_lower = @modId) and account_id = @accountId
             """,
             new { modId = modId.ToLowerInvariant(), accountId });
+    }
+
+    /// <summary>Everyone with a role on this listing, owner first.</summary>
+    public async Task<IReadOnlyList<MaintainerRow>> MaintainersAsync(string modId, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        var rows = await connection.QueryAsync<MaintainerRow>("""
+            select a.handle as Handle, a.display_name as DisplayName, a.avatar_url as AvatarUrl,
+                   m.role as Role, m.added_at as AddedAt
+            from mod_maintainer m
+            join account a on a.id = m.account_id
+            where m.mod_id = (select id from mod where id_lower = @modId)
+            order by case when m.role = 'owner' then 0 else 1 end, a.handle
+            """,
+            new { modId = modId.ToLowerInvariant() });
+
+        return rows.ToList();
+    }
+
+    /// <summary>An account by handle, or null. Handles are citext, so the comparison is already case-insensitive.</summary>
+    public async Task<AccountRef?> FindAccountAsync(string handle, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        return await connection.QuerySingleOrDefaultAsync<AccountRef?>("""
+            select id as Id, handle as Handle, suspended_at as SuspendedAt
+            from account where handle = @handle
+            """,
+            new { handle });
+    }
+
+    /// <summary>
+    /// Adds a collaborator. Always as a maintainer, never as an owner: there is exactly one owner
+    /// per listing and it is changed by transferring, not by adding a second one.
+    /// </summary>
+    public async Task<bool> AddMaintainerAsync(string modId, long accountId, long addedBy, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        var rows = await connection.ExecuteAsync("""
+            insert into mod_maintainer (mod_id, account_id, role, added_by)
+            select id, @accountId, 'maintainer', @addedBy from mod where id_lower = @modId
+            on conflict (mod_id, account_id) do nothing
+            """,
+            new { modId = modId.ToLowerInvariant(), accountId, addedBy });
+
+        return rows > 0;
+    }
+
+    /// <summary>Removes a collaborator. Refuses to remove the owner, which would leave the listing ownerless.</summary>
+    public async Task<bool> RemoveMaintainerAsync(string modId, long accountId, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        var rows = await connection.ExecuteAsync("""
+            delete from mod_maintainer
+            where mod_id = (select id from mod where id_lower = @modId)
+              and account_id = @accountId
+              and role <> 'owner'
+            """,
+            new { modId = modId.ToLowerInvariant(), accountId });
+
+        return rows > 0;
+    }
+
+    /// <summary>
+    /// Hands a listing to somebody else.
+    ///
+    /// <para>One transaction, and the demotion happens before the promotion: there is a unique
+    /// index allowing a single owner per listing, so promoting first would collide with the owner
+    /// still sitting there. The previous owner stays on as a maintainer rather than being dropped,
+    /// because handing over a project is not the same as leaving it.</para>
+    /// </summary>
+    public async Task TransferOwnershipAsync(string modId, long newOwnerAccountId, long actingAccountId, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+        using var transaction = connection.BeginTransaction();
+
+        var id = await connection.ExecuteScalarAsync<string>(
+            "select id from mod where id_lower = @modId",
+            new { modId = modId.ToLowerInvariant() }, transaction);
+
+        await connection.ExecuteAsync(
+            "update mod_maintainer set role = 'maintainer' where mod_id = @id and role = 'owner'",
+            new { id }, transaction);
+
+        // The new owner may already be a maintainer, so this is an upsert rather than an insert.
+        await connection.ExecuteAsync("""
+            insert into mod_maintainer (mod_id, account_id, role, added_by)
+            values (@id, @accountId, 'owner', @addedBy)
+            on conflict (mod_id, account_id) do update set role = 'owner'
+            """,
+            new { id, accountId = newOwnerAccountId, addedBy = actingAccountId }, transaction);
+
+        transaction.Commit();
     }
 
     public async Task<IReadOnlyList<ReleaseRow>> ReleasesAsync(string modId, CancellationToken ct)

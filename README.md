@@ -84,7 +84,7 @@ them ship broken.
 frontend and a one-shot migration; the database is yours to run, so create a Postgres resource
 first and point this at it.
 
-One variable is required, and deliberately has no default — a default would mean every service
+One variable is required, and deliberately has no default, because a default would mean every service
 quietly coming up against a database that is not yours, and the first sign of it would be an empty
 site. Compose refuses to start without it:
 
@@ -93,7 +93,7 @@ DATABASE_URL=postgres://user:password@host:5432/ksamods
 ```
 
 Add `?sslmode=require` if your provider expects TLS. Percent-encode a password containing `@ : / #`.
-Both this URL form and libpq's `Host=…;Username=…` form work — the API normalises whichever it
+Both this URL form and libpq's `Host=…;Username=…` form work, and the API normalises whichever it
 gets ([`Database.Normalise`](src/KsaMods.Api/Data/Database.cs)), and so does the migration runner.
 
 Coolify fills one value in automatically because it is declared with no value:

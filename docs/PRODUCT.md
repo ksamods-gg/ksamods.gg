@@ -30,7 +30,7 @@ listings, accounts, jobs, moderation log).
 
 ksamods.gg is an **index for Kitten Space Agency mods, not a file host**. Archives live on the
 author's own git forge; the site stores metadata, a pinned `sha256`, and a link. The validation
-pipeline downloads an archive transiently, inspects it, and discards it — what persists is a URL, a
+pipeline downloads an archive transiently, inspects it, and discards it. What persists is a URL, a
 hash, and everything the validator learned from the bytes.
 
 The product is **trust and resolution**, not files. It answers: does this mod exist, what version,
@@ -49,7 +49,7 @@ index. That is genuinely additive and is the strongest argument for this project
 
 - **Two-hop reachability (pipeline stage 5).** Every path declared in `mod.toml` must resolve; every
   declared XML must parse with the right root element; every path referenced from inside that XML
-  must resolve, transitively. Only files reachable from *neither* are warned about — a validator
+  must resolve, transitively. Only files reachable from *neither* are warned about, because a validator
   that warns on everything absent from `mod.toml` fires on the correct shape of every content mod,
   and a warning authors ignore is worth less than no warning at all.
 - **Cross-mod asset id collision detection.** KSA registers asset ids into one global table with
@@ -65,7 +65,7 @@ The difference this buys is between "installed fine, does nothing" and a useful 
 
 - **The game is Kitten Space Agency** (Rocketwerkz). Grounded on build `2026.8.5.5168`, StarMap
   `0.4.6`. The running process is `StarMap.exe`, not the game.
-- **KSA has no version negotiation at all** — no compatibility field, no minimum-version check. Any
+- **KSA has no version negotiation at all.** No compatibility field, no minimum-version check. Any
   compatibility rule the site enforces is one the site invented, and it behaves accordingly: only
   *Incompatible* blocks; *Untested* and *Unknown* install after confirmation.
 - **The loader has no failure surface.** A missing required dependency, a missing entry assembly, or
@@ -77,7 +77,7 @@ The difference this buys is between "installed fine, does nothing" and a useful 
 - **The game rewrites `manifest.toml` every session**, and new mods install disabled with a relaunch
   needed to enable them. One shared user directory across installs, and two installs prune each
   other; instancing exists only through StarMap.
-- **Craft cannot ship as mods** — `defaultvehicles` is hardcoded. Vehicles and saves are therefore
+- **Craft cannot ship as mods.** `defaultvehicles` is hardcoded. Vehicles and saves are therefore
   separate content types with their own install target.
 - Authors work on a git forge (GitHub at launch), tag a release, and expect the import to be
   unattended. Users work from a KSA forums thread, Discord, and a `mods/` folder on disk.
@@ -105,12 +105,12 @@ imply the client exists until it does.
 - The site **never stores a mod file**. Not a mirror, not a cache, not "just for verified authors".
 - **Releases are immutable and a version is stamped exactly once.** Re-appearing bytes under an
   existing version are refused, never absorbed. The way forward is a new version or a yank.
-- **Post-publish amendments may only narrow** — yank with a reason, tighten a bound, add a missing
+- **Post-publish amendments may only narrow:** yank with a reason, tighten a bound, add a missing
   dependency or conflict. Never widen, never remove, never touch identity, version, download or
   install data.
 - **Three vocabularies stay separate and must never be collapsed:** the author's statement about a
   listing (`deprecated`, `superseded_by`), the author's statement about one build (`yanked`), and
-  the index's statement about a listing (delisted, taken down, disputed — never author-writable).
+  the index's statement about a listing (delisted, taken down, disputed, and never author-writable).
 - **Hash changes are classified, not uniformly quarantined.** A benign re-pack is flagged and the
   author asked to cut a real version; a changed DLL list, a new `[console]` entry or new asset ids
   is a tamper event that quarantines. A queue that is mostly false positives trains moderators to
@@ -120,7 +120,7 @@ imply the client exists until it does.
   safe.
 - **A takedown is a delisting, not a deletion.** The file stays on GitHub or the author's server.
 - **Download counts are not measurable honestly.** The site can count outbound clicks and API
-  resolutions — intent, not installs. Label them as such or fetch real counts from the forge.
+  resolutions, which is intent rather than installs. Label them as such or fetch real counts from the forge.
 - Releases come from a git forge allowlist only, never arbitrary URLs.
 - Ids are one global namespace across content types, case-insensitively unique, with mods holding
   priority over modlists in a dispute.
@@ -131,7 +131,7 @@ imply the client exists until it does.
   publishes no ports.
 - Server-rendered by default so mod pages are indexable; interactive rendering only where a page
   needs it.
-- Anonymous read is the default path — browsing and downloading need no account, and the site
+- Anonymous read is the default path. Browsing and downloading need no account, and the site
   works read-only when no OAuth provider is configured.
 
 **Terminology (fixed, from RFC 0031 / `docs/spec.md`):** Account, Mod, Release, Artifact, Modlist
@@ -144,7 +144,7 @@ supersede, quarantine, tamper event, benign divergence.
 
 - **Name:** ksamods.gg. A wordmark component already exists in the frontend.
 - **Voice, evidenced across `README.md`, `docs/plan.md` and shipped page copy:** plain, technical,
-  and willing to state its own limits in the same breath as its claims — "the site cannot guarantee
+  and willing to state its own limits in the same breath as its claims: "the site cannot guarantee
   a download exists", "download counts measure intent rather than installs", "not a sandbox". It
   explains *why* a decision was made rather than asserting it. It does not sell, does not hype, and
   does not soften a limitation into a feature. Future copy must be able to sit next to the privacy
@@ -156,12 +156,12 @@ supersede, quarantine, tamper event, benign divergence.
 
 ## Evidence on Hand
 
-- `docs/spec.md` — KSA Mod Archive Structure Standard v0.4. Every claim tagged `[CONFIRMED]`,
+- `docs/spec.md`: KSA Mod Archive Structure Standard v0.4. Every claim tagged `[CONFIRMED]`,
   `[CONVENTION]` or `[RFC]`, grounded in the shipped game assemblies.
-- `docs/plan.md` — product plan v0.4, including explicit non-goals and open questions.
-- `docs/backend.md` — architecture, schema, pipeline, security model, build order.
-- `content-manager-design` submodule — the KSAModding RFC process (0017, 0025, 0031 Accepted).
-- `db/seed-dev.sql` — development data that deliberately includes a yanked release, a quarantined
+- `docs/plan.md`: product plan v0.4, including explicit non-goals and open questions.
+- `docs/backend.md`: architecture, schema, pipeline, security model, build order.
+- `content-manager-design` submodule: the KSAModding RFC process (0017, 0025, 0031 Accepted).
+- `db/seed-dev.sql`: development data that deliberately includes a yanked release, a quarantined
   artifact, a dead download link, a deprecated listing with a successor, and an asset id collision
   between two mods. **These are the states the UI most needs to get right**; a seed of nothing but
   healthy mods lets every one of them ship broken. Any surface work should be checked against it.
@@ -170,7 +170,7 @@ supersede, quarantine, tamper event, benign divergence.
 
 **Absences future work must not fabricate:** there are no users, no published mods, no download
 figures, no testimonials, no press, no case studies, no pricing, no uptime record, and no launch
-date. There is no screenshot library and no mod artwork the site owns — mod banners and screenshots
+date. There is no screenshot library and no mod artwork the site owns. Mod banners and screenshots
 come from authors. There is no operator, funding source or SLA to claim.
 
 ## Product Principles
@@ -183,7 +183,7 @@ come from authors. There is no operator, funding source or SLA to claim.
 3. **A warning nobody acts on is worse than no warning.** Reachability, not declaration. Classified
    divergence, not blanket quarantine. Precision is what keeps the signal alive.
 4. **The unhappy states are the product.** Yanked, quarantined, unavailable, diverged, deprecated,
-   incompatible, colliding — these are not edge cases to handle later. They are what distinguishes
+   incompatible, colliding. These are not edge cases to handle later. They are what distinguishes
    this from a list of links, and they must be designed first-class.
 5. **One id, one namespace, one meaning.** A mod's id is the game's folder name; renaming breaks
    every install. Identity is frozen from first publication and succession is how continuity is
@@ -204,14 +204,14 @@ Recorded as undecided rather than assumed. Design work must not quietly settle t
 
 1. **RFC posture: peer implementation (posture 2), decided but not yet agreed with the KSAModding
    maintainers.** ksamods.gg implements RFC 0031 and 0017 exactly, runs its own listing, validation
-   and index, and stays interoperable — two indexes, one format, records reconcilable by id. The
+   and index, and stays interoperable: two indexes, one format, records reconcilable by id. The
    direction is chosen and the codebase reflects it; the agreement is outstanding.
 2. **Who operates and pays for the site, and what happens when they stop.** The git metadata mirror
    makes the catalogue survivable; accounts, modlist drafts and collaboration state are not mirrored
    and would be lost.
 3. **Whether download counts are shown at all**, given the site cannot measure them honestly.
 4. **The review threshold in practice:** every DLL forever, or reputation-gated after the first.
-5. **Whether the validation data has a consumer** beyond this project's own planned client — asset
+5. **Whether the validation data has a consumer** beyond this project's own planned client. Asset
    id collisions, unreachable content files and unresolved declared paths are the distinctive
    contribution, and they are only worth producing if a client surfaces them.
 6. **Whether vehicles and saves record which mods they need.** Open in RFC 0025 too.

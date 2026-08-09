@@ -370,6 +370,29 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>Everyone with a role on a listing. Needs permission to manage it.</summary>
+    public Task<MaintainerList?> GetMaintainersAsync(string modId, CancellationToken ct = default) =>
+        GetAsync<MaintainerList>($"/api/v1/mods/{Uri.EscapeDataString(modId)}/maintainers", ct);
+
+    public Task<ApiOutcome> AddMaintainerAsync(string modId, string handle, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/mods/{Uri.EscapeDataString(modId)}/maintainers", new { handle }, ct);
+
+    /// <summary>Hands the listing to somebody else. The previous owner stays on as a maintainer.</summary>
+    public Task<ApiOutcome> TransferOwnershipAsync(string modId, string handle, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/mods/{Uri.EscapeDataString(modId)}/owner", new { handle }, ct);
+
+    public async Task<ApiOutcome> RemoveMaintainerAsync(
+        string modId, string handle, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.DeleteAsync(
+            $"/api/v1/mods/{Uri.EscapeDataString(modId)}/maintainers/{Uri.EscapeDataString(handle)}", ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
     private async Task<ApiOutcome> PostAsync(string path, object body, CancellationToken ct)
     {
         using var client = CreateClient();
@@ -603,6 +626,22 @@ public sealed record CollisionOwner
 }
 
 /// <summary>Outcome of a write, carrying the API's own explanation rather than a generic one.</summary>
+public sealed record MaintainerList
+{
+    [JsonPropertyName("maintainers")] public IReadOnlyList<Maintainer> Maintainers { get; init; } = [];
+}
+
+public sealed record Maintainer
+{
+    [JsonPropertyName("handle")] public string Handle { get; init; } = "";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
+    [JsonPropertyName("avatar_url")] public string? AvatarUrl { get; init; }
+    [JsonPropertyName("role")] public string Role { get; init; } = "maintainer";
+    [JsonPropertyName("added_at")] public DateTimeOffset AddedAt { get; init; }
+
+    public bool IsOwner => Role == "owner";
+}
+
 public sealed record ApiOutcome(bool Success, string? Error, HttpStatusCode? Status)
 {
     public static ApiOutcome Ok() => new(true, null, null);

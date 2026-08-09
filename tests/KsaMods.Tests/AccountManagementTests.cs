@@ -193,7 +193,7 @@ public sealed class AccountManagementTests : IAsyncLifetime
 
         Assert.Equal(["discord", "github"], linked);
 
-        // The denormalised column has to move with it — repository ownership checks read it.
+        // The denormalised column has to move with it, because repository ownership checks read it.
         Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
             "select count(*) from account where id = @id and discord_id is not null", new { id }));
     }
@@ -218,7 +218,7 @@ public sealed class AccountManagementTests : IAsyncLifetime
     public async Task Linking_an_identity_that_belongs_to_someone_else_is_refused()
     {
         // The one that matters. Moving an identity would take away its owner's way into their own
-        // account — and hand it to whoever asked. Refusing is the only safe answer.
+        // account, and hand it to whoever asked. Refusing is the only safe answer.
         var accounts = new AccountStore(Db);
         var theirs = await NewAccountAsync();
         var mine = await NewAccountAsync();
