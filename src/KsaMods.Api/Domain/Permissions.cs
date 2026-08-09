@@ -33,6 +33,7 @@ public sealed record Principal
     public string? ModlistRole { get; init; }
 
     public bool IsModerator => SiteRole is Domain.SiteRole.Moderator or Domain.SiteRole.Admin;
+    public bool IsAdmin => SiteRole == Domain.SiteRole.Admin;
     public bool IsModOwner => ModRole == Domain.ModRole.Owner;
     public bool IsModMaintainer => ModRole is Domain.ModRole.Owner or Domain.ModRole.Maintainer;
     public bool IsListOwner => ModlistRole == Domain.ModlistRole.Owner;
@@ -50,6 +51,8 @@ public enum Capability
     AmendRelease,
     ManageMaintainers,
     TransferModOwnership,
+    SetModVisibility,
+    DeleteMod,
 
     EditModlistDraft,
     PublishModlistVersion,
@@ -58,6 +61,9 @@ public enum Capability
     TransferModlistOwnership,
 
     Moderate,
+    SuspendAccount,
+    ManageSiteRoles,
+    ManageTags,
 }
 
 /// <summary>
@@ -71,7 +77,7 @@ public static class Permissions
 {
     public static bool Allows(Principal principal, Capability capability) => capability switch
     {
-        // Moderators can edit listing metadata — that is how a takedown notice gets acted on
+        // Moderators can edit listing metadata - that is how a takedown notice gets acted on
         // without waiting for an absent author.
         Capability.EditModListing => principal.IsModMaintainer || principal.IsModerator,
 
@@ -86,6 +92,16 @@ public static class Permissions
         Capability.ManageMaintainers => principal.IsModOwner || principal.IsModerator,
         Capability.TransferModOwnership => principal.IsModOwner || principal.IsModerator,
 
+        // Publishing puts a listing in front of everyone, and unlisting takes it back out. Both
+        // are the owner's call rather than a maintainer's: a maintainer helps run a listing,
+        // they do not decide whether it exists in public.
+        Capability.SetModVisibility => principal.IsModOwner || principal.IsModerator,
+
+        // Owner only, and never a moderator. A moderator removing content has delisting, which
+        // is reversible and leaves the id resolvable; handing them a destructive delete as well
+        // would make the reversible tool the harder one to reach for.
+        Capability.DeleteMod => principal.IsModOwner,
+
         Capability.EditModlistDraft => principal.IsListEditor,
 
         // Publishing mints an immutable version that other people will install. It is a
@@ -99,11 +115,27 @@ public static class Permissions
 
         Capability.Moderate => principal.IsModerator,
 
+        // Suspending someone stops them signing in. A moderator needs it to stop abuse in
+        // progress, and it is reversible, so it does not need to wait for an admin.
+        Capability.SuspendAccount => principal.IsModerator,
+
+        // Granting moderator is the one action that hands out the power to do everything else on
+        // this list, so it sits a level above them all. A moderator who could promote could grant
+        // themselves an admin accomplice; an admin doing it is at least a deliberate choice by
+        // someone who already had the keys.
+        Capability.ManageSiteRoles => principal.IsAdmin,
+
+        // The tag vocabulary is a curation decision rather than an abuse one: it shapes how the
+        // whole catalogue is filed, and a tag added on a whim outlives whoever added it. Moderators
+        // act on things that are wrong; this is about deciding what the site's categories are, and
+        // it sits with the people who own that.
+        Capability.ManageTags => principal.IsAdmin,
+
         _ => false,
     };
 
     /// <summary>
-    /// Whether a caller may see a modlist at all. Private lists are collaborators-only — but
+    /// Whether a caller may see a modlist at all. Private lists are collaborators-only - but
     /// still subject to moderation on report, and the interface should say so rather than
     /// implying privacy from staff.
     /// </summary>

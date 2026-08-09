@@ -1,11 +1,25 @@
+using KsaMods.Api;
 using KsaMods.Api.Auth;
 using KsaMods.Api.Data;
 using KsaMods.Api.Endpoints;
 using Microsoft.AspNetCore.HttpOverrides;
 
+// Container healthcheck. The runtime image is chiselled - no shell, no curl, no wget - so the
+// only thing available to probe the app is the app itself. Docker runs `KsaMods.Api --healthcheck`
+// and reads the exit code.
+if (args.Contains("--healthcheck"))
+{
+    return await HealthProbe.RunAsync(Environment.GetEnvironmentVariable("ASPNETCORE_HTTP_PORTS") ?? "8080");
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
+// DATABASE_URL is what every managed provider gives you, and what the compose file passes. The
+// explicit setting wins where both are present, so a deployment can override one service without
+// touching the shared value. Either may be a postgres:// URL or libpq key/value - Database
+// normalises it.
 var connectionString = builder.Configuration.GetConnectionString("Postgres")
+    ?? builder.Configuration["DATABASE_URL"]
     ?? "Host=localhost;Database=ksamods;Username=ksamods;Password=ksamods";
 
 builder.Services.AddSingleton(Database.CreateDataSource(connectionString));
@@ -14,12 +28,24 @@ builder.Services.AddSingleton<JobQueue>();
 builder.Services.AddScoped<ModRepository>();
 builder.Services.AddScoped<ModlistRepository>();
 builder.Services.AddScoped<AccountStore>();
+builder.Services.AddScoped<TagVocabulary>();
 builder.Services.AddScoped<SessionStore>();
 
 var sessionOptions = new SiteSessionOptions();
 builder.Services.AddSingleton(sessionOptions);
 
+// The address people actually type. Used to build the OAuth redirect_uri, which must match what
+// is registered with the provider exactly - see OAuthEndpoints.SiteOptions for why this is
+// configured rather than read off the request.
+var siteOptions = new OAuthEndpoints.SiteOptions
+{
+    PublicBaseUrl = builder.Configuration["Site:PublicBaseUrl"],
+};
+builder.Services.AddSingleton(siteOptions);
+
 builder.Services.AddHttpClient("oauth");
+builder.Services.AddHttpClient(ForgeFactory.ClientName);
+builder.Services.AddSingleton<IForgeFactory, ForgeFactory>();
 builder.Services.AddProblemDetails();
 builder.Services.AddResponseCompression();
 
@@ -38,6 +64,18 @@ builder.Services.AddRateLimiter(limiter =>
                 Window = TimeSpan.FromMinutes(1),
             }));
 
+    // Webhooks have no session, so they cannot share the per-account bucket - every forge in the
+    // world would land in one partition and a single busy repository would lock out the rest.
+    // Partitioned by the sender instead, and generous: a burst of releases is a normal morning.
+    limiter.AddPolicy("webhooks", http =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+            }));
+
     limiter.AddPolicy("writes", http =>
         System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
             http.User.Identity?.Name ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -50,12 +88,20 @@ builder.Services.AddRateLimiter(limiter =>
 
 var app = builder.Build();
 
-// The API sits behind a CDN and a reverse proxy, so the client address and scheme come from
-// forwarded headers. Without this the SSRF-adjacent bits — rate limiting by IP, the ip_hash on a
-// session — all record the proxy instead of the caller.
+// The API sits behind the frontend's proxy and a CDN, so the client address and scheme come from
+// forwarded headers. Without this the SSRF-adjacent bits - rate limiting by IP, the ip_hash on a
+// session - all record the proxy instead of the caller.
+//
+// KnownNetworks and KnownProxies must be cleared or the headers are silently ignored: the
+// defaults trust only loopback, and in a container the caller is always another address. Safe
+// because this service is never exposed directly - see the compose file, which gives it no
+// published port.
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        | ForwardedHeaders.XForwardedHost,
+    KnownIPNetworks = { },
+    KnownProxies = { },
 });
 
 app.UseExceptionHandler();
@@ -103,13 +149,36 @@ if (builder.Configuration["OAuth:Discord:ClientId"] is { Length: > 0 } discordId
     };
 }
 
-app.MapOAuth(providers, sessionOptions);
+app.MapOAuth(providers, sessionOptions, siteOptions);
+
+if (providers.Count > 0 && siteOptions.Normalised is null)
+{
+    app.Logger.LogWarning(
+        "Sign-in is configured but Site:PublicBaseUrl is not. The OAuth redirect_uri will be "
+        + "derived from the request host, which behind a proxy is an internal container name. "
+        + "Set Site__PublicBaseUrl to the address people use.");
+}
+else if (siteOptions.Normalised is { } publicUrl)
+{
+    app.Logger.LogInformation(
+        "Public base URL is {PublicBaseUrl}; OAuth callbacks will use {Callback}.",
+        publicUrl, $"{publicUrl}/auth/<provider>/callback");
+}
 app.MapReadEndpoints();
 app.MapModEndpoints();
 app.MapModlistEndpoints();
+app.MapAccountEndpoints();
+app.MapAdminEndpoints();
+app.MapTagEndpoints();
+
+// Off unless a secret is configured: without one, every caller is anonymous and the endpoint is a
+// way to make the site do work on request.
+app.MapWebhooks(builder.Configuration["GitHub:WebhookSecret"]);
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.Run();
+
+return 0;
 
 public partial class Program;

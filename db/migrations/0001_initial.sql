@@ -2,8 +2,10 @@
 --
 -- Postgres is the store of record. The published export and its git mirror (§12.1) are what let
 -- the metadata outlive the service; nothing in here is derived from a git tree.
-
-begin;
+--
+-- No BEGIN/COMMIT here: db/apply.sh runs each migration with psql --single-transaction so that
+-- the schema change and the schema_migration row it records commit together. An explicit COMMIT
+-- inside the file would end that transaction early and leave the bookkeeping outside it.
 
 create extension if not exists citext;
 
@@ -431,7 +433,7 @@ create trigger moderation_action_no_update
   for each row execute function moderation_action_is_append_only();
 
 -- Intent, not installs. The site does not serve the files, so it can count outbound clicks and
--- API resolutions and nothing more — labelled honestly rather than presented as downloads.
+-- API resolutions and nothing more - labelled honestly rather than presented as downloads.
 create table resolution_event (
   subject_kind text        not null,
   subject_id   text        not null,
@@ -441,5 +443,3 @@ create table resolution_event (
   constraint resolution_event_kind_valid check (kind in ('outbound_click', 'api_resolve'))
 );
 create index resolution_event_subject_idx on resolution_event(subject_kind, subject_id, occurred_at);
-
-commit;

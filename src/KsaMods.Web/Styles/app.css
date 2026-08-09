@@ -1,127 +1,230 @@
 @import "tailwindcss";
 
 /*
-  Design tokens, shadcn-style: every colour is a CSS variable, components reference the
-  semantic name rather than a palette step. That indirection is what makes the dark theme a
-  token swap instead of a per-component `dark:` prefix on every element.
+  ── Typefaces ────────────────────────────────────────────────────────────────────────────────
 
-  OKLCH rather than hex, so lightness is perceptually even across hues — a mid-grey and a
-  mid-blue at the same L actually look equally dark, which hex does not give you.
+  IBM Plex, self-hosted. Self-hosted rather than linked because the privacy page promises no
+  third-party requests, and a font CDN is exactly that: every visitor's address handed to
+  somebody else before the page has even painted.
+
+  Three roles from one superfamily, so they share skeletons and never look like a collision:
+
+    Condensed  headings, the wordmark, eyebrow labels. Narrow and a little severe, the way
+               technical signage and spacecraft labelling are narrow.
+    Sans       everything a person reads in sentences.
+    Mono       identifiers only. A mod id, a version, a sha256 and a byte count are literal
+               strings that the game and the API compare character by character, so they are
+               set in a face where every character occupies the same width and none of them are
+               ambiguous. That is information design, not decoration.
+
+  Only the weights actually used are shipped. The rest would be dead bytes on first paint.
 */
-@theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-latin-wght-normal.woff2") format("woff2-variations");
+}
 
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-condensed-latin-600-normal.woff2") format("woff2");
+}
 
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
+@font-face {
+  font-family: "IBM Plex Sans Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-sans-condensed-latin-700-normal.woff2") format("woff2");
+}
 
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+}
 
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0 0);
-
-  /* Validation severity. These are semantic on purpose: a finding's colour must not drift
-     between the listing page, the release page and the CLI's mental model. */
-  --color-severity-error: oklch(0.577 0.245 27.325);
-  --color-severity-warning: oklch(0.681 0.162 75.834);
-  --color-severity-info: oklch(0.6 0.118 244.5);
-  --color-severity-ok: oklch(0.596 0.145 155.0);
-
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0 0);
-
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
 }
 
 /*
-  Dark theme. Only the tokens are redefined — no component knows the theme exists.
+  ── Tokens ───────────────────────────────────────────────────────────────────────────────────
 
-  Two selectors deliberately: `.dark` for an explicit user choice, and the media query for
-  visitors who have never chosen. The media query is scoped with :not(.light) so an explicit
-  light choice still wins on a machine set to dark.
+  Every colour is a variable and components reference the semantic name, so a theme is a token
+  swap rather than a `dark:` prefix on every element.
+
+  Two rules this palette is built around.
+
+  The neutrals are not grey. They carry a little chroma on a cold hue, because a zero-chroma
+  ramp is what a component library ships with rather than something anybody picked.
+
+  The accent is not a severity. It used to be amber at hue 58, sitting twelve degrees from the
+  warning colour at hue 70, near enough that a warning badge and a primary button were the same
+  colour and severity stopped meaning anything. The accent is now teal, well clear of the red,
+  amber, green and indigo that carry meaning. Nothing else is allowed to be saturated purely for
+  decoration.
+
+  OKLCH throughout: lightness is perceptually even across hues, so a mid-teal and a mid-red at
+  the same L actually look equally bright. Hex does not give you that.
+
+  It also makes the contrast floor a one-dimensional problem. Every colour that carries text is
+  set at the lightest L that still clears 4.5:1 against the surface it is read on, hue and chroma
+  untouched. The light ramp used to be tuned by eye and missed: the primary button sat at 4.00:1
+  and the warning badge at 3.02:1, which is the ordinary failure mode of picking a mid-tone that
+  looks right on a white artboard and never measuring it against the tint it actually sits on.
+
+  Two of these are chroma-capped rather than freely chosen. sRGB cannot hold 0.145 chroma at the
+  lightness the warning colour now needs, so it is declared at the in-gamut maximum instead of a
+  number the browser would silently clip. A token that lies about what it renders is worse than a
+  duller token.
+
+  ── One declaration per token ────────────────────────────────────────────────────────────────
+
+  Each colour is written once, as `light-dark(light, dark)`. The palette used to exist three
+  times: once here, once under `.dark`, and once more inside a `prefers-color-scheme` query that
+  repeated all twenty-four lines verbatim. Nothing kept those two dark copies honest, so the
+  drift was a matter of which one a future edit happened to land in.
+
+  What decides between the pair is `color-scheme` on the root element, set once at the bottom of
+  this file, which also buys the thing a class-and-media-query pair never could: the browser's
+  own surfaces. Scrollbars, the caret, spinners and the default form controls all follow
+  `color-scheme`, and until now they stayed light on a dark page because nothing here ever told
+  the browser what kind of document this is.
+
+  The cost is a floor: `light-dark()` is Baseline from May 2024, which is above Tailwind v4's own
+  minimum (Safari 16.4 against the 17.5 this needs). Without it a visitor keeps the light theme
+  rather than losing the page, so the failure is a degradation and not a break.
+*/
+@theme {
+  /* Light is the first argument throughout: cool paper, the way a printed technical document is
+     never pure white. Dark is the second: not near-black but a deep blue-slate, which is both the
+     more interesting ground and the one that lets a teal accent sit on it without vibrating. */
+  --color-background: light-dark(oklch(0.984 0.003 240), oklch(0.171 0.021 254));
+  --color-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
+
+  --color-card: light-dark(oklch(1 0 0), oklch(0.216 0.024 254));
+  --color-card-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
+
+  --color-popover: light-dark(oklch(1 0 0), oklch(0.216 0.024 254));
+  --color-popover-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
+
+  /* 4.73:1 under primary-foreground as a fill, 4.64:1 as text on the page ground. Both roles
+     bind, and the fill is the tighter of the two, so the token is set by it. */
+  --color-primary: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
+  --color-primary-foreground: light-dark(oklch(0.99 0.004 200), oklch(0.185 0.026 254));
+
+  /* Hover darkens on light and lightens on dark, because that is the direction that adds contrast
+     in each. A filter that lightened both was taking the light button back under the floor at the
+     moment somebody had committed to pressing it. Written as a pair, the two directions sit on one
+     line and cannot quietly become the same one. */
+  --color-primary-hover: light-dark(oklch(0.49 0.084 205), oklch(0.83 0.105 197));
+
+  --color-secondary: light-dark(oklch(0.957 0.006 245), oklch(0.278 0.024 254));
+  --color-secondary-foreground: light-dark(oklch(0.24 0.021 250), oklch(0.947 0.008 245));
+
+  --color-muted: light-dark(oklch(0.957 0.006 245), oklch(0.278 0.024 254));
+  --color-muted-foreground: light-dark(oklch(0.505 0.018 248), oklch(0.695 0.018 248));
+
+  --color-accent: light-dark(oklch(0.947 0.009 245), oklch(0.278 0.024 254));
+  --color-accent-foreground: light-dark(oklch(0.24 0.021 250), oklch(0.947 0.008 245));
+
+  /* The dark fill is darker than the light one, which looks backwards until you remember it is a
+     fill carrying near-white text rather than a colour read on a tint. At the old 0.665 nothing
+     could fix it: white text on it tops out at 3.32:1, so the ceiling was below the floor and the
+     foreground was never the adjustable end. */
+  --color-destructive: light-dark(oklch(0.565 0.208 25), oklch(0.575 0.185 25));
+  --color-destructive-foreground: light-dark(oklch(0.99 0 0), oklch(0.985 0 0));
+
+  /* Severity. Semantic, and deliberately nothing like the accent: a finding's colour must not
+     drift between the listing page, the release page and the CLI's mental model.
+
+     Each is set against its own 10% tint, not against the page, because that is where these
+     are actually read: Badge and Alert both put the colour on a wash of itself, which is the
+     lowest-contrast surface it ever meets. Clearing 4.5:1 there clears everything else. The
+     warning colour is at the in-gamut chroma ceiling for its lightness, so it reads as a darker
+     ochre than the old amber rather than a duller version of it. */
+  --color-severity-error: light-dark(oklch(0.538 0.208 25), oklch(0.685 0.178 25));
+  --color-severity-warning: light-dark(oklch(0.525 0.112 72), oklch(0.775 0.145 72));
+  --color-severity-info: light-dark(oklch(0.528 0.148 272), oklch(0.695 0.135 272));
+  --color-severity-ok: light-dark(oklch(0.505 0.135 150), oklch(0.715 0.145 150));
+
+  /* Border and input are not the same job and no longer share a value. A border separates two
+     regions and may be as quiet as it likes; an input's border is the only thing telling anyone
+     where the control is, so it owes 3:1 against both surfaces it appears on - the page ground
+     and a card. It reads as a noticeably firmer edge, which is what a text field should look
+     like.
+
+     Dark keeps both as an alpha of the foreground, and there that is the more robust choice
+     rather than the lazier one: one value has to clear its bar on the page ground and on a card,
+     and an alpha re-derives itself against whichever it lands on. */
+  --color-border: light-dark(oklch(0.895 0.008 245), oklch(0.947 0.008 245 / 13%));
+  --color-input: light-dark(oklch(0.65 0.009 245), oklch(0.947 0.008 245 / 40%));
+  --color-ring: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
+
+  /* This used to read "panels, not pills - a 4px corner reads as a machined edge; 12px reads as a
+     chat bubble", and the machined edge was the right call for a drafting-instrument world. That
+     world has been replaced: the site is now shaped like the mod catalogues its visitors already
+     use, where the card is a soft object you scan a hundred of rather than a panel you read.
+
+     Three steps, each with a job. sm is the pill and the chip. md is the control - button, input,
+     select - large enough to read as soft, small enough that the label still sits square in it.
+     lg is the card, and it is the one carrying the change: at 14px a card stops looking like a
+     region of the page and starts looking like a thing on it. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+
+  /* Elevation, not decoration. Every one carries a vertical offset and a soft blur, because a
+     zero-offset halo is a glow and glows do not tell you which surface is nearer.
+
+     The colour is the ground's own hue rather than neutral black: a grey shadow over a blue-slate
+     page reads as dirt on the surface. In dark the ambient shadow does almost nothing - there is
+     no light above a dark room - so the border carries separation there and this stays subtle
+     enough not to smear. */
+  --shadow-card: 0 1px 2px light-dark(oklch(0.19 0.021 250 / 6%), oklch(0 0 0 / 24%)),
+                 0 2px 8px light-dark(oklch(0.19 0.021 250 / 5%), oklch(0 0 0 / 18%));
+  --shadow-raised: 0 2px 4px light-dark(oklch(0.19 0.021 250 / 7%), oklch(0 0 0 / 28%)),
+                   0 8px 24px light-dark(oklch(0.19 0.021 250 / 8%), oklch(0 0 0 / 24%));
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+/*
+  Which half of every `light-dark()` pair applies is decided here, and nowhere else.
+
+  `color-scheme: light dark` on the root means "this document is happy either way", so a visitor
+  who has never chosen gets the one their machine asked for. The two classes are an explicit
+  choice overriding that, and they are the same two classes the inline script in App.razor stamps
+  from localStorage before first paint.
+
+  No colour needs `:not(.light)` any more. The old media query had to exclude an explicit light
+  choice by hand, because a class and a media query are independent conditions with no natural
+  precedence between them; `color-scheme` resolves to one value at a time, so the later, more
+  specific rule simply wins and the exclusion has nothing left to do.
+
+  The one place still doing it by hand is the theme-toggle icon swap further down, and that is
+  not an oversight: `light-dark()` takes colours, and no selector exposes the resolved
+  `color-scheme`, so a rule that has to flip `display` cannot ask which theme won. Three small
+  rules is the whole remaining cost of that gap.
 */
 @layer base {
-  .dark {
-    --color-background: oklch(0.145 0 0);
-    --color-foreground: oklch(0.985 0 0);
-
-    --color-card: oklch(0.205 0 0);
-    --color-card-foreground: oklch(0.985 0 0);
-
-    --color-popover: oklch(0.205 0 0);
-    --color-popover-foreground: oklch(0.985 0 0);
-
-    --color-primary: oklch(0.922 0 0);
-    --color-primary-foreground: oklch(0.205 0 0);
-
-    --color-secondary: oklch(0.269 0 0);
-    --color-secondary-foreground: oklch(0.985 0 0);
-
-    --color-muted: oklch(0.269 0 0);
-    --color-muted-foreground: oklch(0.708 0 0);
-
-    --color-accent: oklch(0.269 0 0);
-    --color-accent-foreground: oklch(0.985 0 0);
-
-    --color-destructive: oklch(0.704 0.191 22.216);
-    --color-destructive-foreground: oklch(0.985 0 0);
-
-    --color-severity-error: oklch(0.704 0.191 22.216);
-    --color-severity-warning: oklch(0.769 0.188 70.08);
-    --color-severity-info: oklch(0.696 0.136 244.5);
-    --color-severity-ok: oklch(0.696 0.155 155.0);
-
-    --color-border: oklch(1 0 0 / 12%);
-    --color-input: oklch(1 0 0 / 18%);
-    --color-ring: oklch(0.556 0 0);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not(.light) {
-      --color-background: oklch(0.145 0 0);
-      --color-foreground: oklch(0.985 0 0);
-      --color-card: oklch(0.205 0 0);
-      --color-card-foreground: oklch(0.985 0 0);
-      --color-popover: oklch(0.205 0 0);
-      --color-popover-foreground: oklch(0.985 0 0);
-      --color-primary: oklch(0.922 0 0);
-      --color-primary-foreground: oklch(0.205 0 0);
-      --color-secondary: oklch(0.269 0 0);
-      --color-secondary-foreground: oklch(0.985 0 0);
-      --color-muted: oklch(0.269 0 0);
-      --color-muted-foreground: oklch(0.708 0 0);
-      --color-accent: oklch(0.269 0 0);
-      --color-accent-foreground: oklch(0.985 0 0);
-      --color-destructive: oklch(0.704 0.191 22.216);
-      --color-destructive-foreground: oklch(0.985 0 0);
-      --color-severity-error: oklch(0.704 0.191 22.216);
-      --color-severity-warning: oklch(0.769 0.188 70.08);
-      --color-severity-info: oklch(0.696 0.136 244.5);
-      --color-severity-ok: oklch(0.696 0.155 155.0);
-      --color-border: oklch(1 0 0 / 12%);
-      --color-input: oklch(1 0 0 / 18%);
-      --color-ring: oklch(0.556 0 0);
-    }
-  }
+  :root { color-scheme: light dark; }
+  .light { color-scheme: light; }
+  .dark { color-scheme: dark; }
 
   * {
     border-color: var(--color-border);
@@ -132,9 +235,59 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Visible focus everywhere, since this UI has no Radix to supply it. */
+  /*
+    The surfaces nobody draws.
+
+    Selection, the caret, the scrollbar and the numerals in a table all ship with browser defaults
+    that belong to no design system, and they are the cheapest tell that a page was assembled
+    rather than built. A blue Chrome selection over a teal page is somebody else's accent colour
+    sitting in the middle of ours.
+  */
+  ::selection {
+    /* Tinted, not solid: a solid accent selection inverts the text under it and the contrast then
+       depends on whichever colour happened to be selected. */
+    background: color-mix(in oklch, var(--color-primary) 26%, transparent);
+    color: var(--color-foreground);
+  }
+
+  :root {
+    caret-color: var(--color-primary);
+    scrollbar-color: var(--color-input) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* WebKit ignores scrollbar-color, and its default bar is a hard grey slab on a dark ground. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-input);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: var(--radius-md);
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--color-muted-foreground); background-clip: content-box; }
+
+  /* Versions, revisions, byte counts and dates are compared down a column far more often than they
+     are read in a sentence, and proportional digits make that comparison a guess. */
+  code, kbd, samp, pre, time, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Headings are condensed and tight. The width contrast against the body face is the point:
+     it is what stops a page set in one family reading as one undifferentiated block. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.011em;
+  }
+
+  /* Wherever digits line up in a column, they should line up. */
+  table, dl, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
@@ -143,7 +296,7 @@
   /*
     …except on programmatic focus targets. Blazor's <FocusOnNavigate Selector="h1" /> gives the
     page heading tabindex="-1" and focuses it after navigation so a screen reader announces the
-    new page — behaviour worth keeping. Chrome then treats that as focus-visible and paints a ring
+    new page, which is worth keeping. Chrome then treats that as focus-visible and paints a ring
     around the heading, which looks like a rendering bug to everyone else.
 
     tabindex="-1" means "focusable only in code", so an element carrying it is never a keyboard
@@ -153,6 +306,97 @@
   [tabindex="-1"]:focus-visible {
     outline: none;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/*
+  Theme toggle icon swap, done in CSS off the root class rather than in the component.
+
+  The button shows the theme you would switch *to*: a sun while dark, a moon while light. Because
+  the rules key off exactly the same selectors the palette does, the correct icon is already in
+  the server-rendered HTML and stays correct in the un-stamped state where only the media query
+  knows what is going on. No JavaScript needs to run for the button to look right.
+*/
+.theme-icon-sun { display: none; }
+.theme-icon-moon { display: block; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .theme-icon-sun { display: block; }
+  :root:not(.light) .theme-icon-moon { display: none; }
+}
+
+.dark .theme-icon-sun { display: block; }
+.dark .theme-icon-moon { display: none; }
+
+.light .theme-icon-sun { display: none; }
+.light .theme-icon-moon { display: block; }
+
+/*
+  Skip link. First thing in the tab order, off-screen until it is the thing being tabbed to.
+
+  Landmarks already make the header bypassable in principle, and that is what kept this off the
+  list for a while. In practice a keyboard user meets the wordmark, three navigation links, the
+  theme switch and up to two buttons before the first word of the page - and on a phone the nav
+  row adds three more. A landmark is a way to leave; this is a way to leave that announces itself.
+
+  Moved rather than hidden: `display: none` and `visibility: hidden` both take an element out of
+  the tab order, which would defeat the only thing it exists for. Sitting off the top edge keeps
+  it focusable, and it comes back at the same 36px height as a primary button because that is
+  what it is - the first control on the page.
+*/
+.skip-link {
+  position: fixed;
+  top: -4rem;
+  left: 1rem;
+  z-index: 60;
+
+  display: inline-flex;
+  align-items: center;
+  height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: var(--radius-md);
+
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+
+  transition: top 150ms ease-out;
+}
+
+.skip-link:focus {
+  top: 1rem;
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/*
+  The listing header's icon overlaps the banner's lower edge, but only while there is a banner to
+  overlap.
+
+  :has() is live, so when the banner's onerror removes the strip the selector stops matching and
+  the icon drops back into normal flow on its own. Deciding this on the server from banner_url
+  cannot work: the URL being set is not the same as the image loading, and an author-hosted image
+  that 404s left the icon hanging above the card with the page grid showing through behind it.
+*/
+header:has(.mod-banner) .mod-icon {
+  margin-top: -3rem;
+  box-shadow: 0 0 0 4px var(--color-card);
+}
+
+/* An eyebrow is a label, not a sentence: condensed, spaced, and small enough to stay quiet. */
+.eyebrow {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 /* Blazor's own error UI, restyled to match rather than left as the framework default. */
@@ -168,8 +412,29 @@
   font-size: 0.875rem;
 }
 
+/* The layout lives on the inner element: Blazor reveals the strip by writing an inline
+   `display: block` on the outer one, so anything set there would be overwritten the moment it
+   mattered. Same 72rem column as the header and footer, so the strip belongs to the page rather
+   than sitting across it. */
+.error-ui-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-inline: auto;
+  max-width: 72rem;
+}
+
 #blazor-error-ui .dismiss {
   cursor: pointer;
-  float: right;
-  padding-inline: 0.5rem;
+  flex: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* The ring is a teal that was chosen against the page, not against a red strip. On this one
+   surface the reliable focus indicator is the strip's own foreground. */
+#blazor-error-ui .dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }

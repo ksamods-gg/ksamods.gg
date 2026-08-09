@@ -1,3 +1,15 @@
+/*
+    The Blazor scaffold's own reconnect dialog, restyled onto this project's tokens.
+
+    It shipped hardcoded: a white card, two shades of framework blue, and a black shadow. On a dark
+    page that produced a white panel with chrome belonging to no design system, at the one moment
+    the site is already failing - which is the worst possible time to also look broken. The sibling
+    `#blazor-error-ui` in app.css was adopted long ago; this was the half that got missed.
+
+    Nothing here picks a colour. Every value is a token, so this follows the theme like everything
+    else, including the `light-dark()` pair behind each one.
+*/
+
 .components-reconnect-first-attempt-visible,
 .components-reconnect-repeated-attempt-visible,
 .components-reconnect-failed-visible,
@@ -19,61 +31,53 @@
     display: block;
 }
 
-
 #components-reconnect-modal {
-    background-color: white;
+    /* A card, on the same terms as every other card on the site: popover surface, hairline
+       border, the 6px corner the rest of the panels use. */
+    background-color: var(--color-popover);
+    color: var(--color-popover-foreground);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px -6px oklch(0 0 0 / 30%), 0 2px 6px -2px oklch(0 0 0 / 20%);
+
     width: 20rem;
+    max-width: calc(100vw - 2rem);
     margin: 20vh auto;
     padding: 2rem;
-    border: 0;
-    border-radius: 0.5rem;
-    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.3);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+
     opacity: 0;
     transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
     animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
-    &[open]
+}
 
-{
-    animation: components-reconnect-modal-slideUp 1.5s cubic-bezier(.05, .89, .25, 1.02) 0.3s, components-reconnect-modal-fadeInOpacity 0.5s ease-in-out 0.3s;
+#components-reconnect-modal[open] {
+    animation:
+        components-reconnect-modal-slideUp 1.5s cubic-bezier(.05, .89, .25, 1.02) 0.3s,
+        components-reconnect-modal-fadeInOpacity 0.5s ease-in-out 0.3s;
     animation-fill-mode: both;
 }
 
-}
-
 #components-reconnect-modal::backdrop {
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: oklch(0 0 0 / 45%);
     animation: components-reconnect-modal-fadeInOpacity 0.5s ease-in-out;
     opacity: 1;
 }
 
 @keyframes components-reconnect-modal-slideUp {
-    0% {
-        transform: translateY(30px) scale(0.95);
-    }
-
-    100% {
-        transform: translateY(0);
-    }
+    0% { transform: translateY(30px) scale(0.95); }
+    100% { transform: translateY(0); }
 }
 
 @keyframes components-reconnect-modal-fadeInOpacity {
-    0% {
-        opacity: 0;
-    }
-
-    100% {
-        opacity: 1;
-    }
+    0% { opacity: 0; }
+    100% { opacity: 1; }
 }
 
 @keyframes components-reconnect-modal-fadeOutOpacity {
-    0% {
-        opacity: 1;
-    }
-
-    100% {
-        opacity: 0;
-    }
+    0% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 .components-reconnect-container {
@@ -86,72 +90,98 @@
 #components-reconnect-modal p {
     margin: 0;
     text-align: center;
+    line-height: 1.5;
 }
 
+/* The countdown is a number that changes under the reader, so it is set in the face this project
+   reserves for values rather than left to shift width on every tick. */
+#components-seconds-to-next-attempt {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Matched to Ui/Button's primary: same height, same corner, same 13px label. Someone who has just
+   watched the connection drop should not also be asked to trust an unfamiliar button.
+
+   No `display` here, deliberately. Which of these two buttons is on screen is decided by the
+   `.components-*-visible` rules at the top of this file, and those are plain class selectors: an
+   id-scoped `display: inline-flex` outranks every one of them and puts Retry and Resume on screen
+   together, in states where each is claiming something different about the connection. A button
+   already centres its own label, so the flex was buying nothing and costing the state machine. */
 #components-reconnect-modal button {
+    height: 2.25rem;
+    padding-inline: 0.875rem;
     border: 0;
-    background-color: #6b9ed2;
-    color: white;
-    padding: 4px 24px;
-    border-radius: 4px;
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms;
 }
 
-    #components-reconnect-modal button:hover {
-        background-color: #3b6ea2;
-    }
+#components-reconnect-modal button:hover {
+    background-color: var(--color-primary-hover);
+}
 
-    #components-reconnect-modal button:active {
-        background-color: #6b9ed2;
-    }
+#components-reconnect-modal button:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+}
 
+/*
+    The rejoining indicator: two rings expanding outward on a stagger, in the accent.
+
+    It is the only thing on screen saying the page is still trying, so it keeps a visible resting
+    state under reduced motion instead of freezing mid-expansion at whatever size the animation
+    was killed at. A stalled ring reads as a broken page, which is precisely the misreading this
+    dialog exists to prevent.
+*/
 .components-rejoining-animation {
     position: relative;
     width: 80px;
     height: 80px;
 }
 
-    .components-rejoining-animation div {
-        position: absolute;
-        border: 3px solid #0087ff;
-        opacity: 1;
-        border-radius: 50%;
-        animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-    }
+.components-rejoining-animation div {
+    position: absolute;
+    border: 3px solid var(--color-primary);
+    opacity: 1;
+    border-radius: 50%;
+    animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
 
-        .components-rejoining-animation div:nth-child(2) {
-            animation-delay: -0.5s;
-        }
+.components-rejoining-animation div:nth-child(2) {
+    animation-delay: -0.5s;
+}
 
 @keyframes components-rejoining-animation {
-    0% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 0;
-    }
+    0%, 4.9% { top: 40px; left: 40px; width: 0; height: 0; opacity: 0; }
+    5% { top: 40px; left: 40px; width: 0; height: 0; opacity: 1; }
+    100% { top: 0; left: 0; width: 80px; height: 80px; opacity: 0; }
+}
 
-    4.9% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 0;
-    }
-
-    5% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 1;
-    }
-
-    100% {
-        top: 0px;
-        left: 0px;
+@media (prefers-reduced-motion: reduce) {
+    .components-rejoining-animation div {
+        /* Stopped outright, not merely shortened. app.css collapses every duration to 0.01ms
+           under this query, and on an `infinite` animation that is not a stop - it is the same
+           loop running about a hundred times a second, repainting at whatever keyframe it lands
+           on. Cancelling the animation is what lets the resting geometry below actually show. */
+        animation: none;
+        top: 0;
+        left: 0;
         width: 80px;
         height: 80px;
-        opacity: 0;
+        opacity: 0.35;
+    }
+
+    .components-rejoining-animation div:nth-child(2) {
+        width: 52px;
+        height: 52px;
+        top: 14px;
+        left: 14px;
+        opacity: 0.6;
     }
 }

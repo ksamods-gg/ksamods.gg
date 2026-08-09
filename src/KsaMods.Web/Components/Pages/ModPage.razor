@@ -1,7 +1,7 @@
 @page "/mods/{Id}"
 @inject KsaModsApi Api
 
-<PageTitle>@(_mod?.Name ?? Id) — ksamods.gg</PageTitle>
+<PageTitle>@(_mod?.Name ?? Id) | ksamods.gg</PageTitle>
 
 @if (_error is not null)
 {
@@ -9,8 +9,12 @@
 }
 else if (_notFound)
 {
-    <Card Class="text-center">
-        <p class="text-sm text-muted-foreground">
+    @* Headed, like every other state of this page and like /not-found itself. A miss on a mod id
+       is one of the likelier ways to arrive here - old links, renamed mods, a typo in a Discord
+       paste - and it was the one state that gave a screen reader nothing to be sent to. *@
+    <Card Class="mx-auto max-w-md text-center">
+        <h1 class="text-lg font-semibold tracking-tight">This mod isn't here</h1>
+        <p class="mt-2 text-sm text-muted-foreground">
             No listing with the id <code class="font-mono">@Id</code>.
         </p>
         <Button Href="/mods" Variant="outline" Size="sm" Class="mt-4">Browse mods</Button>
@@ -22,13 +26,13 @@ else if (_mod is null)
 }
 else if (_mod.IsWithdrawn)
 {
-    @* Delisted content stays resolvable by id — modlists pin it and dependency graphs reference
-       it — but the download is not offered and the reason is stated plainly. *@
+    @* Delisted content stays resolvable by id - modlists pin it and dependency graphs reference
+       it - but the download is not offered and the reason is stated plainly. *@
     <Card Header="@(builder => { builder.AddContent(0, _mod.Id); })">
         <Alert Variant="warning" Title="This listing has been withdrawn">
-            @(_mod.Message ?? "Moderators have withdrawn this listing. Its releases are not offered here.")
+            @(_mod.Message ?? "Moderators have withdrawn this listing, so we're not offering its releases.")
             <p class="mt-2">
-                Withdrawal removes it from this index only. It does not remove anything from the
+                That only removes it from this index. Nothing is touched in the
                 author's own repository.
             </p>
         </Alert>
@@ -37,25 +41,85 @@ else if (_mod.IsWithdrawn)
 else
 {
     <article>
-        <header class="flex flex-wrap items-start justify-between gap-4">
-            <div class="min-w-0">
-                <h1 class="text-2xl font-semibold tracking-tight">@_mod.Name</h1>
-                <code class="mt-1 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
-            </div>
+        @*
+            One header object rather than a stack of bands: banner as its lid, icon overlapping the
+            seam, identity and actions on the same line underneath. The overlap is what makes it
+            read as a single card instead of an image with a title under it.
+        *@
+        <header class="overflow-hidden rounded-lg border border-border bg-card shadow-card">
+            @if (!string.IsNullOrWhiteSpace(_mod.BannerUrl))
+            {
+                @* Author-hosted, so it may 404 at any time: onerror drops the strip instead of
+                   leaving a broken image sitting above the title. *@
+                <div class="mod-banner aspect-[5/1] w-full overflow-hidden border-b border-border bg-secondary">
+                    <img src="@_mod.BannerUrl" alt="" referrerpolicy="no-referrer"
+                         onerror="this.parentElement.remove()"
+                         class="h-full w-full object-cover" />
+                </div>
+            }
 
-            <div class="flex shrink-0 flex-wrap items-center gap-2">
-                @if (_mod.License is not null)
-                {
-                    <Badge Variant="outline">@_mod.License</Badge>
-                }
-                @if (_latest is not null)
-                {
-                    <Button Href="@($"/mods/{_mod.Id}/releases/{_latest.Version}")" Size="sm">
-                        Latest: @_latest.Version
-                    </Button>
-                }
+            <div class="flex flex-wrap items-start gap-4 p-5">
+                @* The overlap is applied by CSS keyed on the banner still being in the DOM, not by
+                   a class decided here from BannerUrl. An author-hosted banner can 404, onerror
+                   drops the strip, and a server-side guess then leaves the icon pulled 3rem up
+                   into empty space above the card with the page showing through behind it. *@
+                <ModIcon Id="@_mod.Id" IconUrl="@_mod.IconUrl" Size="lg" Class="mod-icon" />
+
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight">@_mod.Name</h1>
+                        @if (_mod.IsLoader)
+                        {
+                            @* Next to the name, because the distinction changes what the page is
+                               for: this is not something to install because it looks good. *@
+                            <Badge Variant="info" Title="Not a mod. Other mods run on top of it.">loader</Badge>
+                        }
+                    </div>
+
+                    @* The id, verbatim: this is the folder name the game loads it under. *@
+                    <code class="mt-1 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
+
+                    <p class="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                        @_mod.Abstract
+                    </p>
+                </div>
+
+                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    @if (_mod.CanManage)
+                    {
+                        <Button Href="@($"/mods/{_mod.Id}/manage")" Variant="outline" Size="sm">Manage</Button>
+                    }
+                    @if (_latest is not null)
+                    {
+                        <Button Href="@($"/mods/{_mod.Id}/releases/{_latest.Version}")" Size="sm">
+                            Get @_latest.Version
+                        </Button>
+                    }
+                </div>
             </div>
         </header>
+
+        @* Only maintainers get told it is a draft. To anyone else who has the link it is simply
+           a page, and announcing "this is unlisted" to a stranger tells them nothing useful. *@
+        @if (_mod.IsDraft && _mod.CanManage)
+        {
+            <Alert Variant="info" Title="This listing is a draft" Class="mt-4">
+                It doesn't appear in browse or search yet, though anyone with the link can open it.
+                <a href="@($"/mods/{_mod.Id}/manage")" class="ml-1 underline underline-offset-4">
+                    Publish it
+                </a>
+                when you're ready.
+            </Alert>
+        }
+
+        @if (_mod.IsLoader)
+        {
+            <Alert Variant="info" Title="This is a mod loader" Class="mt-4">
+                It is not a mod in its own right - it is the code other mods run on. Install it
+                because something you want has asked for it, and the release page of that mod will
+                say which version it needs.
+            </Alert>
+        }
 
         @if (_mod.IsDeprecated)
         {
@@ -66,24 +130,34 @@ else
                         It is replaced by
                         <a href="@($"/mods/{_mod.SupersededBy}")" class="underline underline-offset-4">
                             @_mod.SupersededBy
-                        </a>. Installing this one still works.
+                        </a>, though installing this one still works.
                     </span>
                 }
                 else
                 {
-                    <span>It is no longer maintained. Installing it still works.</span>
+                    <span>It isn't maintained any more, though installing it still works.</span>
                 }
             </Alert>
         }
 
-        <p class="mt-4 max-w-2xl text-muted-foreground">@_mod.Abstract</p>
+        @*
+            Content left, facts right. The right column is what a visitor checks before installing -
+            what it needs, what it is, where it came from - and it stays put while the description
+            and the release list scroll.
+        *@
+        <div class="mt-6 flex flex-col gap-6 lg:flex-row lg:gap-8">
+            <div class="min-w-0 flex-1">
 
         @if (_mod.Tags.Count > 0)
         {
+            @* The anchor carries the height, not the badge inside it. A bare <a> wrapped around a
+               22px pill is a 22px target, and these are a standalone row rather than links inside
+               a sentence, so the inline exemption does not apply to them. *@
             <div class="mt-3 flex flex-wrap gap-1.5">
                 @foreach (var tag in _mod.Tags)
                 {
-                    <a href="@($"/mods?tag={Uri.EscapeDataString(tag)}")">
+                    <a href="@($"/mods?tag={Uri.EscapeDataString(tag)}")"
+                       class="inline-flex min-h-6 items-center rounded-sm transition-opacity hover:opacity-80">
                         <Badge Variant="outline">@tag</Badge>
                     </a>
                 }
@@ -117,7 +191,7 @@ else
                     {
                         <li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
                             <a href="@($"/mods/{_mod.Id}/releases/{release.Version}")"
-                               class="font-mono text-sm font-medium underline-offset-4 hover:underline">
+                               class="inline-flex min-h-6 items-center font-mono text-sm font-medium underline-offset-4 hover:underline">
                                 @release.Version
                             </a>
 
@@ -128,9 +202,9 @@ else
 
                             @if (release.Yanked)
                             {
-                                @* A yank is the author's statement about one build — distinct from
+                                @* A yank is the author's statement about one build - distinct from
                                    deprecation and from a moderator delisting. *@
-                                <Badge Variant="error" Title="Retracted by the author. Already-installed copies are unaffected.">
+                                <Badge Variant="error" Title="Retracted by the author. Copies you already installed are fine.">
                                     Yanked
                                 </Badge>
                             }
@@ -146,6 +220,56 @@ else
                 </ul>
             }
         </Card>
+            </div>
+
+            <aside class="w-full shrink-0 lg:w-72">
+                <div class="lg:sticky lg:top-20 space-y-4">
+                    <div class="rounded-lg border border-border bg-card p-4 shadow-card">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Details
+                        </h2>
+
+                        <dl class="mt-3 space-y-2.5 text-sm">
+                            <div class="flex items-baseline justify-between gap-3">
+                                <dt class="text-muted-foreground">Licence</dt>
+                                <dd class="min-w-0 truncate font-mono text-xs">@(_mod.License ?? "not stated")</dd>
+                            </div>
+
+                            <div class="flex items-baseline justify-between gap-3">
+                                <dt class="text-muted-foreground">Releases</dt>
+                                <dd class="font-mono text-xs tabular">@_mod.Releases.Count</dd>
+                            </div>
+
+                            @if (_latest is not null)
+                            {
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="text-muted-foreground">Latest</dt>
+                                    <dd class="min-w-0 truncate font-mono text-xs">@_latest.Version</dd>
+                                </div>
+                            }
+
+                            @if (_mod.UpdatedAt is { } updated)
+                            {
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="text-muted-foreground">Updated</dt>
+                                    <dd class="font-mono text-xs tabular">@Presentation.Ago(updated)</dd>
+                                </div>
+                            }
+                        </dl>
+
+                        @* Said on every listing that offers a download, not tucked into a policy
+                           page. The site checks packaging; it cannot check intent, and a visitor
+                           deciding whether to run somebody's assembly deserves that in front of
+                           them rather than behind a link. *@
+                        <p class="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                            This download comes straight from the author's own repository, not from
+                            us. We never had a copy. All we kept was the link and a hash of the
+                            file we checked.
+                        </p>
+                    </div>
+                </div>
+            </aside>
+        </div>
     </article>
 }
 
@@ -175,7 +299,7 @@ else
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
-            _error = "The API did not respond.";
+            _error = "The API didn't respond.";
         }
     }
 }

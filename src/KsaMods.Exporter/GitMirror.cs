@@ -35,7 +35,7 @@ public sealed class GitMirrorException(string message, string? output = null)
 ///
 /// <para><b>This is required, not optional.</b> Postgres holds the record, so without the mirror
 /// the catalogue does not outlive the service. A tarball behind a CDN dies with the CDN; a public
-/// git repository survives because it gets forked — and forks happen before the outage, not
+/// git repository survives because it gets forked - and forks happen before the outage, not
 /// after. Nobody clones a backup they did not know existed.</para>
 ///
 /// <para>It is a follower, not a reviewer: it inherits whatever the writer produced. It
@@ -128,7 +128,13 @@ public sealed class GitMirror(GitMirrorOptions options)
 
             foreach (var file in Directory.EnumerateFiles(path, "*.json", SearchOption.AllDirectories))
             {
-                if (expected.Contains(file)) continue;
+                // GetFullPath on both sides, because `expected` holds normalised paths and this
+                // does not: EnumerateFiles prefixes results with the string it was given, so a
+                // working directory written with forward slashes comes back with forward slashes
+                // and matches nothing. The symptom is the mirror deleting every document it just
+                // wrote, on every run, leaving an index that lists content it no longer carries.
+                if (expected.Contains(Path.GetFullPath(file))) continue;
+
                 File.Delete(file);
                 deleted++;
             }

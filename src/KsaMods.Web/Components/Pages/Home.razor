@@ -1,28 +1,50 @@
 @page "/"
 @inject KsaModsApi Api
 
-<PageTitle>ksamods.gg — Kitten Space Agency mods</PageTitle>
+<PageTitle>ksamods.gg | Mods for Kitten Space Agency</PageTitle>
 
-<section class="mx-auto max-w-2xl py-8 text-center">
-    <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Mods for Kitten Space Agency</h1>
-    <p class="mt-3 text-muted-foreground">
-        Every listing is validated against how the game actually loads mods, so you find out about
-        a broken archive here rather than after installing it.
+@*
+    No hero graphic. This is a catalogue, and the useful things are the search field and the list.
+
+    The headline says what the site is before it says what it does differently. It used to open
+    with "Find mods that actually load", which is the interesting claim and a poor introduction:
+    somebody arriving cold cannot tell from it whether this is a mod index, a compatibility
+    checker or a launcher. The differentiator earns its place in the sentence underneath, once
+    the reader knows what they are looking at.
+*@
+<section class="max-w-2xl pb-10">
+    <p class="eyebrow text-primary">Kitten Space Agency</p>
+
+    <h1 class="mt-4 text-balance text-[2.5rem] font-bold leading-[1.05] tracking-tight sm:text-[3.25rem]">
+        Find mods for KSA.
+    </h1>
+
+    <p class="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-muted-foreground">
+        A catalogue of what people have made, with every release unpacked and read the same way
+        the game reads it. If an archive is broken, you find out here rather than after you have
+        installed it.
     </p>
 
-    <form action="/mods" method="get" class="mt-6 flex gap-2">
+    <form action="/mods" method="get" class="mt-7 flex gap-2">
         <input name="q" type="search" placeholder="Search mods…" aria-label="Search mods"
-               class="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm
+               class="h-10 flex-1 rounded-md border border-input bg-card px-3.5 text-sm
                       placeholder:text-muted-foreground focus-visible:outline-2
                       focus-visible:outline-offset-2 focus-visible:outline-ring" />
-        <Button Type="submit" Class="h-10">Search</Button>
+        <Button Type="submit" Class="h-10 px-5">Search</Button>
     </form>
+
+    @* Answers the question the header's Sign in button raises for everyone who does not need it. *@
+    <p class="mt-3 text-xs text-muted-foreground">
+        Browsing and downloading need no account.
+    </p>
 </section>
 
-<section class="mt-4">
-    <div class="mb-3 flex items-baseline justify-between">
-        <h2 class="text-sm font-semibold">Recently updated</h2>
-        <a href="/mods" class="text-sm text-muted-foreground hover:text-foreground">Browse all →</a>
+<section class="border-t border-border pt-10">
+    <div class="mb-5 flex items-baseline justify-between gap-4">
+        <h2 class="eyebrow text-muted-foreground">Recently updated</h2>
+        <a href="/mods" class="inline-flex min-h-6 items-center text-[0.8125rem] text-muted-foreground transition-colors hover:text-foreground">
+            Browse all
+        </a>
     </div>
 
     @if (_error is not null)
@@ -31,21 +53,21 @@
     }
     else if (_mods is null)
     {
-        <p class="text-sm text-muted-foreground">Loading…</p>
+        <p class="font-mono text-xs text-muted-foreground">Loading…</p>
     }
     else if (_mods.Count == 0)
     {
         <Card>
             <p class="text-sm text-muted-foreground">
-                Nothing published yet. If you have a mod, it takes one form and a connected
-                repository to appear here.
+                Nothing here yet. If you've made a mod, it takes one form and a connected
+                repository to get it listed.
             </p>
             <Button Href="/mods/new" Class="mt-4" Size="sm">Add a mod</Button>
         </Card>
     }
     else
     {
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach (var mod in _mods)
             {
                 <ModCard Mod="mod" />
@@ -54,22 +76,108 @@
     }
 </section>
 
+@*
+    Loaders get a line rather than cards. There are one or two of them in the whole ecosystem and
+    nobody browses for one - you install it because a mod said it needed it - so a card in the grid
+    above would take a slot from the content this page exists to show, every time one was updated.
+*@
+@if (_loaders is { Count: > 0 })
+{
+    <section class="mt-8 rounded-lg border border-border bg-card/40 px-5 py-4">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 class="eyebrow text-muted-foreground">Loaders</h2>
+            <p class="text-sm text-muted-foreground">
+                The code mods run on. Install one when a mod asks for it.
+            </p>
+            <a href="/mods?type=mod-loader"
+               class="ml-auto text-[0.8125rem] text-muted-foreground transition-colors hover:text-foreground">
+                All loaders
+            </a>
+        </div>
+
+        <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+            @foreach (var loader in _loaders)
+            {
+                <li>
+                    <a href="@($"/mods/{loader.Id}")"
+                       class="text-sm font-medium underline-offset-4 hover:underline">@loader.Name</a>
+                    <code class="ml-1.5 font-mono text-xs text-muted-foreground">@loader.Id</code>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@*
+    Two audiences with almost nothing in common: one wants to install things, the other wants to
+    publish them. Writing for both at once produced copy that told players about repositories and
+    authors about compatibility badges. Splitting them is also the honest place to answer "why
+    would I sign up" - the answer is that most people never need to, and the ones who do are
+    signing in to prove a listing is theirs.
+*@
+<section class="mt-14 border-t border-border pt-10">
+    <div class="grid gap-4 md:grid-cols-2">
+        <Card Header="@(b => b.AddContent(0, "Playing"))">
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                Search the catalogue, tell us which game build you are on, and see what fits it.
+                Every listing says where the download really comes from and what the archive
+                contains - including which mods lay claim to the same parts, which is the usual
+                reason two of them will not run together.
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <Button Href="/mods" Size="sm">Browse mods</Button>
+                <Button Href="/collisions" Variant="outline" Size="sm">Check asset ids</Button>
+            </div>
+
+            <p class="mt-3 text-xs text-muted-foreground">
+                None of this needs an account, and there is nothing to install to use it.
+            </p>
+        </Card>
+
+        <Card Header="@(b => b.AddContent(0, "Making mods"))">
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                Keep publishing exactly as you do now. Connect the repository you release from and
+                every tag you push turns into a listing on its own - unpacked, checked, and
+                pointing at your own download. We never host the file or stand between you and the
+                people installing it.
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+                <Button Href="/mods/new" Size="sm">List a mod</Button>
+                <Button Href="/api-reference" Variant="outline" Size="sm">Read the API</Button>
+            </div>
+
+            <p class="mt-3 text-xs text-muted-foreground">
+                This is the part that needs an account: connecting the repository is how we know
+                the listing is yours.
+            </p>
+        </Card>
+    </div>
+</section>
+
 @code {
     private IReadOnlyList<ModSummary>? _mods;
+    private IReadOnlyList<ModSummary>? _loaders;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var page = await Api.SearchAsync(limit: 6);
+            // Two requests rather than one filtered in the browser, so the six cards are six mods
+            // whether or not a loader happens to have been updated this week.
+            var page = await Api.SearchAsync(limit: 6, type: "mod");
             _mods = page?.Items ?? [];
+
+            var loaders = await Api.SearchAsync(limit: 6, type: "mod-loader");
+            _loaders = loaders?.Items ?? [];
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
             // The API being down should degrade this page, not blank it: the header, the search
             // box and the explanation are all still useful.
-            _error = "The API did not respond. This page will work again once it is back.";
+            _error = "The API isn't responding. This page will fill in once it's back.";
         }
     }
 }

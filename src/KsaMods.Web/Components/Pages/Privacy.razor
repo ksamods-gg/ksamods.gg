@@ -1,0 +1,97 @@
+@page "/privacy"
+
+<PageTitle>Privacy | ksamods.gg</PageTitle>
+
+<div class="mx-auto max-w-2xl">
+    <h1 class="text-2xl font-semibold tracking-tight">Privacy</h1>
+    <p class="mt-2 text-sm text-muted-foreground">Last updated 8 August 2026.</p>
+
+    <div class="mt-8 space-y-8 text-sm leading-relaxed">
+        <section>
+            <p class="text-muted-foreground">
+                Short version: you can browse this site without an account and without being
+                tracked. If you sign in, we store what we need to know who you are and keep
+                you signed in. Nothing beyond that.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Browsing without an account</h2>
+            <p class="mt-2 text-muted-foreground">
+                No account, no cookie, no analytics, no third-party scripts. We don't build a
+                profile of what you looked at.
+            </p>
+            <p class="mt-3 text-muted-foreground">
+                One thing worth knowing: mod banner images are hosted by the mod authors, not by
+                us. Loading a page with a banner on it makes your browser fetch that image from
+                wherever the author put it, which means that host can see the request. We ask
+                your browser not to send a referrer along with it, so they learn much less than
+                they otherwise would, but the request still happens.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">If you sign in</h2>
+            <p class="mt-2 text-muted-foreground">
+                Signing in uses GitHub or Discord. We never see your password, and we don't ask
+                either service for more than we need. What we keep:
+            </p>
+            <ul class="mt-3 list-disc space-y-1.5 pl-5 text-muted-foreground">
+                <li>Your handle and display name, because they appear on your listings.</li>
+                <li>Your account id at the provider you signed in with, so we recognise you next time.</li>
+                <li>Your avatar URL, if the provider gave us one.</li>
+                <li>Your KSA forums thread, if you add one. That one is public by design.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Sessions</h2>
+            <p class="mt-2 text-muted-foreground">
+                A session is a row in our database, not a self-contained token, which means we
+                can actually revoke it when you sign out. Against that row we store when it was
+                issued, when it expires, your browser's user agent string, and a hash of your IP
+                address.
+            </p>
+            <p class="mt-3 text-muted-foreground">
+                The IP is hashed, never written down in the clear. We use it to spot abuse and to
+                rate limit, not to work out where you live.
+            </p>
+            <p class="mt-3 text-muted-foreground">
+                The session cookie is HttpOnly and SameSite=Lax, so JavaScript on the page can't
+                read it and other sites can't borrow it. It's the only cookie we set, and it
+                exists solely to keep you signed in.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">What we publish</h2>
+            <p class="mt-2 text-muted-foreground">
+                Mod metadata, including your handle as its author, goes into a public exported
+                index and a public git mirror. That's the point of the site: the data is meant
+                to outlive us and be readable by other clients. Assume anything attached to a
+                listing is public and permanent, because copies of that export will end up in
+                places we don't control.
+            </p>
+        </section>
+
+        <section>
+            <h2 class="text-base font-semibold text-foreground">Deleting your account</h2>
+            <p class="mt-2 text-muted-foreground">
+                Ask and we'll remove your account and its sessions. Listings are harder: other
+                people's modlists may pin them, and the exported index has already been copied
+                elsewhere. We can unlist your mods and detach them from you, but we can't
+                retract snapshots other people have taken.
+            </p>
+        </section>
+
+        <section>
+            @* TODO: contact channel, same as Terms. A privacy policy with no route to a human is
+               not one, and deletion requests have to land somewhere. *@
+            <h2 class="text-base font-semibold text-foreground">Getting in touch</h2>
+            <p class="mt-2 text-muted-foreground">
+                Questions about any of this, or a request to delete your account, go to the
+                moderators. Ask and we'll tell you exactly what we hold about you.
+            </p>
+        </section>
+    </div>
+</div>

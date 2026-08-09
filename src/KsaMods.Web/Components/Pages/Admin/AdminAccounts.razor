@@ -1,0 +1,341 @@
+@page "/admin/accounts"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+
+<PageTitle>Accounts | ksamods.gg</PageTitle>
+
+<AdminFrame Current="accounts">
+    <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-56 flex-1">
+            <label class="eyebrow text-muted-foreground" for="q">Search</label>
+            <input id="q" value="@_query" @oninput='e => _query = e.Value?.ToString() ?? ""'
+                   @onkeydown="OnKeyDownAsync" placeholder="Handle or display name"
+                   class="@InputClass" autocomplete="off" spellcheck="false" />
+        </div>
+        <Button Type="button" Size="sm" @onclick="LoadAsync">Search</Button>
+    </div>
+
+    @if (_error is not null)
+    {
+        <Alert Variant="error" Class="mt-4">@_error</Alert>
+    }
+
+    @if (_notice is not null)
+    {
+        <Alert Variant="ok" Class="mt-4">@_notice</Alert>
+    }
+
+    @if (_loading)
+    {
+        <p class="mt-6 text-sm text-muted-foreground">Loading…</p>
+    }
+    else if (_accounts.Count == 0)
+    {
+        <Card Class="mt-4">
+            <p class="text-sm text-muted-foreground">Nobody matches.</p>
+        </Card>
+    }
+    else
+    {
+        <ul class="mt-4 space-y-3">
+            @foreach (var account in _accounts)
+            {
+                <li>
+                    <Card Padded="false">
+                        <div class="flex flex-wrap items-center gap-2 px-5 py-4">
+                            <span class="font-mono text-sm">@@@account.Handle</span>
+                            <span class="text-sm text-muted-foreground">@account.DisplayName</span>
+
+                            @if (account.SiteRole != "user")
+                            {
+                                <Badge Variant="info">@account.SiteRole</Badge>
+                            }
+                            @if (account.IsSuspended)
+                            {
+                                <Badge Variant="error" Title="Cannot sign in.">suspended</Badge>
+                            }
+                            @if (account.IsDeleted)
+                            {
+                                @* The row survives deletion so their mods keep resolving; there is
+                                   nobody behind it any more, so there is nothing to act on. *@
+                                <Badge Variant="outline">deleted</Badge>
+                            }
+
+                            <span class="ml-auto text-xs text-muted-foreground">
+                                @account.Mods mod@(account.Mods == 1 ? "" : "s")
+                                · @account.Sessions session@(account.Sessions == 1 ? "" : "s")
+                                · joined @account.CreatedAt.ToString("MMM yyyy")
+                            </span>
+
+                            @if (!account.IsDeleted && account.Id != _me?.Id)
+                            {
+                                <Button Type="button" Variant="ghost" Size="sm"
+                                        @onclick="() => Toggle(account.Id)">
+                                    @(_open == account.Id ? "Close" : "Manage")
+                                </Button>
+                            }
+                            else if (account.Id == _me?.Id)
+                            {
+                                @* Nothing here applies to yourself: suspending would lock you out
+                                   and a role change is somebody else's to make. *@
+                                <span class="text-xs text-muted-foreground">that's you</span>
+                            }
+                        </div>
+
+                        @if (_open == account.Id)
+                        {
+                            <div class="space-y-4 border-t border-border bg-card/50 px-5 py-4">
+                                <div>
+                                    @* Deliberately not labelled optional, even though a promotion
+                                       does not need it: the Suspend button shares this field and
+                                       always does. The exception is stated where it applies. *@
+                                    <label class="eyebrow text-muted-foreground" for="@($"why-{account.Id}")">
+                                        Reason
+                                    </label>
+                                    <input id="@($"why-{account.Id}")" value="@_rationale"
+                                           @oninput='e => _rationale = e.Value?.ToString() ?? ""'
+                                           placeholder="Goes in the log with your name on it."
+                                           class="@Cx.Of(InputClass, _panelError is not null ? "border-severity-error" : null)" />
+
+                                    @* Next to the field it is about. At the top of the page this
+                                       sat above a search box, which is the one input on screen it
+                                       was not talking about. *@
+                                    @if (_panelError is not null)
+                                    {
+                                        <p class="mt-1.5 text-xs text-severity-error">@_panelError</p>
+                                    }
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-2">
+                                    @if (account.IsSuspended)
+                                    {
+                                        <Button Type="button" Size="sm" Variant="outline" Disabled="_saving"
+                                                @onclick="() => SuspendAsync(account, false)">
+                                            Reinstate
+                                        </Button>
+                                        <span class="text-xs text-muted-foreground">
+                                            They can sign in again. Their content was never hidden by
+                                            the suspension.
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <Button Type="button" Size="sm" Variant="destructive" Disabled="_saving"
+                                                @onclick="() => SuspendAsync(account, true)">
+                                            Suspend
+                                        </Button>
+                                        <span class="text-xs text-muted-foreground">
+                                            Ends every session now and stops them signing in. Their
+                                            mods stay up - withdraw those separately if they need it.
+                                        </span>
+                                    }
+                                </div>
+
+                                @if (_me?.SiteRole == "admin")
+                                {
+                                    <div class="border-t border-border pt-4">
+                                        <label class="eyebrow text-muted-foreground" for="@($"role-{account.Id}")">
+                                            Site role
+                                        </label>
+                                        <div class="mt-1 flex flex-wrap items-center gap-2">
+                                            <select id="@($"role-{account.Id}")" value="@_role"
+                                                    @onchange='e => _role = e.Value?.ToString() ?? "user"'
+                                                    class="@Cx.Of(InputClass, "w-auto")">
+                                                <option value="user">user - no moderation powers</option>
+                                                <option value="moderator">moderator - can withdraw and suspend</option>
+                                                <option value="admin">admin - can also grant roles</option>
+                                            </select>
+                                            <Button Type="button" Size="sm" Disabled="@(_saving || _role == account.SiteRole)"
+                                                    @onclick="() => SetRoleAsync(account)">
+                                                Change role
+                                            </Button>
+
+                                            @if (_role == account.SiteRole)
+                                            {
+                                                @* A disabled button with no explanation reads as
+                                                   "you are not allowed", which is the opposite of
+                                                   what is going on. *@
+                                                <span class="text-xs text-muted-foreground">
+                                                    Already @account.SiteRole. Pick a different one.
+                                                </span>
+                                            }
+                                        </div>
+                                        <p class="mt-2 text-xs text-muted-foreground">
+                                            Signs them out everywhere, because a session carries the
+                                            role it was issued with. Only an admin can do this - a
+                                            moderator who could promote could grant themselves an
+                                            accomplice.
+                                            @if (Rank(_role) < Rank(account.SiteRole))
+                                            {
+                                                <text>
+                                                    Taking a role back needs a reason; they are
+                                                    losing something and will want to know why.
+                                                </text>
+                                            }
+                                            else
+                                            {
+                                                <text>
+                                                    Giving someone a role needs no reason - who did
+                                                    it and when is recorded either way.
+                                                </text>
+                                            }
+                                        </p>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </Card>
+                </li>
+            }
+        </ul>
+    }
+</AdminFrame>
+
+@code {
+    private const string InputClass =
+        "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    private IReadOnlyList<AdminAccount> _accounts = [];
+    private CurrentAccount? _me;
+
+    private string _query = "";
+    private long? _open;
+    private string _rationale = "";
+    private string _role = "user";
+
+    private bool _loading = true;
+    private bool _saving;
+
+    /// <summary>Something the API refused. Belongs at the top, with the rest of the page state.</summary>
+    private string? _error;
+
+    /// <summary>Something wrong with what is typed in the open panel. Belongs beside the field.</summary>
+    private string? _panelError;
+
+    private string? _notice;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Needed to know which row is the reader's own, and whether to offer role changes at all.
+        // The API refuses both regardless; this is so the buttons match what will happen.
+        _me = await Api.GetCurrentUserAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _accounts = await Api.GetAdminAccountsAsync(
+                string.IsNullOrWhiteSpace(_query) ? null : _query.Trim()) ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _accounts = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadAsync();
+    }
+
+    private void Toggle(long id)
+    {
+        if (_open == id)
+        {
+            _open = null;
+            return;
+        }
+
+        _open = id;
+
+        // A reason typed against one account must never be carried onto another.
+        _rationale = "";
+        _panelError = null;
+        _role = _accounts.FirstOrDefault(a => a.Id == id)?.SiteRole ?? "user";
+    }
+
+    private async Task SuspendAsync(AdminAccount account, bool suspended)
+    {
+        if (!Explained()) return;
+
+        _saving = true;
+
+        try
+        {
+            var result = await Api.SuspendAccountAsync(account.Id, suspended, _rationale.Trim());
+
+            await ReportAsync(result, suspended
+                ? $"@{account.Handle} suspended and signed out everywhere."
+                : $"@{account.Handle} reinstated.");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>Orders the roles so "is this a demotion" is a comparison, matching the API.</summary>
+    private static int Rank(string role) => role switch
+    {
+        "admin" => 2,
+        "moderator" => 1,
+        _ => 0,
+    };
+
+    private async Task SetRoleAsync(AdminAccount account)
+    {
+        // Mirrors the API: a demotion owes the person an explanation, a promotion does not.
+        if (Rank(_role) < Rank(account.SiteRole) && !Explained()) return;
+
+        _saving = true;
+
+        try
+        {
+            var result = await Api.SetSiteRoleAsync(account.Id, _role, _rationale.Trim());
+
+            await ReportAsync(result,
+                $"@{account.Handle} is now {_role}, and has been signed out everywhere.");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private bool Explained()
+    {
+        if (!string.IsNullOrWhiteSpace(_rationale)) return true;
+
+        _panelError = "Write down why first. It goes in the log with your name on it.";
+        _notice = null;
+        return false;
+    }
+
+    private async Task ReportAsync(ApiOutcome result, string success)
+    {
+        if (result.Success)
+        {
+            _notice = success;
+            _error = null;
+            _panelError = null;
+            _open = null;
+            _rationale = "";
+            await LoadAsync();
+        }
+        else
+        {
+            _error = result.Error ?? "That did not work.";
+            _notice = null;
+        }
+    }
+}

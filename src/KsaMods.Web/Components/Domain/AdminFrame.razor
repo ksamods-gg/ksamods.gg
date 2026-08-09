@@ -1,0 +1,147 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+@using KsaMods.Web.Services
+@inject KsaModsApi Api
+
+@*
+    The shell every moderation page sits in: the tab strip, the standing counts, and the gate.
+
+    The gate lives here rather than in each page so there is exactly one place that decides whether
+    someone may see any of this. A page cannot forget a check it does not perform - it is simply
+    never rendered. The API enforces the same rule again on every request; this is the part that
+    stops a non-moderator loading a page full of empty tables and wondering what broke.
+*@
+
+@if (_loading)
+{
+    @* Deliberately says nothing about what this page turns out to be. The two loaded branches are
+       "Moderation" and "Not found", and announcing either one early would answer the question the
+       gate below exists to refuse - whether /admin is here at all. Undrawn, so it costs nothing on
+       screen while still giving the route change something to announce.
+
+       Worth knowing: <PageTitle> on each admin page already reads "Moderation", "Reports" and so
+       on, set above this gate and therefore sent to everyone. The tab gives away what this
+       component is careful not to. Left alone here because it is a decision about the gate rather
+       than about headings. *@
+    <h1 class="sr-only">Loading</h1>
+    <p class="text-sm text-muted-foreground">Loading…</p>
+}
+else if (_overview is null)
+{
+    @* The API answers 404 to a caller who is not staff, so this page says the same thing a wrong
+       URL would. Confirming that /admin exists is itself information. *@
+    <div class="mx-auto max-w-md py-12 text-center">
+        <h1 class="text-2xl font-semibold tracking-tight">Not found</h1>
+        <p class="mt-3 text-sm text-muted-foreground">
+            There is no page here.
+        </p>
+        <Button Href="/" Variant="outline" Size="sm" Class="mt-6">Back to the index</Button>
+    </div>
+}
+else
+{
+    <div class="mx-auto max-w-5xl">
+        <header class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 class="text-2xl font-semibold tracking-tight">Moderation</h1>
+            <p class="text-sm text-muted-foreground">
+                @_overview.Mods mods · @_overview.Releases releases · @_overview.Accounts accounts
+            </p>
+        </header>
+
+        @* Every action taken through these pages is written to the log, publicly by default. Said
+           once, at the top, rather than repeated on each button. *@
+        <p class="mt-2 text-xs text-muted-foreground">
+            Everything you do here is recorded in the
+            <a href="/admin/log" class="underline underline-offset-4">moderation log</a>
+            with your name and your reason.
+        </p>
+
+        <nav class="mt-6 flex flex-wrap gap-1 border-b border-border" aria-label="Moderation">
+            @foreach (var tab in Tabs)
+            {
+                var count = Count(tab.Key);
+                var active = tab.Key == Current;
+
+                <a href="@tab.Href" aria-current="@(active ? "page" : null)"
+                   class="@Cx.Of(TabBase, active ? TabActive : TabIdle)">
+                    @tab.Label
+                    @if (count > 0)
+                    {
+                        <span class="@Cx.Of(CountBase, tab.Urgent ? CountUrgent : CountQuiet)">@count</span>
+                    }
+                </a>
+            }
+        </nav>
+
+        @* Cascaded so the overview page can draw its tiles from the counts already fetched here,
+           rather than asking for the same nine numbers a second time. *@
+        <CascadingValue Value="_overview">
+            <div class="mt-6">
+                @ChildContent
+            </div>
+        </CascadingValue>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Current { get; set; } = "overview";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private AdminOverview? _overview;
+    private bool _loading = true;
+
+    private const string TabBase =
+        "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm transition-colors";
+    private const string TabActive = "border-foreground font-medium text-foreground";
+    private const string TabIdle = "border-transparent text-muted-foreground hover:text-foreground";
+
+    private const string CountBase =
+        "rounded-sm px-1.5 font-mono text-[0.6875rem] leading-5";
+    private const string CountUrgent = "bg-severity-error/10 text-severity-error";
+    private const string CountQuiet = "bg-secondary text-secondary-foreground";
+
+    private static readonly Tab[] Tabs =
+    [
+        new("overview", "Overview", "/admin", false),
+        new("reports", "Reports", "/admin/reports", true),
+        new("reviews", "Review queue", "/admin/reviews", true),
+        new("listings", "Listings", "/admin/listings", false),
+        new("accounts", "Accounts", "/admin/accounts", false),
+        new("tags", "Tags", "/admin/tags", true),
+        new("jobs", "Jobs", "/admin/jobs", true),
+        new("log", "Log", "/admin/log", false),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _overview = await Api.GetAdminOverviewAsync();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            // 401 for a signed-out visitor, 404 for a signed-in one without the role. Neither is
+            // worth distinguishing on screen: both mean there is nothing here for you.
+            _overview = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    /// <summary>
+    /// Only counts that mean "somebody has to do something" get a number. A tab that always shows
+    /// one stops being a signal.
+    /// </summary>
+    private int Count(string key) => key switch
+    {
+        "reports" => _overview?.OpenReports ?? 0,
+        "reviews" => _overview?.NeedsReview ?? 0,
+        "jobs" => _overview?.DeadJobs ?? 0,
+        "tags" => _overview?.PendingTags ?? 0,
+        _ => 0,
+    };
+
+    private sealed record Tab(string Key, string Label, string Href, bool Urgent);
+}

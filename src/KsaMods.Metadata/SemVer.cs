@@ -113,7 +113,7 @@ public sealed partial class SemVer : IComparable<SemVer>, IEquatable<SemVer>
         var bNumeric = IsNumeric(b);
 
         // Numeric identifiers always have lower precedence than alphanumeric ones, and numeric
-        // identifiers compare numerically — which is why 1.0.0-alpha.10 sorts above
+        // identifiers compare numerically - which is why 1.0.0-alpha.10 sorts above
         // 1.0.0-alpha.2 despite sorting below it as text.
         if (aNumeric && bNumeric) return ulong.Parse(a).CompareTo(ulong.Parse(b));
         if (aNumeric) return -1;

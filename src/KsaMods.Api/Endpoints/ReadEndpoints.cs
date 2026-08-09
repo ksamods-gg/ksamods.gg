@@ -21,8 +21,8 @@ public static class ReadEndpoints
     {
         var api = app.MapGroup("/api/v1").RequireRateLimiting("reads");
 
-        // /mods is a permanent alias for /content?type=mod. Type is a filter, not a route —
-        // RFC 0025 puts vehicles and saves in scope — but breaking an early client's URL to
+        // /mods is a permanent alias for /content?type=mod. Type is a filter, not a route -
+        // RFC 0025 puts vehicles and saves in scope - but breaking an early client's URL to
         // prove the point helps nobody.
         api.MapGet("/mods", SearchAsync);
         api.MapGet("/content", SearchAsync);
@@ -37,7 +37,7 @@ public static class ReadEndpoints
 
             if (mod.ListingState is "delisted" or "taken_down" && principal?.IsModerator != true)
             {
-                // Delisted content stays resolvable by id — modlists pin it and dependency graphs
+                // Delisted content stays resolvable by id - modlists pin it and dependency graphs
                 // reference it, and a hole in the graph is worse than a listing marked delisted.
                 // The record is served; the downloads are not.
                 return Results.Ok(new
@@ -64,6 +64,13 @@ public static class ReadEndpoints
                 status = mod.Status,
                 superseded_by = mod.SupersededBy,
                 listing_state = mod.ListingState,
+                banner_url = mod.BannerUrl,
+                icon_url = mod.IconUrl,
+
+                // The caller's own role on this listing, so the frontend can offer management
+                // controls only to people they will work for. The principal is already loaded
+                // above for the visibility check, so this costs nothing extra.
+                your_role = principal?.ModRole,
                 updated_at = mod.UpdatedAt,
                 releases = releases
                     .Where(r => Permissions.CanViewRelease(principal, r.ValidationState, mod.ListingState))
@@ -221,7 +228,7 @@ public static class ReadEndpoints
             return Results.Ok(new
             {
                 satisfiable = plan.Satisfiable,
-                // The order to write into manifest.toml — not a promise about initialisation
+                // The order to write into manifest.toml - not a promise about initialisation
                 // order, which StarMap reorders through its waiting graph.
                 order = plan.Order.Select(p => new
                 {
@@ -253,8 +260,8 @@ public static class ReadEndpoints
 
         // Keyset pagination, not offset: offset over a table changing mid-scroll skips and
         // repeats rows, and the offline-snapshot use case makes stable iteration a requirement.
-        var rows = await connection.QueryAsync<(string Id, string Type, string Name, string Abstract, string[] Tags, DateTimeOffset UpdatedAt)>("""
-            select m.id, m.type, m.name, m.abstract, m.tags, m.updated_at
+        var rows = await connection.QueryAsync<(string Id, string Type, string Name, string Abstract, string[] Tags, DateTimeOffset UpdatedAt, string? BannerUrl, string? IconUrl)>("""
+            select m.id, m.type, m.name, m.abstract, m.tags, m.updated_at, m.banner_url, m.icon_url
             from mod m
             where m.listing_state = 'listed'
               and (@type is null or m.type = @type)
@@ -284,6 +291,8 @@ public static class ReadEndpoints
                 @abstract = r.Abstract,
                 tags = r.Tags,
                 updated_at = r.UpdatedAt,
+                banner_url = r.BannerUrl,
+                icon_url = r.IconUrl,
             }),
             next = list.Count == take ? list[^1].Id : null,
         });

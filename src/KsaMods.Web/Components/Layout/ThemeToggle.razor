@@ -1,0 +1,34 @@
+@namespace KsaMods.Web.Components.Layout
+
+@*
+    Light and dark, chosen explicitly. The stylesheet already understood `.light` and `.dark` on
+    the root element; this is the control that puts them there.
+
+    Both icons are rendered and CSS decides which one shows, keyed off the same root class the
+    theme itself uses. That keeps the button correct in server-rendered HTML with no JavaScript
+    having run yet: there is no moment where the page is dark and the button claims otherwise.
+
+    Icons are Tabler (MIT), inlined rather than pulled from a package for two of them.
+*@
+
+<script type="module" src="@Assets["Components/Layout/ThemeToggle.razor.js"]"></script>
+
+<button type="button" id="theme-toggle" data-theme-toggle
+        class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground
+               transition-colors hover:bg-accent hover:text-foreground
+               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        title="Switch between light and dark" aria-label="Switch between light and dark">
+
+    @* Sun: shown when the page is currently dark, because it is what you would switch to. *@
+    <svg class="theme-icon-sun size-[1.05rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+        <path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7" />
+    </svg>
+
+    @* Moon: shown when the page is currently light. *@
+    <svg class="theme-icon-moon size-[1.05rem]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+</button>

@@ -9,14 +9,79 @@
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["KsaMods.Web.styles.css"]" />
     <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
+
+    @*
+        Order matters and it is the opposite of what it looks like. Browsers walk these and keep
+        the *last* one whose type they support, so the raster fallback goes first and the SVG
+        last. Declaring the SVG first is how you end up shipping a vector favicon that no browser
+        ever uses.
+
+        Both are the same orbit mark, so the fallback is not a different logo either way.
+    *@
+    <link rel="icon" type="image/png" sizes="128x128" href="favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+    @*
+        Deliberately inline and deliberately blocking, before any stylesheet has painted.
+
+        A stored theme has to reach the root element in the same frame the document does. Do it
+        in a module and it lands after first paint, which is the white flash every dark-mode
+        visitor sees on a site that got this wrong. It is a few lines, so the cost of blocking
+        here is far smaller than the cost of not.
+    *@
+    <script>
+        (function () {
+            try {
+                var choice = localStorage.getItem('ksamods.theme');
+                if (choice === 'dark' || choice === 'light') {
+                    document.documentElement.classList.add(choice);
+                }
+            } catch (e) {
+                /* Storage blocked; fall through to the system preference. */
+            }
+        })();
+    </script>
+
     <HeadOutlet />
 </head>
 
 <body>
+    @*
+        The direction contract, emitted rather than authored as markup: Razor strips HTML comments
+        from .razor files, so a plain <!-- --> here would never reach the browser and a contract
+        the build erases is one nobody can audit against the render.
+    *@
+    @DirectionContract
+
     <Routes />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    /// <summary>
+    /// First child of the body, so it tops the served document and survives the production build.
+    /// Checked by grepping the built output for THESIS.
+    /// </summary>
+    private static readonly MarkupString DirectionContract = new("""
+        <!--
+        THESIS: A catalogue you scan, not a datasheet you read. Refuses the drafting-instrument
+        world this site shipped with - 4px machined corners, eyebrow labels, panels flush to the
+        page - because the job is finding a mod that works, and that is done by eye at speed.
+        OWN-WORLD: Teal on blue-slate, unchanged and still AA in both themes. Cards are soft
+        objects on the ground: 14px corners, a real border, elevation with offset and blur. Square
+        per-listing marks, derived from the id when the author has none. IBM Plex kept; mono
+        reserved for ids, versions and hashes, which are data rather than costume.
+        STORY: A visitor filters down the left, recognises listings by their mark, and opens one to
+        find what it needs and where it came from held still on the right.
+        FIRST VIEWPORT: Browse - facet rail left, search above a two-column card grid right.
+        Listing - one header card, banner as its lid, icon overlapping the seam, primary action top
+        right.
+        FORM: Modrinth anatomy, pinned by the brief; palette, copy and voice stay this site's own.
+        FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review,
+        the verdict, and DESIGN.md
+        -->
+        """);
+}

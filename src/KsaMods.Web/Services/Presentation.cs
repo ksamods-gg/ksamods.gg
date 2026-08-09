@@ -13,62 +13,75 @@ public sealed record Pill(string Label, string Variant, string Explanation);
 public static class Presentation
 {
     /// <summary>
-    /// RFC 0017's four compatibility states. Only Incompatible is a refusal — the copy has to
+    /// RFC 0017's four compatibility states. Only Incompatible is a refusal - the copy has to
     /// carry that, or a warning reads as a block and users stop trusting either.
+    ///
+    /// <para>Revisions decide, version strings are shown. The fourth component is what orders
+    /// builds and what every comparison here runs on, but it is a machine number: nobody reads
+    /// "5000" off their title screen, they read "2026.6.2.5000". The display strings come in
+    /// alongside the revisions so the answer is phrased in the units the reader actually has,
+    /// which is what backend.md's listing-page rules ask for. Where a string is missing the
+    /// revision is still better than nothing, so it stands in.</para>
     /// </summary>
-    public static Pill Compatibility(int? installedRevision, int? min, int? max)
+    public static Pill Compatibility(
+        int? installedRevision, int? min, int? max,
+        string? minLabel = null, string? maxLabel = null, string? installedLabel = null)
     {
+        var needs = minLabel ?? min?.ToString();
+        var upTo = maxLabel ?? max?.ToString();
+        var yours = installedLabel ?? installedRevision?.ToString();
+
         if (min is null)
         {
             return new Pill("Unknown", "outline",
-                "This release declares no minimum game build, so compatibility cannot be evaluated.");
+                "This release doesn't declare a minimum game build, so we can't tell you whether it fits.");
         }
 
         if (installedRevision is null)
         {
-            return new Pill($"Needs {min}+", "outline",
-                "Tell us your game build to see whether this release is compatible.");
+            return new Pill($"Needs {needs} or newer", "outline",
+                "Tell us your game build and we'll say whether this one fits.");
         }
 
         if (installedRevision < min)
         {
             return new Pill("Incompatible", "error",
-                $"Needs game revision {min} or newer; you are on {installedRevision}.");
+                $"Needs {needs} or newer. You're on {yours}.");
         }
 
         if (max is not null && installedRevision > max)
         {
             return new Pill("Untested", "warning",
-                $"Tested up to revision {max}; you are on {installedRevision}. It may still work.");
+                $"Only tested up to {upTo}, and you're on {yours}. It might still work.");
         }
 
-        return new Pill("Compatible", "ok", $"Tested against your game build ({installedRevision}).");
+        return new Pill("Compatible", "ok", $"Tested against your game build ({yours}).");
     }
 
     /// <summary>
     /// Artifact availability. The site never stores the file, so every one of these is a statement
-    /// about somebody else's server — the wording says so rather than implying the site holds it.
+    /// about somebody else's server - the wording says so rather than implying the site holds it.
     /// </summary>
     public static Pill Availability(string availability, DateTimeOffset? lastVerified) => availability switch
     {
         "verified" => new Pill(
             lastVerified is null ? "Verified" : $"Verified {Ago(lastVerified.Value)}",
             "ok",
-            "The file at this link still matches the hash recorded when it was imported."),
+            "The file at this link still matches the hash we recorded when we imported it."),
 
         "unavailable" => new Pill("Download gone", "error",
-            "The link no longer resolves. The record is kept because modlists may still pin this version."),
+            "The link is dead. We keep the record because modlists might still pin this version."),
 
         "diverged" => new Pill("Bytes changed", "warning",
-            "The file at this link differs from the one imported, but looks like a re-pack rather than a "
-            + "material change. The recorded hash is unchanged; ask the author to cut a new version."),
+            "The file at this link isn't the one we imported, though it looks like a re-pack rather than a "
+            + "real change. The recorded hash hasn't moved. Ask the author to cut a new version."),
 
         "quarantined" => new Pill("Quarantined", "error",
-            "The file changed materially since import — different assemblies, console commands or asset ids. "
-            + "The download is hidden pending review."),
+            "The file has really changed since we imported it: different assemblies, console commands or asset ids. "
+            + "We've hidden the download until someone reviews it."),
 
         _ => new Pill("Not yet verified", "outline",
-            "This release has not been re-checked since it was imported."),
+            "We haven't re-checked this release since importing it."),
     };
 
     public static Pill Validation(string state) => state switch
@@ -115,7 +128,7 @@ public static class Presentation
 
     public static string Bytes(long? bytes)
     {
-        if (bytes is null or < 0) return "—";
+        if (bytes is null or < 0) return "-";
 
         string[] units = ["B", "KiB", "MiB", "GiB"];
         double value = bytes.Value;

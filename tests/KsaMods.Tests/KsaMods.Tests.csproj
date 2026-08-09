@@ -12,10 +12,15 @@
     <ProjectReference Include="..\..\src\KsaMods.Worker\KsaMods.Worker.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Exporter\KsaMods.Exporter.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Api\KsaMods.Api.csproj" />
+    <ProjectReference Include="..\..\src\KsaMods.Forge\KsaMods.Forge.csproj" />
     <ProjectReference Include="..\..\src\KsaMods.Web\KsaMods.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Hosts the API in-process so the admin endpoints can be exercised over real HTTP: the
+         authorisation gate and the SQL behind it are the two things that cannot be checked by
+         calling a method. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />

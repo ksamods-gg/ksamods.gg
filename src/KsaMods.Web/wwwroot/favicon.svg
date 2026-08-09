@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!--
+    The same body-and-satellite mark as the wordmark, redrawn for 16px: the orbit stroke is
+    thicker and the body larger than the header version, because at favicon size the hairline
+    weights of the original disappear into a smudge.
+
+    Teal on transparent so it holds against both a light and a dark browser chrome.
+  -->
+  <g transform="rotate(-28 12 12)">
+    <ellipse cx="12" cy="12" rx="10" ry="4.6" stroke="#2AA9A0" stroke-width="2" opacity="0.75" />
+    <circle cx="22" cy="12" r="2.1" fill="#2AA9A0" />
+  </g>
+  <circle cx="12" cy="12" r="4.4" fill="#2AA9A0" />
+</svg>

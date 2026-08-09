@@ -11,8 +11,11 @@
     [Parameter] public string? Title { get; set; }
     [Parameter] public string? Class { get; set; }
 
+    // Mono, because most badges here carry an identifier or a state name rather than prose, and
+    // a squarer corner keeps them reading as machine labels rather than chat pills.
     private const string Base =
-        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
+        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-px font-mono text-[0.6875rem] " +
+        "font-medium leading-5 tracking-tight whitespace-nowrap";
 
     private string Classes => Cx.Of(Base, VariantClasses, Class);
 

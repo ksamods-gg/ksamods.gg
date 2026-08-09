@@ -12,7 +12,7 @@
 The server side of ksamods.gg: a web application where people sign in, create and maintain mod listings,
 publish releases by connecting a git repository, and build modlists alone or together.
 
-**The site never stores a mod file.** A release points at a release asset on the author's own forge — GitHub
+**The site never stores a mod file.** A release points at a release asset on the author's own forge, GitHub
 at launch, other forges by adapter (§5.6). The pipeline downloads that archive transiently to validate it and
 discards it; the durable record is a URL, a `sha256`, and everything the validator learned from the bytes.
 
@@ -42,13 +42,13 @@ The consequences worth naming, because they are real costs of the reversal, each
   audit trail is only as trustworthy as the interface that writes it. §13.4.
 - **Publish-time review is no longer PR review.** It becomes an explicit queue (§13.2).
 
-The mirror does not fully replace git-as-record — it is a follower, so a compromised or buggy writer can
+The mirror does not fully replace git-as-record: it is a follower, so a compromised or buggy writer can
 publish bad state into it, where a PR-based flow would have caught that at review. What it does guarantee is
 that the data outlives the service, which is the property that actually mattered.
 
 ### 0.3 Relationship to the RFCs
 
-RFC 0017's version model and RFC 0031's metadata shapes are followed exactly — they are what makes the
+RFC 0017's version model and RFC 0031's metadata shapes are followed exactly: they are what makes the
 exported index consumable by Borea and anyone else. Two deliberate divergences, both because this is a site
 rather than a metadata repository:
 
@@ -107,7 +107,7 @@ not need but a site does. §2.1.
 | `KsaMods.Worker` | Queue consumer. Fetches, orchestrates containers, persists results. |
 | `KsaMods.Exporter` | Builds the static index (§12). |
 | `KsaMods.Api` | ASP.NET Core. Everything user-facing. |
-| `KsaMods.Cli` | `ksamods validate`, single-file AOT — the same rules authors can run locally. |
+| `KsaMods.Cli` | `ksamods validate`, single-file AOT. The same rules authors can run locally. |
 
 `KsaMods.Validation` doing no I/O is contractual, not stylistic. It is what makes the container, the CLI and
 any future preflight run identical rules by construction rather than by discipline.
@@ -145,14 +145,14 @@ device names reserved and checked up to the first dot.
 ### 2.1 One namespace, but mods have priority in it
 
 RFC 0031 makes the id namespace type-free so a reference to an id never needs a type alongside it. This spec
-keeps that — a shared namespace across mods and modlists — because diverging would break the export.
+keeps that, a shared namespace across mods and modlists, because diverging would break the export.
 
 Plain first-come-first-served in a shared namespace is wrong here, though, and the reason is an asymmetry the
 RFC has no need to model:
 
 **A mod's id is dictated by the game. A modlist's id is a free choice.** The folder name *is* the mod's
 identity (`Mod.MakeUsing` overwrites anything else, spec §1), so a mod author who finds their id taken has no
-alternative — they cannot pick another one and still ship a working mod. A modlist author in the same position
+alternative: they cannot pick another one and still ship a working mod. A modlist author in the same position
 picks a different name and loses nothing but a preference.
 
 So the rule is:
@@ -161,17 +161,17 @@ So the rule is:
 - If a mod author needs an id held by a **modlist**, it is a dispute (§5.4) and **the mod wins**. The modlist
   is renamed, and its old id becomes a permanent alias redirecting to the new one.
 - If a mod author needs an id held by another **mod**, ordinary dispute resolution applies and neither party
-  gets an automatic win — both are equally constrained.
+  gets an automatic win: both are equally constrained.
 - The creation form says this plainly when a modlist id looks like a plausible mod folder name. Surprising
   someone at rename time is worse than warning them at creation time.
 
 **Renaming a modlist is survivable; renaming a mod is not.** A modlist id appears in links and in the export;
 an alias row covers both. A mod id appears in every user's `mods/` directory, in their `manifest.toml`, and in
-every modlist that pins it — renaming breaks all of them at once. Giving the recoverable case priority over
+every modlist that pins it, renaming breaks all of them at once. Giving the recoverable case priority over
 the unrecoverable one is the whole argument.
 
 **Releases are immutable once imported.** The version, the artifact URL and the hash are frozen. A forge
-release re-uploaded with different bytes does not overwrite the record — it raises a divergence (§11.1). Only
+release re-uploaded with different bytes does not overwrite the record: it raises a divergence (§11.1). Only
 the narrow amendment set in §5.5 may change a published release, and only in the narrowing direction.
 
 **Modlist versions are immutable; the draft is not.** Publishing snapshots the draft into a new version and
@@ -497,13 +497,13 @@ create table resolution_event (                -- NOT a download count (plan §9
 authored casing. Doing that with a `citext` unique index gets both properties from one column pair and makes it
 impossible to forget a `lower()` in a join.
 
-**`version_sort` is a precomputed binary key.** SemVer ordering — including pre-release precedence, where
-`1.0.0-alpha.2` sorts below `1.0.0-alpha.10` but above `1.0.0-alpha` — is not expressible in SQL collation.
+**`version_sort` is a precomputed binary key.** SemVer ordering, including pre-release precedence, where
+`1.0.0-alpha.2` sorts below `1.0.0-alpha.10` but above `1.0.0-alpha`, is not expressible in SQL collation.
 Compute it once on insert. Doing it in the application on every query makes "list versions, newest first" the
 slowest endpoint on the site.
 
 **`game_min_revision` is nullable here**, unlike v0.1. RFC 0017 requires a lower bound for a *usable*
-compatibility claim, but the site must be able to hold a release that has not declared one — that is exactly
+compatibility claim, but the site must be able to hold a release that has not declared one: that is exactly
 the Unknown state, and forcing a sentinel value would lose the distinction between "unknown" and "works with
 everything".
 
@@ -521,7 +521,7 @@ modlist never contains a floating reference.
 
 ### 4.1 Sign-in
 
-GitHub OAuth and Discord OAuth. No passwords, ever — there is nothing here worth the cost of storing one.
+GitHub OAuth and Discord OAuth. No passwords, ever: there is nothing here worth the cost of storing one.
 
 An account may link both providers. GitHub is the more valuable link because it is what makes repository
 ownership provable (§5.2); Discord exists because that is where the community is.
@@ -542,16 +542,16 @@ Two role scopes plus a site scope.
 | Action | Mod owner | Mod maintainer | List owner | List admin | List editor | Moderator |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Edit listing metadata | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Connect/disconnect the repository | ✓ | — | — | — | — | — |
-| Import or retry a release | ✓ | ✓ | — | — | — | ✓ |
-| Yank a release | ✓ | ✓ | — | — | — | ✓ |
-| Add/remove maintainers | ✓ | — | — | — | — | ✓ |
-| Transfer ownership | ✓ | — | ✓ | — | — | ✓ |
-| Edit modlist draft | — | — | ✓ | ✓ | ✓ | — |
-| Publish a modlist version | — | — | ✓ | ✓ | — | — |
-| Invite/remove collaborators | — | — | ✓ | ✓ | — | ✓ |
-| Delete the modlist | — | — | ✓ | — | — | — |
-| Delist / take down | — | — | — | — | — | ✓ |
+| Connect/disconnect the repository | ✓ | - | - | - | - | - |
+| Import or retry a release | ✓ | ✓ | - | - | - | ✓ |
+| Yank a release | ✓ | ✓ | - | - | - | ✓ |
+| Add/remove maintainers | ✓ | - | - | - | - | ✓ |
+| Transfer ownership | ✓ | - | ✓ | - | - | ✓ |
+| Edit modlist draft | - | - | ✓ | ✓ | ✓ | - |
+| Publish a modlist version | - | - | ✓ | ✓ | - | - |
+| Invite/remove collaborators | - | - | ✓ | ✓ | - | ✓ |
+| Delete the modlist | - | - | ✓ | - | - | - |
+| Delist / take down | - | - | - | - | - | ✓ |
 
 **Editors edit but cannot publish.** Publishing mints an immutable version that other people will install, and
 it is a meaningfully different act from adding a mod to a draft. Splitting it is the main reason `admin`
@@ -562,8 +562,9 @@ tiebreaker. Transfer is explicit and logged.
 
 ### 4.3 Account deletion
 
-A deletion request anonymises the account — handle released, OAuth identities dropped, sessions revoked — and
-leaves mods and modlists standing, reassigned to the remaining owner or, failing that, flagged as orphaned.
+A deletion request anonymises the account: the handle is released, OAuth identities are dropped, and
+sessions are revoked. Mods and modlists stay standing, reassigned to the remaining owner or, failing that,
+flagged as orphaned.
 
 Deleting a user's published content on request would break every modlist pinning it and every dependency
 naming it. Orphaned content becomes claimable through the dispute path (§5.4) after 90 days.
@@ -585,19 +586,19 @@ the namespace, after a warning to the owner. This is plan §3.1's squatting poli
 
 ### 5.2 Connecting a repository, which is also the ownership proof
 
-The owner installs the ksamods app on the repository — a GitHub App, or the equivalent for another supported
-forge (§5.6) — and selects it in the UI. The site records the provider, installation and repository ids.
+The owner installs the ksamods app on the repository, a GitHub App, or the equivalent for another supported
+forge (§5.6), and selects it in the UI. The site records the provider, installation and repository ids.
 
 **Installing an app requires admin on that repository.** That is a considerably stronger ownership signal than
 a forums thread, and it is the reason this spec does not gate publishing on the forums link that RFC 0031
 requires for its own index. The forums link stays recommended, and becomes required at export (§12).
 
 One repository links to one mod. A repository already linked elsewhere is refused with a pointer to the
-existing listing — that is a dispute (§5.4), not an error to work around.
+existing listing: that is a dispute (§5.4), not an error to work around.
 
 ### 5.3 Importing a release
 
-On a release-published event — or a release edit, or a manual retry — the forge delivers a webhook. The API
+On a release-published event, or a release edit, or a manual retry, the forge delivers a webhook. The API
 verifies the signature, resolves the installation to a mod, and enqueues an `import_release` job.
 
 The worker then:
@@ -609,12 +610,12 @@ The worker then:
    something plausible.
 3. **Refuses to re-stamp.** If that version already exists, the import does not overwrite. Same bytes is a
    no-op; different bytes is a divergence (§11.1).
-4. **Derives `release_status`** — `stable`, `testing` or `dev` — from the forge's prerelease flag and the
+4. **Derives `release_status`**, `stable`, `testing` or `dev`, from the forge's prerelease flag and the
    SemVer pre-release part, so a nightly does not present itself as a release.
 5. **Runs the validation pipeline** (§7).
 6. **Snapshots the listing** into `listing_snapshot`, so browsing version 3 shows what version 3 said rather
    than what the listing says today.
-7. **Persists** findings, asset ids, dependencies, assemblies and `[console]` — then **discards the archive**.
+7. **Persists** findings, asset ids, dependencies, assemblies and `[console]`, then **discards the archive**.
 
 Steps 3 and 7 are the load-bearing ones. Immutability is what makes a recorded hash worth anything, and
 discarding the bytes is what keeps the site an index rather than a host.
@@ -652,7 +653,7 @@ The invariant, enforced in the service layer and covered by tests: **a release c
 permissive after publication.** A release that turns out to support more than it was stamped with keeps its
 stamp, because nobody re-verified the wider claim against the actual archive.
 
-This is why a mod that breaks on newer builds gets its compatibility tightened rather than yanked — it stays
+This is why a mod that breaks on newer builds gets its compatibility tightened rather than yanked: it stays
 installable where it still works.
 
 **A yank is the author's statement about one build.** Distinct from `status = "deprecated"`, which covers the
@@ -662,7 +663,7 @@ never merge them.
 ### 5.6 Supported forges
 
 "GitHub only" would exclude authors who deliberately do not use GitHub, and that is an access decision as much
-as a technical one. The properties actually worth keeping are not GitHub's — they are:
+as a technical one. The properties actually worth keeping are not GitHub's: they are:
 
 - an **enumerable host allowlist**, so §14.1's SSRF surface stays a handful of known domains rather than the
   open internet;
@@ -679,8 +680,8 @@ specifically:
 | GitLab (gitlab.com and self-hosted) | Adapter, post-launch |
 | Codeberg / Gitea / Forgejo | Adapter, post-launch |
 
-Adding a forge means implementing `IForgeProvider` — resolve installation, list releases, fetch release
-metadata, verify webhook signature, enumerate asset URLs — and adding its asset domains to the fetch
+Adding a forge means implementing `IForgeProvider`, resolve installation, list releases, fetch release
+metadata, verify webhook signature, enumerate asset URLs, and adding its asset domains to the fetch
 allowlist. Nothing else in the pipeline is provider-aware, because §7 receives bytes and an expected id and
 does not care where they came from.
 
@@ -709,7 +710,7 @@ only one of them is a range.
 
 **Compatibility is computed, not authored.** A published version's `game_min_revision` is the highest minimum
 among its members and its `game_max_revision` the lowest maximum, because a list works only where every member
-works. Where that intersection is empty, publishing warns loudly and proceeds — the members may still be
+works. Where that intersection is empty, publishing warns loudly and proceeds, the members may still be
 individually installable, and RFC 0017's line is that only Incompatible blocks.
 
 ### 6.2 Publish-time validation
@@ -722,7 +723,7 @@ Blocking:
 Warning, and overridable with an explicit confirmation:
 
 - A member is yanked, delisted or deprecated.
-- Two members declare colliding asset ids (§9) — the collision is shown, naming both mods and the ids.
+- Two members declare colliding asset ids (§9), the collision is shown, naming both mods and the ids.
 - Members' compatibility ranges do not intersect.
 - A member has unsatisfied required dependencies not otherwise in the list.
 
@@ -738,8 +739,8 @@ Two people editing one draft is the normal case, not the edge case.
 read; a mismatch returns `409 Conflict` with the current state so the UI can merge rather than silently
 clobber.
 
-Draft operations are deliberately small and commutative where possible — add entry, remove entry, repin,
-reorder, edit note — so conflicts are genuinely rare rather than merely rare-looking.
+Draft operations are deliberately small and commutative where possible, add entry, remove entry, repin,
+reorder, edit note, so conflicts are genuinely rare rather than merely rare-looking.
 
 `GET /api/v1/modlists/{id}/activity` returns a recent-changes feed, which is what makes a multi-editor list
 comprehensible when you come back to it.
@@ -823,7 +824,7 @@ root-equivalent, and it is the process handling attacker-controlled bytes.
 **Stage 5 is the one nobody else does** (plan §0). Reachability is two hops: files named in the six list keys
 of `mod.toml`, plus paths referenced from inside those files' XML, transitively. Only files reachable from
 neither are warned about. Warning on everything absent from `mod.toml` would fire on the correct shape of
-every content mod — textures and meshes belong in the XML, not the manifest — which is how a warning becomes
+every content mod, textures and meshes belong in the XML, not the manifest, which is how a warning becomes
 noise nobody reads.
 
 **Stage 7 never executes anything.** `MetadataLoadContext` reads identity and references without running a
@@ -834,13 +835,13 @@ game will see; no amount of correct metadata survives getting it wrong.
 
 ### 7.4 Findings
 
-Every finding carries a stable `code` — `KSAM-0501` (declared path missing), `KSAM-0503` (unreachable content
+Every finding carries a stable `code`, `KSAM-0501` (declared path missing), `KSAM-0503` (unreachable content
 file), `KSAM-0701` (game assembly shipped). Codes are the contract: messages get reworded, codes get filtered
 on, by the UI and by anyone consuming the export.
 
 The pipeline is **total, not fail-fast**: a stage records findings and continues wherever continuing is
 meaningful, so an author gets every problem in one run instead of one per push. Only genuinely
-uninterpretable input — a corrupt archive, an unparseable `mod.toml` — short-circuits.
+uninterpretable input, a corrupt archive, an unparseable `mod.toml`, short-circuits.
 
 ### 7.5 Outcomes
 
@@ -856,7 +857,7 @@ anything.
 
 Follows RFC 0017; spec §16 carries the evidence.
 
-**Order by the revision alone** — the fourth component of `Year.Month.Build.Revision`. Not the dotted string,
+**Order by the revision alone**, the fourth component of `Year.Month.Build.Revision`. Not the dotted string,
 which misorders 21 adjacent pairs across the shipped history because the third component is a machine-local
 counter that *decreases* 32 times as the revision rises.
 
@@ -886,14 +887,14 @@ Mirror it (§11.2).
 ## 9. Conflict detection
 
 KSA registers asset ids into one global table with `TryAdd`, so a duplicate id from a later mod is silently
-discarded — no error, no log line a user will ever find. Load order comes from `manifest.toml` order.
+discarded, no error, no log line a user will ever find. Load order comes from `manifest.toml` order.
 
 Because §7 stage 6 already extracted every asset id, the site can do what no generic mod host can:
 
-- **`GET /api/v1/collisions/{assetId}`** — every release declaring it. One indexed lookup.
-- **On a mod page** — which other mods declare ids this mod also declares.
-- **At modlist publish** — collisions within the curated set (§6.2).
-- **In a resolve response** — collisions within the resolved set, so a client can warn before writing.
+- **`GET /api/v1/collisions/{assetId}`**, every release declaring it. One indexed lookup.
+- **On a mod page**, which other mods declare ids this mod also declares.
+- **At modlist publish**, collisions within the curated set (§6.2).
+- **In a resolve response**, collisions within the resolved set, so a client can warn before writing.
 
 **Core override detection.** An id also present in `Core` means the mod overrides stock content, which
 requires load-order placement before `Core` and is fragile because the game rewrites `manifest.toml` freely.
@@ -964,7 +965,7 @@ why the set is unsatisfiable, plus the asset id collisions within the resolved s
 
 `KsaMods.Resolver` **ships as a library as well as running behind the endpoint.** The offline index export
 means clients must be able to solve locally, so a server-only solver merely guarantees a second, subtly
-different implementation appears — which is how ecosystems get divergent resolution behaviour. One library,
+different implementation appears, which is how ecosystems get divergent resolution behaviour. One library,
 two call sites.
 
 The returned order is what a client writes into `manifest.toml`. It is not a promise about initialisation
@@ -986,7 +987,7 @@ Weekly for `stable`, monthly for `testing` and `dev`, sharded so a run is bounde
 | Outcome | Action |
 |---|---|
 | Hash matches | `availability = verified`, update `last_verified_at` |
-| Asset gone (404/410) | `availability = unavailable`, notify maintainers, **keep the record** — clients may have it cached and modlists still pin it |
+| Asset gone (404/410) | `availability = unavailable`, notify maintainers, **keep the record** - clients may have it cached and modlists still pin it |
 | Bytes changed, benign re-pack | `availability = diverged`, flag on the page, notify, ask for a real version. **The stamp does not change.** |
 | Bytes changed, material change | `availability = quarantined`, hide the download, notify maintainers and moderators, require a human |
 
@@ -994,8 +995,8 @@ Weekly for `stable`, monthly for `testing` and `dev`, sharded so a run is bounde
 same `[console]` arrays, no new file types. A changed assembly list, a new `[console]` entry or new asset ids
 is material.
 
-**Keeping the false-positive rate low is what keeps this working.** Authors re-upload assets routinely — a bad
-build, a CI re-run — and a queue that is mostly noise trains moderators to click accept, which is exactly the
+**Keeping the false-positive rate low is what keeps this working.** Authors re-upload assets routinely, a bad
+build, a CI re-run, and a queue that is mostly noise trains moderators to click accept, which is exactly the
 wrong reflex on the day a real compromise arrives.
 
 A forge gives a corroborating signal an arbitrary host would not: the release's `updated_at` and whether the
@@ -1026,11 +1027,11 @@ with a manifest carrying `spec_version`, generation time and a content hash.
 
 ### 12.1 The git mirror is required
 
-**Every export run commits and pushes to a public git repository.** Not optional, not a later phase — it is
+**Every export run commits and pushes to a public git repository.** Not optional, not a later phase: it is
 the mitigation for the single largest cost of moving off git-as-record (§0.2), and it is a few hours of work.
 
 A tarball behind a CDN dies with the CDN and with whoever pays for it. A public git repository survives
-because it gets forked, and — this is the part that matters — **forks happen before the outage, not after**.
+because it gets forked, and: this is the part that matters, **forks happen before the outage, not after**.
 Nobody clones a backup they did not know existed.
 
 Properties to hold:
@@ -1039,7 +1040,7 @@ Properties to hold:
   meaningful. A run that changes nothing must produce no commit; otherwise the history is noise and diffing
   two days apart tells you nothing.
 - **One commit per export run**, with a message naming what changed and how many records.
-- **The moderation log is exported too.** §13.4 — an audit trail that only exists inside the service is only
+- **The moderation log is exported too.** §13.4, an audit trail that only exists inside the service is only
   as trustworthy as the service.
 - **Push failure is an alert, not a warning.** A silently stale mirror is worse than no mirror, because it
   looks like a backup.
@@ -1056,7 +1057,7 @@ a document that does not satisfy the format it claims to implement would make th
 
 Modlist aliases (§2.1) are exported as a redirect map so a consumer holding a retired id can follow it.
 
-Ingesting the KSAModding index — plan §0's peer posture — reads their published index and surfaces listings
+Ingesting the KSAModding index, plan §0's peer posture, reads their published index and surfaces listings
 absent here, labelled by source. It is deliberately read-only and deliberately does not merge: two indexes
 accepting claims independently makes divergent ownership of an id the expected steady state, and a merge
 policy manages that at best. **The real fix is agreeing a posture with the KSAModding maintainers** (§19).
@@ -1138,7 +1139,7 @@ Never `ExtractToDirectory`. Iterate entries; for each:
 - Reject symlinks, hardlinks, device entries, any non-regular file.
 - Reject nested archives.
 - Enforce entry count, per-entry uncompressed size, total uncompressed size **and** compression ratio. All
-  four — a zip bomb defeats any three alone.
+  four, a zip bomb defeats any three alone.
 - Strip `__MACOSX/`, `.DS_Store`, `Thumbs.db`, `desktop.ini`.
 - Reject `manifest.toml` and `settings.toml` anywhere in the tree (spec §8).
 - Treat entry names as untrusted for the filesystem, for logs, and for the database.
@@ -1148,7 +1149,7 @@ Starting ceilings: 50 MB compressed, 500 MB uncompressed, 10,000 entries, ratio 
 ### 14.3 XML
 
 `XmlReaderSettings` with `DtdProcessing = Prohibit`, `XmlResolver = null`, a `MaxCharactersFromEntities` cap
-and a depth limit. Closes XXE, billion-laughs, and external entity fetches — the last of which would otherwise
+and a depth limit. Closes XXE, billion-laughs, and external entity fetches, the last of which would otherwise
 be a second SSRF surface reachable from inside a mod archive. The container having no network makes that one
 unexploitable rather than merely mitigated, which is defence in depth working as intended.
 
@@ -1166,7 +1167,7 @@ nothing else.
 ### 14.6 Webhooks
 
 Verify the HMAC signature on every delivery with a constant-time comparison before parsing the body. Reject
-deliveries older than five minutes. De-duplicate on delivery id — forges retry, and an import that runs twice
+deliveries older than five minutes. De-duplicate on delivery id, forges retry, and an import that runs twice
 must be a no-op.
 
 ### 14.7 The threat the site cannot fix
@@ -1178,7 +1179,7 @@ safety review that did not happen.
 ### 14.8 Ordinary hygiene
 
 Rate limit writes per account and reads per IP. CSP without `unsafe-inline`. Markdown rendered with a
-strict allowlist and sanitised — `description` is user input rendered to other users, which makes it the most
+strict allowlist and sanitised, `description` is user input rendered to other users, which makes it the most
 likely XSS vector in the product. Secrets in a real secret store. Dependency scanning in CI.
 
 ---
@@ -1194,7 +1195,7 @@ The read path dominates and is highly cacheable.
   and the easiest to get wrong by building it per request.
 - Search via Postgres `tsvector` with a materialised column. Enough for a catalogue in the low thousands, and
   it removes a whole service from the deployment. Revisit at ~10k listings, not before.
-- Precompute per-mod aggregates — latest stable version, compatibility span, collision count — in a
+- Precompute per-mod aggregates, latest stable version, compatibility span, collision count, in a
   materialised view refreshed on write. Listing pages should be one query.
 
 ---
@@ -1208,7 +1209,7 @@ Three processes: API, worker, exporter. Managed Postgres. Object storage for exp
 The worker is the one that needs its own host, for §14.5.
 
 Realistic cost at low volume: a small API host, a small worker host, managed Postgres, object storage and a
-CDN — roughly $40–70/month, with bandwidth the variable. Validation is CPU-bursty and idle most of the time,
+CDN, roughly $40–70/month, with bandwidth the variable. Validation is CPU-bursty and idle most of the time,
 which suits a small host with a queue rather than anything autoscaled.
 
 ### 16.2 Backups
@@ -1218,7 +1219,7 @@ Postgres is now the record, so this is load-bearing in a way it was not in v0.1:
 data it protects is the entire product.
 
 **The git mirror (§12.1) is a second, independent copy held by people who are not you**, which is the property
-no snapshot policy provides. It carries the published metadata, not accounts or sessions — so a total loss
+no snapshot policy provides. It carries the published metadata, not accounts or sessions, so a total loss
 still costs the user table, but the catalogue survives and can be rebuilt into a fresh instance or a fork.
 
 Alert on mirror push failure at the same severity as a backup failure, because that is what it is.
@@ -1236,12 +1237,12 @@ notice before you do.
 
 ## 17. Testing
 
-**A fixture corpus of real archives** — code mod, content mod, hybrid — plus one deliberately broken archive
+**A fixture corpus of real archives**, code mod, content mod, hybrid, plus one deliberately broken archive
 per stage: unresolved declared path, malformed XML, wrong-named root, zip bomb, traversal entry, shipped
 `KSA.dll`, `[console]` present. Every stage gets a fixture that fails it. This is the highest-value test asset
 in the project and it should exist before the pipeline does.
 
-**Property tests** for the id rules and the version comparator — small total functions over large input spaces
+**Property tests** for the id rules and the version comparator, small total functions over large input spaces
 with subtle boundaries (trailing dots, dotted device names, revision ties). The version comparator has a free
 oracle: RFC 0017 states that sorting the 155 shipped releases by revision reproduces true release order while
 four-part sorting misorders 21 adjacent pairs. **Encode that as a test.**
@@ -1250,7 +1251,7 @@ four-part sorting misorders 21 adjacent pairs. **Encode that as a test.**
 socket, one that allocates unboundedly. Each must fail closed. Isolation that is never tested is isolation
 that quietly regressed three deploys ago.
 
-**Concurrency tests** for §6.3 — two simultaneous draft writes must produce one success and one `409`, never
+**Concurrency tests** for §6.3, two simultaneous draft writes must produce one success and one `409`, never
 a lost update.
 
 **Amendment invariant tests** for §5.5, enumerating every field and asserting that widening is rejected.
@@ -1259,7 +1260,7 @@ a lost update.
 
 ## 18. Build order
 
-**Phase 1 — the core loop.** Auth, mod creation, GitHub linking, release import, the validator library and
+**Phase 1, the core loop.** Auth, mod creation, GitHub linking, release import, the validator library and
 container, findings on the listing page, **and the export with its git mirror**. This is the shortest path to
 something a mod author gets value from, and it forces the metadata types to be right before anything depends
 on them.
@@ -1268,18 +1269,18 @@ The mirror belongs here rather than in a later phase for two reasons: it is the 
 database that is now the record, and it forces the RFC 0031 serialisation to be correct from the first
 listing rather than retrofitted onto data that grew without it.
 
-**Phase 2 — modlists.** Drafts, collaborators, publishing, versioned pins, publish-time checks, aliases.
+**Phase 2, modlists.** Drafts, collaborators, publishing, versioned pins, publish-time checks, aliases.
 
-**Phase 3 — the read product.** Search, facets, compatibility surfacing, public read API, `builds.json` sync.
+**Phase 3, the read product.** Search, facets, compatibility surfacing, public read API, `builds.json` sync.
 
-**Phase 4 — trust.** Re-verification, divergence classification, quarantine, review queue, reports,
+**Phase 4, trust.** Re-verification, divergence classification, quarantine, review queue, reports,
 moderation log.
 
-**Phase 5 — the ecosystem.** Resolver library and endpoint, collision surfacing, CLI, additional forge
+**Phase 5, the ecosystem.** Resolver library and endpoint, collision surfacing, CLI, additional forge
 adapters, upstream index ingest.
 
 Stages 6 and 7b of the pipeline run from the first import even though nothing consumes them until Phase 5.
-Both are nearly free at ingest and impossible to backfill once asset URLs start rotting — the site does not
+Both are nearly free at ingest and impossible to backfill once asset URLs start rotting, the site does not
 keep the bytes, so a fact not extracted on first contact may be unrecoverable.
 
 ---
@@ -1290,8 +1291,8 @@ keep the bytes, so a fact not extracted on first contact may be unrecoverable.
 
 | Was open | Decision |
 |---|---|
-| GitHub-only excludes non-GitHub authors | **Generalised to a forge allowlist** (§5.6). GitHub at launch; GitLab and Codeberg/Forgejo by adapter. The properties worth keeping were an enumerable host allowlist, app-install proof, a release API and webhooks — every mainstream forge has all four, so none of them required GitHub specifically. Arbitrary URLs stay unsupported. |
-| Should modlists share the mod id namespace? | **Yes, shared — with mods holding priority** (§2.1). A mod's id is forced by the game; a modlist's is a free choice, and renaming a modlist is survivable via an alias while renaming a mod breaks every install. The constrained party wins. |
+| GitHub-only excludes non-GitHub authors | **Generalised to a forge allowlist** (§5.6). GitHub at launch; GitLab and Codeberg/Forgejo by adapter. The properties worth keeping were an enumerable host allowlist, app-install proof, a release API and webhooks. Every mainstream forge has all four, so none of them required GitHub specifically. Arbitrary URLs stay unsupported. |
+| Should modlists share the mod id namespace? | **Yes, shared, with mods holding priority** (§2.1). A mod's id is forced by the game; a modlist's is a free choice, and renaming a modlist is survivable via an alias while renaming a mod breaks every install. The constrained party wins. |
 | Is the git mirror worth it? | **Required, in Phase 1** (§12.1). It is the mitigation for the largest cost of leaving git-as-record, and it only works if forks exist before the outage. |
 
 ### Still open
@@ -1300,7 +1301,7 @@ keep the bytes, so a fact not extracted on first contact may be unrecoverable.
    away. Still the first question, and it gets more expensive with every listing.
 2. **Does Borea consume the validation findings?** Asset collisions, unreachable content files and unresolved
    declared paths are this project's distinctive contribution, and they are only worth surfacing if a client
-   uses them. Worth confirming early — it justifies a good deal of Phase 1.
+   uses them. Worth confirming early: it justifies a good deal of Phase 1.
 3. **Tomlyn or Tomlet?** StarMap parses `mod.toml` with Tomlet. If they disagree on a malformed file, the
    validator's verdict and the loader's behaviour diverge, which is the one place this must not be wrong. A
    differential test over the fixture corpus would settle it cheaply.
@@ -1310,7 +1311,7 @@ keep the bytes, so a fact not extracted on first contact may be unrecoverable.
    install target. §3's schema assumes they fit the existing shape, and `modlist_draft_entry.entry_kind`
    anticipates them. Probably right. Not verified.
 6. **Multi-owner mods.** §4.2 allows exactly one owner plus maintainers. Some mods are genuinely
-   collaborative, and the modlist model already supports shared control — worth revisiting once there is
+   collaborative, and the modlist model already supports shared control, worth revisiting once there is
    evidence of the need rather than in anticipation of it.
 7. **Which self-hosted forge instances get allowlisted, and on what basis?** §5.6 makes it a deliberate
    moderation decision with a record. It needs a stated bar before the first request arrives, not after.

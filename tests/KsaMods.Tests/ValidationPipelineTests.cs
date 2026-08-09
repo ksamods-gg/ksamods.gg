@@ -36,7 +36,7 @@ public class ValidationPipelineTests
     public void A_well_formed_content_mod_passes_and_does_not_warn_about_its_textures()
     {
         // The regression that matters most in stage 5. Textures are referenced from inside the
-        // declared XML, never named in mod.toml — the correct shape of every content mod. A
+        // declared XML, never named in mod.toml - the correct shape of every content mod. A
         // validator that warns here fires on everything and gets ignored.
         var result = Run(ModArchives.ContentMod(), ModArchives.ContentModId);
 
@@ -295,7 +295,7 @@ public class ValidationPipelineTests
     public void A_hostile_mod_toml_cannot_escape_the_archive_root()
     {
         // Declared paths are resolved inside the root, mirroring what the loader does when it
-        // Path.Combines onto the mod folder — so ../.. resolves to nothing readable, not to a
+        // Path.Combines onto the mod folder - so ../.. resolves to nothing readable, not to a
         // host file.
         var archive = ArchiveBuilder.New()
             .WithFile($"{ModArchives.ContentModId}/mod.toml", """

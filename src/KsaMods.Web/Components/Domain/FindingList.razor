@@ -5,7 +5,7 @@
 @if (Findings.Count == 0)
 {
     <p class="text-sm text-muted-foreground">
-        Validation found nothing to report. Every declared path resolved and every declared XML parsed.
+        Nothing to report. Every declared path resolved, and every declared XML parsed.
     </p>
 }
 else
@@ -22,7 +22,7 @@ else
                     <p class="text-sm">@finding.Message</p>
 
                     <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        @* The code is the contract — it is what a filter or a script keys on, so it
+                        @* The code is the contract - it is what a filter or a script keys on, so it
                            is shown rather than hidden behind the prose. *@
                         <code class="font-mono">@finding.Code</code>
                         <span>@Presentation.StageName(finding.Stage)</span>

@@ -1,0 +1,266 @@
+using System.Text.RegularExpressions;
+
+namespace KsaMods.Forge;
+
+/// <summary>One release as the forge reports it, before this project has an opinion about it.</summary>
+public sealed record ForgeRelease
+{
+    public required string Id { get; init; }
+    public required string Tag { get; init; }
+    public string? Name { get; init; }
+    public string? Body { get; init; }
+    public required DateTimeOffset PublishedAt { get; init; }
+    public bool Draft { get; init; }
+    public bool Prerelease { get; init; }
+    public string? Commit { get; init; }
+    public string? HtmlUrl { get; init; }
+    public IReadOnlyList<ForgeAsset> Assets { get; init; } = [];
+}
+
+public sealed record ForgeAsset
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string DownloadUrl { get; init; }
+    public long Size { get; init; }
+    public string ContentType { get; init; } = "application/octet-stream";
+}
+
+public sealed record ForgeRepository
+{
+    public required string Id { get; init; }
+    public required string FullName { get; init; }
+    public required string DefaultBranch { get; init; }
+    public bool Archived { get; init; }
+    public bool Private { get; init; }
+
+    /// <summary>
+    /// The repository's topics, which arrive in the same response as everything else here and so
+    /// cost nothing extra to carry. Used to prove ownership without asking for a commit.
+    /// </summary>
+    public IReadOnlyList<string> Topics { get; init; } = [];
+}
+
+public sealed class ForgeException(string message, bool transient = false) : Exception(message)
+{
+    /// <summary>
+    /// Whether retrying could plausibly work. Rate limits and 5xx are worth another attempt; a
+    /// repository that does not exist is not, and burning five retries on it only delays the
+    /// message that says so.
+    /// </summary>
+    public bool Transient { get; } = transient;
+}
+
+/// <summary>
+/// What this project needs from a git forge, and nothing else (backend.md §5.6).
+///
+/// <para>The interface is small on purpose. The decision to support an allowlist of forges rather
+/// than GitHub alone rested on four properties every mainstream forge has - an enumerable host, a
+/// way to prove control of a repository, a release API and webhooks - so the abstraction is those
+/// four things and no more. Anything richer would start encoding GitHub's shape and make the
+/// second adapter a rewrite.</para>
+/// </summary>
+public interface IForge
+{
+    /// <summary>github, gitlab or codeberg. Matches <c>repo_link.provider</c>.</summary>
+    string Provider { get; }
+
+    Task<ForgeRepository> GetRepositoryAsync(string fullName, CancellationToken ct);
+
+    /// <summary>Newest first. Drafts are included; deciding what to skip is the caller's job.</summary>
+    Task<IReadOnlyList<ForgeRelease>> ListReleasesAsync(string fullName, CancellationToken ct);
+
+    /// <summary>
+    /// Reads the challenge file from the default branch, or null when it is not there.
+    ///
+    /// <para>Through the forge's API rather than a raw file URL: raw hosts serve from a CDN with
+    /// its own caching, and a proof that can be answered by a stale cache is not a proof.</para>
+    /// </summary>
+    Task<string?> ReadVerificationFileAsync(string fullName, string path, CancellationToken ct);
+}
+
+/// <summary>
+/// Which forges may be connected at all (backend.md §5.6).
+///
+/// <para>An allowlist rather than a URL pattern, because "somewhere that looks like a git host"
+/// is not a security boundary. Adding a self-hosted instance is a moderation decision with a
+/// record, not a configuration accident.</para>
+/// </summary>
+public static class ForgeAllowlist
+{
+    /// <summary>
+    /// Only what has an adapter behind it. The database constraint permits gitlab and codeberg
+    /// because the schema anticipates them, but accepting a provider here that nothing can talk to
+    /// would let someone connect a repository the importer will never read - a listing that looks
+    /// connected and imports nothing, which is worse than being told no.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> ApiHosts =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["github"] = "api.github.com",
+        };
+
+    public static bool Allows(string provider) => ApiHosts.ContainsKey(provider);
+}
+
+/// <summary>
+/// Proving that whoever is connecting a repository can write to it (backend.md §5.2).
+///
+/// <para>The site issues a challenge; the claimant commits it to the default branch; the site
+/// reads it back through the forge's API. Only somebody with write access can complete that, which
+/// is exactly the claim being made.</para>
+///
+/// <para>Chosen over an OAuth scope check because it needs no stored access token and no app
+/// registration, and it is identical on every forge. Its weakness is that it proves write access
+/// at one moment rather than continuously; an app installation would be stronger and slots in
+/// beside it - <c>repo_link.verified_by</c> records which was used.</para>
+/// </summary>
+public static class RepositoryProof
+{
+    /// <summary>Dotfile at the root: out of the way, and obviously not part of the mod.</summary>
+    public const string FilePath = ".ksamods-verify";
+
+    public static string NewChallenge() =>
+        $"ksamods-verify-{Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()}";
+
+    /// <summary>
+    /// Whether the file proves the challenge. Trimmed because an editor will add a trailing
+    /// newline and refusing over one would be a puzzle, not a safeguard; ordinal because this is a
+    /// secret comparison and not a piece of text.
+    /// </summary>
+    public static bool Satisfies(string? fileContent, string? challenge) =>
+        !string.IsNullOrWhiteSpace(challenge)
+        && fileContent is not null
+        && string.Equals(fileContent.Trim(), challenge.Trim(), StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether one of the repository's topics is the challenge.
+    ///
+    /// <para>The challenge doubles as a topic without any reshaping: it is 47 characters of
+    /// lowercase hex and hyphens, and a topic may be up to 50 of exactly those. Adding one is a
+    /// settings change, so it proves at least as much as a commit does and leaves nothing behind
+    /// in the repository's history.</para>
+    ///
+    /// <para>Compared case-insensitively because forges lowercase topics on the way in, and a
+    /// proof that fails on capitalisation the user never typed is a puzzle rather than a check.</para>
+    /// </summary>
+    public static bool SatisfiedByTopic(IReadOnlyList<string>? topics, string? challenge) =>
+        !string.IsNullOrWhiteSpace(challenge)
+        && topics is not null
+        && topics.Any(t => string.Equals(t?.Trim(), challenge.Trim(), StringComparison.OrdinalIgnoreCase));
+}
+
+/// <summary>
+/// Repository names, which arrive from a form and are about to be interpolated into a URL.
+/// </summary>
+public static class RepoName
+{
+    // Both forges use the same shape, and both are stricter than this. Being stricter here than
+    // the forge only rejects things it would have accepted; being looser lets a path segment or a
+    // query string through, which is the whole risk.
+    private static readonly Regex Shape = new(
+        @"^[A-Za-z0-9._-]{1,100}/[A-Za-z0-9._-]{1,100}$", RegexOptions.Compiled);
+
+    public static bool IsValid(string? fullName) =>
+        fullName is not null
+        && Shape.IsMatch(fullName)
+        // Rules out ".." as either segment, which is the traversal that would escape the API path.
+        && !fullName.Contains("..", StringComparison.Ordinal);
+
+    /// <summary>SSH remotes, which people paste as readily as URLs: <c>git@github.com:owner/repo.git</c>.</summary>
+    private static readonly Regex ScpLike = new(
+        @"^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:(?<path>.+)$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Turns whatever somebody pasted into <c>owner/repository</c>.
+    ///
+    /// <para>Asking for "owner/repository" when the address bar is right there is a small rule to
+    /// remember for no reason. A browse URL, a clone URL, an SSH remote and a deep link into a
+    /// branch all name the same repository, and all of them are things people paste.</para>
+    ///
+    /// <para>This only ever narrows. Whatever comes out is checked by <see cref="IsValid"/>
+    /// exactly as a hand-typed value would be, so accepting a URL cannot smuggle through a path
+    /// segment or a query string. That is the whole risk with being liberal here, and the answer
+    /// is to extract first and validate afterwards rather than to loosen the pattern.</para>
+    /// </summary>
+    public static bool TryNormalise(string? input, out string fullName)
+    {
+        fullName = "";
+
+        if (string.IsNullOrWhiteSpace(input)) return false;
+
+        var candidate = input.Trim();
+
+        // Refused before anything parses it. Uri collapses '..' rather than rejecting it, so
+        // https://github.com/../../admin/secrets arrives here and leaves as 'admin/secrets': a
+        // valid name for a repository nobody asked for. The output would pass every check below,
+        // which is precisely why the check has to happen on the input.
+        if (candidate.Contains("..", StringComparison.Ordinal)) return false;
+
+        if (ScpLike.Match(candidate) is { Success: true } scp)
+        {
+            candidate = scp.Groups["path"].Value;
+        }
+        else if (candidate.Contains("://", StringComparison.Ordinal))
+        {
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out var url)) return false;
+
+            // Only the path. A query string or fragment names a view of the repository, never a
+            // different repository, so dropping them is safe and keeps them out of the result.
+            candidate = url.AbsolutePath;
+        }
+        else if (candidate.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                 || candidate.Split('/')[0].Contains('.'))
+        {
+            // Host with no scheme, as in github.com/owner/repo.
+            var slash = candidate.IndexOf('/');
+            if (slash < 0) return false;
+
+            candidate = candidate[slash..];
+        }
+
+        var segments = candidate
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // Anything past the first two names a branch, a file or a tab, not the repository.
+        if (segments.Length < 2) return false;
+
+        var owner = segments[0];
+        var repository = segments[1];
+
+        if (repository.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+        {
+            repository = repository[..^4];
+        }
+
+        var normalised = $"{owner}/{repository}";
+
+        if (!IsValid(normalised)) return false;
+
+        fullName = normalised;
+        return true;
+    }
+}
+
+/// <summary>
+/// Turns a release tag into a version, or refuses.
+///
+/// <para>Tags are where authors are most creative and this project is least able to guess: the
+/// site orders releases by SemVer and pins modlists to exact versions, so a tag it cannot parse
+/// has to be skipped with a reason rather than approximated into something plausible.</para>
+/// </summary>
+public static class ReleaseTag
+{
+    public static string? ToVersion(string tag)
+    {
+        var candidate = tag.Trim();
+
+        // The one convention common enough to be worth knowing. Everything past this is guessing.
+        if (candidate.StartsWith('v') || candidate.StartsWith('V'))
+        {
+            candidate = candidate[1..];
+        }
+
+        return Metadata.SemVer.TryParse(candidate, out var version) ? version.ToString() : null;
+    }
+}

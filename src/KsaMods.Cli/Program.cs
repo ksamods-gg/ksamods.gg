@@ -1,7 +1,7 @@
 using KsaMods.Metadata;
 using KsaMods.Validation;
 
-// ksamods validate — the same rules the server runs, in front of the author.
+// ksamods validate - the same rules the server runs, in front of the author.
 //
 // This exists so a packaging mistake is caught before a release is tagged rather than after it
 // is imported. It shares KsaMods.Validation with the container, so "the CLI and the server agree"
@@ -10,7 +10,7 @@ using KsaMods.Validation;
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
 {
     Console.WriteLine("""
-        ksamods — KSA mod archive validator
+        ksamods - KSA mod archive validator
 
         usage:
           ksamods validate <archive.zip> [--id <mod-id>] [--quiet]

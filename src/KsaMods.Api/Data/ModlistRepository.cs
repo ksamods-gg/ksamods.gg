@@ -98,7 +98,6 @@ public sealed class ModlistRepository(Database database)
         CancellationToken ct)
     {
         using var connection = await database.OpenAsync(ct);
-        connection.Open();
         using var transaction = connection.BeginTransaction();
 
         var current = await connection.QuerySingleOrDefaultAsync<(string Id, int Revision)?>("""
@@ -140,7 +139,6 @@ public sealed class ModlistRepository(Database database)
         CancellationToken ct)
     {
         using var connection = await database.OpenAsync(ct);
-        connection.Open();
         using var transaction = connection.BeginTransaction();
 
         var id = await connection.ExecuteScalarAsync<long>("""

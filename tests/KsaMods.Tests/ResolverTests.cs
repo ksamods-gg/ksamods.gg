@@ -148,7 +148,7 @@ public class InstallPlannerTests
     [Fact]
     public void Hoists_core_overriding_mods_to_the_front()
     {
-        // Asset ids are first-wins, so an override only works if it loads before Core — which
+        // Asset ids are first-wins, so an override only works if it loads before Core - which
         // means being above it in manifest.toml.
         var catalogue = new InMemoryCatalogue()
             .Add(Release("Plain", "1.0.0"))
@@ -163,7 +163,7 @@ public class InstallPlannerTests
     [Fact]
     public void Installs_the_loader_a_code_mod_needs()
     {
-        // The loader is not repeated under dependencies — it has its own section — but it still
+        // The loader is not repeated under dependencies - it has its own section - but it still
         // has to end up in the plan.
         var catalogue = new InMemoryCatalogue()
             .Add(Release("Alpha", "1.0.0",

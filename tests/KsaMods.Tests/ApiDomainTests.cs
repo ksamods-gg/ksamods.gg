@@ -13,6 +13,7 @@ public class PermissionTests
     private static Principal ListEditor => new() { AccountId = 5, ModlistRole = ModlistRole.Editor };
     private static Principal Moderator => new() { AccountId = 6, SiteRole = SiteRole.Moderator };
     private static Principal Nobody => new() { AccountId = 7 };
+    private static Principal Admin => new() { AccountId = 8, SiteRole = SiteRole.Admin };
 
     [Fact]
     public void An_editor_may_edit_a_draft_but_not_publish()
@@ -69,6 +70,44 @@ public class PermissionTests
         // version under someone else's name is not a moderation action.
         Assert.False(Permissions.Allows(Moderator, Capability.PublishModlistVersion));
         Assert.False(Permissions.Allows(Moderator, Capability.EditModlistDraft));
+    }
+
+    [Fact]
+    public void Only_an_admin_may_hand_out_the_moderator_role()
+    {
+        // The one action that hands out the power to do everything else on the list. A moderator
+        // who could promote could grant themselves an accomplice, and two moderators acting
+        // together are indistinguishable from an admin.
+        Assert.True(Permissions.Allows(Admin, Capability.ManageSiteRoles));
+        Assert.False(Permissions.Allows(Moderator, Capability.ManageSiteRoles));
+        Assert.False(Permissions.Allows(ModOwner, Capability.ManageSiteRoles));
+    }
+
+    [Fact]
+    public void A_moderator_may_suspend_and_moderate()
+    {
+        // Suspension stops abuse in progress and is reversible, so it does not wait for an admin.
+        Assert.True(Permissions.Allows(Moderator, Capability.SuspendAccount));
+        Assert.True(Permissions.Allows(Moderator, Capability.Moderate));
+
+        // An admin is a moderator with more, never less.
+        Assert.True(Permissions.Allows(Admin, Capability.SuspendAccount));
+        Assert.True(Permissions.Allows(Admin, Capability.Moderate));
+
+        Assert.False(Permissions.Allows(ModOwner, Capability.Moderate));
+        Assert.False(Permissions.Allows(ModOwner, Capability.SuspendAccount));
+    }
+
+    [Fact]
+    public void Moderation_never_reaches_the_destructive_delete()
+    {
+        // Delisting is reversible and keeps the id resolvable. Handing staff a hard delete as well
+        // would make the reversible tool the harder one to reach for.
+        Assert.False(Permissions.Allows(Moderator, Capability.DeleteMod));
+        Assert.False(Permissions.Allows(Admin, Capability.DeleteMod));
+
+        // What they do get is the withdrawal power.
+        Assert.True(Permissions.Allows(Moderator, Capability.SetModVisibility));
     }
 
     [Fact]

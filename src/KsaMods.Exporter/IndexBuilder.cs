@@ -8,7 +8,7 @@ namespace KsaMods.Exporter;
 /// <summary>
 /// Builds the exported index (backend.md §12).
 ///
-/// <para>Pure: takes records, returns file contents. No filesystem, no git, no clock — which is
+/// <para>Pure: takes records, returns file contents. No filesystem, no git, no clock - which is
 /// what makes the determinism requirement testable rather than aspirational.</para>
 ///
 /// <para><b>Determinism is a hard requirement, not a nicety.</b> A run that changes nothing must
@@ -218,7 +218,7 @@ public static class IndexBuilder
 /// RFC 0031 conformance, checked before a document leaves the site.
 ///
 /// <para>The site does not gate publishing on the forums link because app installation is a
-/// stronger ownership proof (§5.2), but the RFC requires it — so it is required <i>here</i>, and
+/// stronger ownership proof (§5.2), but the RFC requires it - so it is required <i>here</i>, and
 /// a listing without one is skipped with the reason shown to its maintainers.</para>
 /// </summary>
 public static class Conformance

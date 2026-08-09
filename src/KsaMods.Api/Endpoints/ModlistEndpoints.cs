@@ -43,7 +43,6 @@ public static class ModlistEndpoints
             }
 
             using var connection = await database.OpenAsync(ct);
-            connection.Open();
             using var transaction = connection.BeginTransaction();
 
             await connection.ExecuteAsync("""
@@ -127,7 +126,7 @@ public static class ModlistEndpoints
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return ApiResults.Forbidden();
 
             var expected = ReadIfMatch(http);
             if (expected is null) return MissingIfMatch();
@@ -176,7 +175,7 @@ public static class ModlistEndpoints
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.EditModlistDraft)) return ApiResults.Forbidden();
 
             var expected = ReadIfMatch(http);
             if (expected is null) return MissingIfMatch();
@@ -210,7 +209,7 @@ public static class ModlistEndpoints
 
             // Editors edit; admins publish. Publishing mints an immutable version other people
             // will install, which is a meaningfully different act.
-            if (!Permissions.Allows(principal, Capability.PublishModlistVersion)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.PublishModlistVersion)) return ApiResults.Forbidden();
 
             if (!SemVer.TryParse(body.Version, out var version))
             {
@@ -319,7 +318,7 @@ public static class ModlistEndpoints
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.ManageCollaborators)) return Results.Forbid();
+            if (!Permissions.Allows(principal, Capability.ManageCollaborators)) return ApiResults.Forbidden();
 
             if (body.Role is not (ModlistRole.Admin or ModlistRole.Editor))
             {
@@ -333,8 +332,15 @@ public static class ModlistEndpoints
 
             using var connection = await database.OpenAsync(ct);
 
+            // The ::citext cast is required, not decorative. handle is citext, but a Dapper
+            // parameter arrives as text and there is no citext = text operator - Postgres casts
+            // the column down to text and compares case-sensitively, so inviting "SafeShows"
+            // would fail to find the account whose handle is "safeshows".
+            //
+            // The id_lower lookups elsewhere need no cast because both sides are already
+            // lowercase; handles are the only citext column that preserves case.
             var accountId = await connection.ExecuteScalarAsync<long?>(
-                "select id from account where handle = @handle", new { handle = body.Handle });
+                "select id from account where handle = @handle::citext", new { handle = body.Handle });
 
             if (accountId is null) return Results.NotFound(new { error = "no_such_account" });
 
@@ -360,7 +366,7 @@ public static class ModlistEndpoints
             string id, HttpContext http, ModlistRepository modlists, Database database, CancellationToken ct) =>
         {
             var principal = await http.PrincipalForModlistAsync(modlists, id, ct);
-            if (principal?.IsListEditor != true) return Results.Forbid();
+            if (principal?.IsListEditor != true) return ApiResults.Forbidden();
 
             using var connection = await database.OpenAsync(ct);
 
@@ -402,7 +408,7 @@ public static class ModlistEndpoints
         detail = "Draft writes must carry If-Match with the draft_revision you last read.",
     });
 
-    /// <summary>A 409 carries the current state, not just an error — that is what lets a UI merge.</summary>
+    /// <summary>A 409 carries the current state, not just an error - that is what lets a UI merge.</summary>
     private static async Task<IResult> ConflictWithCurrentStateAsync(
         ModlistRepository modlists, string id, DraftConflictException conflict, CancellationToken ct)
     {

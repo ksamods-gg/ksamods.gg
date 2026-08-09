@@ -60,7 +60,7 @@ public class ContainerFlagTests
 {
     private static IReadOnlyList<string> Flags() =>
         new ContainerRunner(new ContainerPolicy { ImageDigest = "ksamods/validator@sha256:abc" })
-            .BuildArguments("/scratch/a.zip", "/scratch/out", "SomeMod");
+            .BuildArguments("/scratch/a.zip", "SomeMod");
 
     [Fact]
     public void The_container_has_no_network()
@@ -94,6 +94,21 @@ public class ContainerFlagTests
     }
 
     [Fact]
+    public void Nothing_is_bind_mounted_into_the_container()
+    {
+        // The archive goes in on stdin and the report comes back on stdout. A bind mount would be
+        // resolved by the daemon on the host, where the worker's own scratch directory does not
+        // exist - the daemon creates an empty directory there and the archive arrives as a folder.
+        // It also means --read-only has no writable mount to undermine it.
+        var joined = string.Join(' ', Flags());
+
+        Assert.DoesNotContain("-v ", joined, StringComparison.Ordinal);
+        Assert.DoesNotContain("--mount", joined, StringComparison.Ordinal);
+        Assert.Contains("KSAMODS_INPUT=-", joined, StringComparison.Ordinal);
+        Assert.Contains("KSAMODS_OUTPUT=-", joined, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Disables_swap_so_an_over_allocating_job_is_oom_killed()
     {
         // Equal memory and memory-swap means no swap: a runaway job dies instead of dragging
@@ -106,12 +121,12 @@ public class ContainerFlagTests
     }
 
     [Fact]
-    public void Mounts_the_archive_read_only_and_only_out_writable()
+    public void Keeps_stdin_open_so_the_archive_can_be_piped_in()
     {
-        var flags = Flags();
-
-        Assert.Contains(flags, f => f.EndsWith(":/in/archive.zip:ro", StringComparison.Ordinal));
-        Assert.Contains(flags, f => f.EndsWith(":/out", StringComparison.Ordinal));
+        // Replaces a pair of bind mounts. The archive used to arrive at /in/archive.zip and the
+        // report left through a writable /out, which worked only while the worker ran on the same
+        // filesystem as the daemon - and it does not, it runs in a container of its own.
+        Assert.Contains("-i", Flags());
     }
 
     [Fact]

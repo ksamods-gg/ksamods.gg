@@ -1,0 +1,67 @@
+@page "/admin"
+@rendermode InteractiveServer
+
+<PageTitle>Moderation | ksamods.gg</PageTitle>
+
+<AdminFrame Current="overview">
+    @if (Overview is not null)
+    {
+        @* Two rows, and the split is the point: the top one is work, the bottom one is context.
+           Mixing "3 open reports" in with "412 mods" would bury the first in the second. *@
+        <section aria-label="Waiting on you">
+            <h2 class="eyebrow text-muted-foreground">Waiting on you</h2>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Tile Label="Open reports" Value="@Overview.OpenReports" Href="/admin/reports"
+                      Note="Someone reported content and nobody has answered yet." Urgent="true" />
+                <Tile Label="Awaiting review" Value="@Overview.NeedsReview" Href="/admin/reviews"
+                      Note="Releases that ship code or run console commands, unlooked at." Urgent="true" />
+                <Tile Label="Quarantined" Value="@Overview.Quarantined" Href="/admin/reviews"
+                      Note="The file changed after we imported it. Download is hidden." Urgent="true" />
+                <Tile Label="Dead jobs" Value="@Overview.DeadJobs" Href="/admin/jobs"
+                      Note="Background work that gave up. Imports and re-checks stall behind these." Urgent="true" />
+            </div>
+        </section>
+
+        <section class="mt-8" aria-label="The index">
+            <h2 class="eyebrow text-muted-foreground">The index</h2>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Tile Label="Mods" Value="@Overview.Mods" Href="/admin/listings" />
+                <Tile Label="Releases" Value="@Overview.Releases" />
+                <Tile Label="Withdrawn" Value="@Overview.Withdrawn" Href="/admin/listings?state=delisted"
+                      Note="Delisted or taken down. Still resolvable by id - nothing is deleted." />
+                <Tile Label="Accounts" Value="@Overview.Accounts" Href="/admin/accounts"
+                      Note="@($"{Overview.Suspended} suspended")" />
+            </div>
+        </section>
+
+        <Card Class="mt-8" Header="@(b => b.AddContent(0, "How this works"))">
+            <div class="space-y-3 text-sm leading-relaxed text-muted-foreground">
+                <p>
+                    <span class="font-medium text-foreground">Nothing here deletes anything.</span>
+                    Withdrawing a listing marks it delisted: it drops out of browse and search, and
+                    it stays resolvable by id. Modlists pin releases and dependency graphs name ids,
+                    so a hole in the graph breaks other people's installs long after the argument
+                    that caused it is over.
+                </p>
+                <p>
+                    <span class="font-medium text-foreground">The author's words stay the author's.</span>
+                    <code class="font-mono text-xs">deprecated</code> and
+                    <code class="font-mono text-xs">yanked</code> are theirs to write.
+                    <code class="font-mono text-xs">unlisted</code>,
+                    <code class="font-mono text-xs">delisted</code> and
+                    <code class="font-mono text-xs">taken_down</code> are the index speaking. The two
+                    are kept apart so a reader can always tell who said what.
+                </p>
+                <p>
+                    <span class="font-medium text-foreground">Every action needs a reason.</span>
+                    It is recorded against your name, it is public by default, and it cannot be
+                    edited afterwards - a correction is a new entry pointing at the old one.
+                </p>
+            </div>
+        </Card>
+    }
+</AdminFrame>
+
+@code {
+    [CascadingParameter] public AdminOverview? Overview { get; set; }
+}

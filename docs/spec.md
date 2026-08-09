@@ -26,8 +26,8 @@ marked `[@VERIFY]` rather than guessed.
 **On the two source sets.** The KSAModding `content-manager-design` repository carries both an RFC process and
 a research corpus verified against build `2026.8.3.5117` and StarMap `0.4.6`. This standard was written
 independently against `2026.8.5.5168`; where the two agree, the claim is corroborated by two separate
-decompilation efforts, which is worth more than either alone. Where the RFCs have *decided* something — id
-format, version ordering, where metadata lives — this standard now follows the RFC and says so, because a
+decompilation efforts, which is worth more than either alone. Where the RFCs have *decided* something, id
+format, version ordering, where metadata lives: this standard now follows the RFC and says so, because a
 second incompatible answer helps nobody. Section 15 records what the research resolved that this document
 previously had open, and it is most of it.
 
@@ -58,7 +58,7 @@ statement, so it resolves next to the game binary however the game was launched.
 
 The user path comes from `ModLibrary.LocalModsFolderPath` on top of `Constants.DocumentsFolderPath`, which
 resolves `Environment.SpecialFolder.Personal` and appends `My Games/Kitten Space Agency`. On Linux .NET
-resolves that special folder to `$HOME`, so the path is `~/My Games/Kitten Space Agency` — **not** anything
+resolves that special folder to `$HOME`, so the path is `~/My Games/Kitten Space Agency`, **not** anything
 XDG-shaped. A client that hardcodes an XDG path is wrong on every Linux install.
 
 **[CONFIRMED] Discovery is one level deep.** `ModLibrary.AddMods` lists the immediate subdirectories of each
@@ -100,7 +100,7 @@ living in install A's `Content/` loses its manifest entry the next time install 
 
 **[CONFIRMED] The game offers no isolation hatch of its own.** It accepts exactly two command line arguments,
 `-build-info` and `-fixed-viewport`, neither affecting any path, and it reads **no environment variables at
-all** — there is not one lookup in the shipped assemblies. Instancing is possible only through StarMap (§13).
+all**: there is not one lookup in the shipped assemblies. Instancing is possible only through StarMap (§13).
 
 **[CONFIRMED] KSA has no concept of a mod version.** No version key, no compatibility field, no dependency
 mechanism, and nothing on disk records which version of a mod is installed. A manager cannot recover that by
@@ -130,7 +130,7 @@ files across the mods directory.
 carries `install.root` with a `derived` flag, set `true` when the watcher finds exactly this shape: one
 top-level directory containing `mod.toml`, its name matching the id. **A name mismatch is a validation
 error**, because the folder name is the identity the game will see. An optional authored `[install] root` key
-covers archives with an unusual layout, so the strict default costs nothing in flexibility — but a conforming
+covers archives with an unusual layout, so the strict default costs nothing in flexibility, but a conforming
 archive never needs it.
 
 ---
@@ -141,7 +141,7 @@ archive never needs it.
 `MyMod` and `mymod` are different mods to the asset lookup, while the filesystem probe that finds the folder
 is case-insensitive on Windows and case-sensitive on Linux.
 
-**[RFC] Id format — RFC 0031.** This standard adopts RFC 0031's rules verbatim rather than defining its own.
+**[RFC] Id format, RFC 0031.** This standard adopts RFC 0031's rules verbatim rather than defining its own.
 An earlier draft of this document mandated a lowercase `<author>.<mod>` form; that is withdrawn. It would have
 excluded the entire existing corpus, which uses names like `AdvancedFlightComputer` and `AircraftHUD`, and
 those mods cannot rename because the folder name *is* the identity.
@@ -292,7 +292,7 @@ which makes it the only existing source of dependency data. A registry should re
 than duplicate it, because duplicated data can disagree with what the loader actually does at runtime.
 
 **[CONFIRMED] What the loader's dependency handling does not have:** no versions anywhere (dependencies are
-name-only, so "requires X 1.2 or newer" is inexpressible), no conflict detection, and no failure surface — a
+name-only, so "requires X 1.2 or newer" is inexpressible), no conflict detection, and no failure surface, a
 missing required dependency, a missing entry assembly, or a mod class without `[StarMapMod]` all end as a
 `Console.WriteLine` in a window most users never see. Every one of those is a registry opportunity.
 
@@ -306,7 +306,7 @@ author  = "MrJeranimo"
 patches = [ ... ]     # a convention of the community KittenExtensions mod
 ```
 
-**[RFC] Registry metadata does not live in the archive at all — RFC 0031.** Nothing is added to `mod.toml`,
+**[RFC] Registry metadata does not live in the archive at all, RFC 0031.** Nothing is added to `mod.toml`,
 and the loader's section stays loader configuration rather than manager metadata. Three reasons, and they are
 good ones:
 
@@ -318,7 +318,7 @@ good ones:
 
 So the `version` and `author` keys above are advisory only, and a registry reads them as a hint at most. The
 index record is authoritative for version, author, links, license, dependencies and compatibility. Where the
-two disagree, the index wins and the author gets a warning — but the durable answer is that the index is the
+two disagree, the index wins and the author gets a warning, but the durable answer is that the index is the
 only place those facts are written.
 
 A validator reads `mod.toml` as a **data source and never writes to it**, which is the same contract RFC 0031
@@ -335,7 +335,7 @@ mods ship things like `Newtonsoft.Json.dll` and `DiscordRPC.dll` this way.
 `ModAssemblyLoadContext`. Resolution order is: assemblies already in the default context, then the shared core
 context, then a load attempt against the core context, then assemblies its declared dependencies exported to
 it, then the mod's own dependency graph. **Two mods can therefore ship different versions of the same library
-without colliding** — this is the strongest technical argument for StarMap over a naive loader, and it means a
+without colliding**: this is the strongest technical argument for StarMap over a naive loader, and it means a
 registry should not warn about duplicate third-party DLLs across mods.
 
 **Never ship [CONFIRMED]:** any game or engine assembly. `KSA.dll`, `Planet.*.dll`, `Brutal.*.dll`. These are
@@ -361,7 +361,7 @@ common way a content mod silently fails. The registry should surface it: parse `
 declared path, and warn about missing targets and genuinely unreachable files.
 
 **Reachability, not declaration, is the test.** Only the six list keys are loaded directly from `mod.toml`.
-Meshes, textures, shaders and sounds are correctly absent from it — they are referenced by path from inside
+Meshes, textures, shaders and sounds are correctly absent from it: they are referenced by path from inside
 the XML that *is* declared, as in §14's star system pack. A validator that warns on every file not named in
 `mod.toml` fires on the normal, correct shape of every content mod, and authors learn to ignore it.
 
@@ -372,7 +372,7 @@ Compute reachability instead, in two hops:
 2. Paths referenced from inside those files' XML are reachable, transitively.
 
 Warn only on content files reachable from neither. That set is small, and every entry in it is a real
-mistake — a texture the author forgot to wire up, or a leftover from a renamed asset.
+mistake, a texture the author forgot to wire up, or a leftover from a renamed asset.
 
 **[CONFIRMED] Formats:**
 
@@ -473,7 +473,7 @@ dedicated hardening round, and it is the one to copy:
   client operation. The user's choice outranks the client's.
 - **Remove entries the client manages on uninstall**, and only those.
 - **Re-derive ids from on-disk folder names**, because that is what the game keys on.
-- **Track which entries the client manages in a sidecar file.** The manifest cannot carry foreign keys —
+- **Track which entries the client manages in a sidecar file.** The manifest cannot carry foreign keys:
   `ModManifest.Save` regenerates it from scratch and emits only `id` and `enabled` (§1).
 - **Parse tolerantly:** the file may carry quoting and comments the client did not write, and matching must be
   case-insensitive on Windows.
@@ -497,7 +497,7 @@ only after the game has been restarted. StarMap patches `ModLibrary.PrepareAll`:
 were newly discovered and enabled this session, it shows a confirm dialog and, on confirm, spawns a fresh
 `StarMap.exe --restarted` and exits. File operations for the mod change happen in the new process before mods
 load, which is why no supervising process exists to plug into. A client's contract is therefore **write files,
-then launch** — anything deeper needs a conversation with the loader author.
+then launch**, anything deeper needs a conversation with the loader author.
 
 **[CONFIRMED] The running process is `StarMap.exe`, not the game.** StarMap hosts the game in-process rather
 than launching it: it loads `KSA.dll` into a load context it controls, sets `APP_CONTEXT_BASE_DIRECTORY` to
@@ -556,15 +556,15 @@ nothing is blocked on it.
 load order is a flat list and dependencies must be resolved entirely by the client. The first half is right
 about the *game*. StarMap does more than nothing: `ModLoader` walks the manifest once, initialises mods whose
 dependencies are all present, and parks the rest in a `WaitingModsDependencyGraph` keyed by what they wait on.
-`CheckForDependentMods` releases waiters as each mod finishes, then `TryLoadWaitingMods` loops — loading any
-mod whose remaining unmet dependencies are all `Optional` — until a pass loads nothing new. Whatever is left
+`CheckForDependentMods` releases waiters as each mod finishes, then `TryLoadWaitingMods` loops, loading any
+mod whose remaining unmet dependencies are all `Optional`, until a pass loads nothing new. Whatever is left
 never loads, and the only signal is a console line.
 
 So the loader **does** reorder initialisation within the manifest walk. What it cannot do is versions,
 conflicts, or telling the user anything. A client still has to resolve the set and the ordering, but it should
 not assume manifest order alone determines initialisation order.
 
-**[CONFIRMED] No version negotiation, and ordering is subtler than it looks.** See §16 — this turned out to be
+**[CONFIRMED] No version negotiation, and ordering is subtler than it looks.** See §16: this turned out to be
 the single most counter-intuitive area of the game and it now has its own section.
 
 **[CONFIRMED] Shared user directory, and StarMap is the only way out.** All installs share one documents
@@ -577,8 +577,8 @@ environment variable `STARMAP_INSTANCE_PATH`. If either is set, a Harmony prefix
 `KSA.Constants.DocumentsFolderPath` from `ModLoader.Init`, before mod discovery and before the game's entry
 point runs.
 
-Because that property is the root of every user-writable path — mods, manifest, saves, settings, vehicles,
-layouts, languages, screenshots, logs, crash dumps — overriding it **moves an entire profile, not just the
+Because that property is the root of every user-writable path, mods, manifest, saves, settings, vehicles,
+layouts, languages, screenshots, logs, crash dumps, overriding it **moves an entire profile, not just the
 mods**. Two consequences for a client:
 
 - It can drive instancing without touching StarMap's config: set `STARMAP_INSTANCE_PATH` on the spawned
@@ -587,7 +587,7 @@ mods**. Two consequences for a client:
   keeps writing to the shared location. Instancing is therefore best-effort, not a sandbox.
 
 Note also that `RepositoryLocation` in `StarMapConfig.json` sounds like it relocates mods and does not; it is
-referenced nowhere and is dead configuration. StarMap adds no mod location of its own — it looks exactly where
+referenced nowhere and is dead configuration. StarMap adds no mod location of its own: it looks exactly where
 the game looks.
 
 ---
@@ -688,8 +688,8 @@ here rather than deleted, because knowing a question was asked and settled is wo
    Now easier to answer well: mods reference it as a NuGet package and the loader supplies it at runtime, so
    shipping it is a project-configuration mistake with a one-line fix. Warn, link the fix, do not reject.
 2. **Open policy:** manual review threshold for `[console]`.
-3. **Engine ask:** per-mod `defaultvehicles` (§13). No longer blocking — RFC 0025 routes craft through a
-   separate content type — but still the cleaner fix.
+3. **Engine ask:** per-mod `defaultvehicles` (§13). No longer blocking, RFC 0025 routes craft through a
+   separate content type, but still the cleaner fix.
 4. **[@VERIFY]** Does anything other than `Constants.DocumentsFolderPath` need patching for a complete
    instance? StarMap's research notes that `ModLibrary.CheckDirectories` creates the root and mods folders when
    missing, but the other consumers of that property were not checked. A partially-created instance path is a
@@ -735,7 +735,7 @@ unique and total.
 
 `Year.Month.Build` as a range prefix is meaningless: 20 of the 133 distinct combinations match more than one
 release, and 19 of those select a set that is **not contiguous in time**. Only two granularities are worth
-offering — a month, or an explicit revision.
+offering, a month, or an explicit revision.
 
 ### Detecting what is installed
 
@@ -743,13 +743,13 @@ In order of preference:
 
 1. **`KSA.dll` PE FileVersion.** Exact four-part string, readable without loading the assembly, no suffix to
    strip. Use this.
-2. `KSA.dll` PE ProductVersion — same value with `+hash` appended.
+2. `KSA.dll` PE ProductVersion, same value with `+hash` appended.
 3. The `build` field of the newest `Content/Versions/*.json`. Note the file *name* carries `X` instead of the
    build counter, so the name is not a substitute for the field.
 
 ### Expressing compatibility
 
-A lower bound, required. An upper bound, optional, absent meaning open — and open is the recommended default.
+A lower bound, required. An upper bound, optional, absent meaning open, and open is the recommended default.
 
 Authors write a version the way the game displays it (`2026.8.3.5117`), or a month (`2026.7`) meaning the
 whole of that calendar month. **Tooling resolves both to a revision at publish time** and stores the resolved
@@ -769,7 +769,7 @@ game validates nothing, so a false "incompatible" takes a working mod away from 
 false "compatible" is a mod that does not load and can be removed again. Warn, do not block.
 
 **The cadence is why ranges are mandatory.** 155 releases in under twelve months is roughly thirteen a month.
-Compatibility-as-equality — declaring the one build a mod was compiled against — marks the entire catalogue
+Compatibility-as-equality, declaring the one build a mod was compiled against, marks the entire catalogue
 broken within days of any update, almost always wrongly.
 
 ### The release index is already on disk

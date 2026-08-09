@@ -1,0 +1,290 @@
+@page "/admin/listings"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+
+<PageTitle>Listings | ksamods.gg</PageTitle>
+
+<AdminFrame Current="listings">
+    <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-56 flex-1">
+            <label class="eyebrow text-muted-foreground" for="q">Search</label>
+            <input id="q" value="@_query" @oninput='e => _query = e.Value?.ToString() ?? ""'
+                   @onkeydown="OnKeyDownAsync" placeholder="Name or id"
+                   class="@InputClass" autocomplete="off" spellcheck="false" />
+        </div>
+
+        <div>
+            <label class="eyebrow text-muted-foreground" for="state">State</label>
+            <select id="state" value="@_state" @onchange="OnStateChangedAsync" class="@InputClass">
+                <option value="">Any</option>
+                <option value="listed">Listed</option>
+                <option value="unlisted">Unlisted</option>
+                <option value="delisted">Delisted</option>
+                <option value="taken_down">Taken down</option>
+            </select>
+        </div>
+
+        <Button Type="button" Size="sm" @onclick="LoadAsync">Search</Button>
+    </div>
+
+    @if (_error is not null)
+    {
+        <Alert Variant="error" Class="mt-4">@_error</Alert>
+    }
+
+    @if (_notice is not null)
+    {
+        <Alert Variant="ok" Class="mt-4">@_notice</Alert>
+    }
+
+    @if (_loading)
+    {
+        <p class="mt-6 text-sm text-muted-foreground">Loading…</p>
+    }
+    else if (_listings.Count == 0)
+    {
+        <Card Class="mt-4">
+            <p class="text-sm text-muted-foreground">Nothing matches.</p>
+        </Card>
+    }
+    else
+    {
+        <ul class="mt-4 space-y-3">
+            @foreach (var listing in _listings)
+            {
+                <li>
+                    <Card Padded="false">
+                        <div class="flex flex-wrap items-center gap-2 px-5 py-4">
+                            <a href="@($"/mods/{listing.Id}")"
+                               class="font-medium underline-offset-4 hover:underline">@listing.Name</a>
+                            <code class="font-mono text-xs text-muted-foreground">@listing.Id</code>
+
+                            <Badge Variant="@StateVariant(listing.ListingState)">@listing.ListingState</Badge>
+
+                            @if (listing.Status == "deprecated")
+                            {
+                                @* The author's word, shown next to ours and never merged with it. *@
+                                <Badge Variant="outline" Title="The author marked it deprecated. Not a moderation state.">
+                                    deprecated
+                                </Badge>
+                            }
+
+                            @if (listing.OpenReports > 0)
+                            {
+                                <a href="/admin/reports" class="no-underline">
+                                    <Badge Variant="error">@listing.OpenReports open</Badge>
+                                </a>
+                            }
+
+                            <span class="ml-auto text-xs text-muted-foreground">
+                                @listing.Releases release@(listing.Releases == 1 ? "" : "s")
+                                @if (listing.OwnerHandle is { Length: > 0 })
+                                {
+                                    <text> · @@@listing.OwnerHandle</text>
+                                }
+                                · @Presentation.Ago(listing.UpdatedAt)
+                            </span>
+
+                            <Button Type="button" Variant="ghost" Size="sm"
+                                    @onclick="() => Toggle(listing.Id)">
+                                @(_open == listing.Id ? "Close" : "Change state")
+                            </Button>
+                        </div>
+
+                        @if (_open == listing.Id)
+                        {
+                            <div class="border-t border-border bg-card/50 px-5 py-4">
+                                <div class="grid gap-3 sm:grid-cols-[12rem_1fr]">
+                                    <div>
+                                        <label class="eyebrow text-muted-foreground" for="@($"state-{listing.Id}")">
+                                            New state
+                                        </label>
+                                        <select id="@($"state-{listing.Id}")" value="@_target"
+                                                @onchange='e => _target = e.Value?.ToString() ?? ""'
+                                                class="@InputClass">
+                                            <option value="listed">Listed - in browse and search</option>
+                                            <option value="unlisted">Unlisted - link only</option>
+                                            <option value="delisted">Delisted - withdrawn</option>
+                                            <option value="taken_down">Taken down - legal request</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="eyebrow text-muted-foreground" for="@($"why-{listing.Id}")">
+                                            Reason
+                                        </label>
+                                        <input id="@($"why-{listing.Id}")" value="@_rationale"
+                                               @oninput='e => _rationale = e.Value?.ToString() ?? ""'
+                                               placeholder="What happened, in one line."
+                                               class="@Cx.Of(InputClass, _panelError is not null ? "border-severity-error" : null)" />
+
+                                        @* Beside the field rather than at the top of the page,
+                                           where it would sit above a search box it is not about. *@
+                                        @if (_panelError is not null)
+                                        {
+                                            <p class="mt-1.5 text-xs text-severity-error">@_panelError</p>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 flex items-center gap-3">
+                                    <Button Type="button" Size="sm" Disabled="_saving" Pending="_saving"
+                                            PendingLabel="Applying…" @onclick="() => ApplyAsync(listing)">
+                                        Apply
+                                    </Button>
+                                    <span class="text-xs text-muted-foreground">@Explain(_target)</span>
+                                </div>
+                            </div>
+                        }
+                    </Card>
+                </li>
+            }
+        </ul>
+    }
+
+    <p class="mt-6 text-xs leading-relaxed text-muted-foreground">
+        None of these delete anything. A delisted mod disappears from browse and search, keeps
+        answering by id, and shows a withdrawal notice in place of its listing - because modlists
+        pin its releases and other mods depend on it by name.
+    </p>
+</AdminFrame>
+
+@code {
+    private const string InputClass =
+        "mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    [SupplyParameterFromQuery] public string? Q { get; set; }
+    [SupplyParameterFromQuery] public string? State { get; set; }
+
+    private IReadOnlyList<AdminListing> _listings = [];
+
+    private string _query = "";
+    private string _state = "";
+
+    private string? _open;
+    private string _target = "delisted";
+    private string _rationale = "";
+
+    private bool _loading = true;
+    private bool _saving;
+
+    /// <summary>Something the API refused. Belongs at the top, with the rest of the page state.</summary>
+    private string? _error;
+
+    /// <summary>Something wrong with what is typed in the open panel. Belongs beside the field.</summary>
+    private string? _panelError;
+
+    private string? _notice;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Arrived from a report or a tile, already filtered.
+        _query = Q ?? "";
+        _state = State ?? "";
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            _listings = await Api.GetAdminListingsAsync(
+                string.IsNullOrWhiteSpace(_query) ? null : _query.Trim(),
+                string.IsNullOrWhiteSpace(_state) ? null : _state) ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _listings = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadAsync();
+    }
+
+    private async Task OnStateChangedAsync(ChangeEventArgs e)
+    {
+        _state = e.Value?.ToString() ?? "";
+        await LoadAsync();
+    }
+
+    private void Toggle(string id)
+    {
+        if (_open == id)
+        {
+            _open = null;
+            return;
+        }
+
+        _open = id;
+
+        // Fresh every time: a reason typed for one listing must never be carried onto another.
+        _rationale = "";
+        _panelError = null;
+        _target = "delisted";
+    }
+
+    private async Task ApplyAsync(AdminListing listing)
+    {
+        if (string.IsNullOrWhiteSpace(_rationale))
+        {
+            _panelError = "Write down why first. It goes in the log with your name on it.";
+            _notice = null;
+            return;
+        }
+
+        _saving = true;
+        _error = null;
+        _notice = null;
+
+        try
+        {
+            var result = await Api.SetListingStateAsync(listing.Id, _target, _rationale.Trim());
+
+            if (result.Success)
+            {
+                _notice = $"{listing.Id} is now {_target}.";
+                _open = null;
+                _rationale = "";
+                _panelError = null;
+                await LoadAsync();
+            }
+            else
+            {
+                _error = result.Error ?? "Could not change that listing.";
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string StateVariant(string state) => state switch
+    {
+        "taken_down" => "error",
+        "delisted" => "error",
+        "unlisted" => "warning",
+        _ => "ok",
+    };
+
+    private static string Explain(string state) => state switch
+    {
+        "listed" => "Back in browse and search.",
+        "unlisted" => "Out of browse and search. Anyone with the link still sees it.",
+        "delisted" => "Withdrawn. Still resolvable by id, with a notice in place of the listing.",
+        "taken_down" => "Same as delisted, and records that it was a legal request.",
+        _ => "",
+    };
+}

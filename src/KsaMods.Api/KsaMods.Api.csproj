@@ -4,6 +4,7 @@
     <ProjectReference Include="..\KsaMods.Metadata\KsaMods.Metadata.csproj" />
     <ProjectReference Include="..\KsaMods.Resolver\KsaMods.Resolver.csproj" />
     <ProjectReference Include="..\KsaMods.Exporter\KsaMods.Exporter.csproj" />
+    <ProjectReference Include="..\KsaMods.Forge\KsaMods.Forge.csproj" />
   </ItemGroup>
 
   <ItemGroup>

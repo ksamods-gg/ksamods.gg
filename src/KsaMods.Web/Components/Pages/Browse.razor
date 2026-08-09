@@ -1,36 +1,72 @@
 @page "/mods"
 @inject KsaModsApi Api
 
-<PageTitle>Browse mods — ksamods.gg</PageTitle>
+<PageTitle>Browse mods | ksamods.gg</PageTitle>
 
-<div class="flex items-baseline justify-between gap-4">
-    <h1 class="text-2xl font-semibold tracking-tight">
-        @(string.IsNullOrWhiteSpace(Q) ? "All mods" : $"Results for “{Q}”")
-    </h1>
-    <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
+@*
+    A catalogue header rather than a page title: the count and the active filters are the useful
+    information here, and they belong on the same line as the thing they describe.
+*@
+<div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+    <div class="min-w-0">
+        @* No eyebrow above the heading. The heading says what this is; a label above it saying
+           "Catalogue" was scaffolding the page did not need. *@
+        <h1 class="text-2xl font-bold tracking-tight">
+            @(string.IsNullOrWhiteSpace(Q)
+                ? (IsLoaders ? "Mod loaders" : "All mods")
+                : $"Results for “{Q}”")
+        </h1>
+    </div>
+
+    <div class="flex items-center gap-3">
+        @if (_page is not null && _page.Items.Count > 0)
+        {
+            <span class="font-mono text-xs text-muted-foreground tabular">
+                @_page.Items.Count shown@(_page.Next is not null ? ", more available" : "")
+            </span>
+        }
+        <Button Href="/mods/new" Variant="outline" Size="sm">Add a mod</Button>
+    </div>
 </div>
 
-<form action="/mods" method="get" class="mt-4 flex gap-2">
+@*
+    Facets left, results right. The rail is a column on desktop and a block above the results on
+    narrow screens rather than a drawer behind a button: there are two facet groups and a dozen
+    tags, which fits, and a filter you cannot see is a filter nobody uses.
+*@
+<div class="mt-5 flex flex-col gap-6 lg:flex-row lg:gap-8">
+    <FilterSidebar ActiveTag="@Tag" ActiveType="@(IsLoaders ? "mod-loader" : null)" Query="@Q" />
+
+    <div class="min-w-0 flex-1">
+
+<form action="/mods" method="get" class="flex gap-2">
     <input name="q" type="search" value="@Q" placeholder="Search by name or description…"
            aria-label="Search mods"
-           class="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm
+           class="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm
                   placeholder:text-muted-foreground focus-visible:outline-2
                   focus-visible:outline-offset-2 focus-visible:outline-ring" />
     @if (!string.IsNullOrWhiteSpace(Tag))
     {
         <input type="hidden" name="tag" value="@Tag" />
     }
+    @if (IsLoaders)
+    {
+        @* Keeps the tab across a search, so searching from the Loaders list does not silently
+           drop you back among the mods. *@
+        <input type="hidden" name="type" value="mod-loader" />
+    }
     <Button Type="submit" Variant="secondary">Search</Button>
 </form>
 
-@if (!string.IsNullOrWhiteSpace(Tag))
+@if (IsLoaders)
 {
-    <p class="mt-3 text-sm text-muted-foreground">
-        Filtered by tag <Badge Variant="outline">@Tag</Badge>
-        <a href="@($"/mods{(string.IsNullOrWhiteSpace(Q) ? "" : $"?q={Uri.EscapeDataString(Q!)}")}")"
-           class="ml-2 underline underline-offset-4">clear</a>
+    <p class="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        Loaders are the code that lets other mods run at all. You install one because something
+        you want says it needs it - a listing that requires one names it on its release page.
     </p>
 }
+
+
 
 <div class="mt-6">
     @if (_error is not null)
@@ -39,21 +75,50 @@
     }
     else if (_page is null)
     {
-        <p class="text-sm text-muted-foreground">Loading…</p>
+        <p class="font-mono text-xs text-muted-foreground">Loading…</p>
     }
     else if (_page.Items.Count == 0)
     {
-        <Card>
+        <Card Class="text-center">
             <p class="text-sm text-muted-foreground">
                 @(string.IsNullOrWhiteSpace(Q)
-                    ? "No mods are listed yet."
+                    ? (IsLoaders ? "No loaders are listed yet." : "No mods are listed yet.")
                     : $"Nothing matched “{Q}”.")
             </p>
+
+            @* Splitting the lists creates a way to search from one tab for something that only
+               exists in the other and be told, flatly, that it does not exist. Searching for
+               "starmap" among mods is exactly that case. *@
+            @if (_elsewhere > 0)
+            {
+                <p class="mt-3 text-sm">
+                    <a href="@TabUrl(IsLoaders ? null : "mod-loader")"
+                       class="underline underline-offset-4">
+                        @_elsewhere @(IsLoaders ? "mod" : "loader")@(_elsewhere == 1 ? "" : "s")
+                        @(_elsewhere == 1 ? "matches" : "match") it
+                    </a>
+                    <span class="text-muted-foreground">
+                        under @(IsLoaders ? "Mods" : "Loaders").
+                    </span>
+                </p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Q))
+            {
+                <Button Href="@TabUrl(TypeFilter)" Variant="ghost" Size="sm" Class="mt-3">
+                    Clear the search
+                </Button>
+            }
         </Card>
     }
     else
     {
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        @* ModCard heads itself at h3, which is right on the home page - the grid there sits under
+           a "Recently updated" h2. Here the grid follows the page h1 directly, so the levels
+           jumped 1 to 3 and the results had no name of their own. Undrawn because the h1 above
+           already says what these are; the outline needs the rung, the page does not. *@
+        <h2 class="sr-only">Results</h2>
+        <div class="grid items-start gap-4 sm:grid-cols-2">
             @foreach (var mod in _page.Items)
             {
                 <ModCard Mod="mod" />
@@ -64,20 +129,35 @@
         {
             @* Keyset pagination: the API hands back the last id rather than an offset, so a
                listing published mid-scroll cannot make a row repeat or vanish. *@
-            <div class="mt-6 flex justify-center">
+            <div class="mt-8 flex justify-center border-t border-border pt-8">
                 <Button Href="@NextPageUrl" Variant="outline">Next page</Button>
             </div>
         }
     }
+        </div>
+    </div>
 </div>
 
 @code {
     [SupplyParameterFromQuery] public string? Q { get; set; }
     [SupplyParameterFromQuery] public string? Tag { get; set; }
     [SupplyParameterFromQuery] public string? After { get; set; }
+    [SupplyParameterFromQuery] public string? Type { get; set; }
 
     private ModSummaryPage? _page;
     private string? _error;
+
+    /// <summary>How many of the other kind match, so an empty list is never a dead end.</summary>
+    private int _elsewhere;
+
+    private bool IsLoaders => Type == "mod-loader";
+
+    /// <summary>
+    /// Mods unless asked otherwise. Anything that is not the loader tab is the mod tab: a
+    /// hand-typed ?type=nonsense should land somewhere sensible rather than on an empty page
+    /// explaining a filter nobody chose.
+    /// </summary>
+    private string TypeFilter => IsLoaders ? "mod-loader" : "mod";
 
     private string NextPageUrl
     {
@@ -86,22 +166,47 @@
             var parameters = new List<string> { $"after={Uri.EscapeDataString(_page!.Next!)}" };
             if (!string.IsNullOrWhiteSpace(Q)) parameters.Add($"q={Uri.EscapeDataString(Q)}");
             if (!string.IsNullOrWhiteSpace(Tag)) parameters.Add($"tag={Uri.EscapeDataString(Tag)}");
+            if (IsLoaders) parameters.Add("type=mod-loader");
             return $"/mods?{string.Join('&', parameters)}";
         }
+    }
+
+    /// <summary>
+    /// The same list under the other kind. Keeps the query and the tag - switching kind should not
+    /// quietly discard what somebody typed. Shared with the rail, which links the same way.
+    /// </summary>
+    private string TabUrl(string? type)
+    {
+        var parameters = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Q)) parameters.Add($"q={Uri.EscapeDataString(Q)}");
+        if (!string.IsNullOrWhiteSpace(Tag)) parameters.Add($"tag={Uri.EscapeDataString(Tag)}");
+        if (type == "mod-loader") parameters.Add("type=mod-loader");
+
+        return parameters.Count == 0 ? "/mods" : $"/mods?{string.Join('&', parameters)}";
     }
 
     protected override async Task OnParametersSetAsync()
     {
         _error = null;
         _page = null;
+        _elsewhere = 0;
 
         try
         {
-            _page = await Api.SearchAsync(Q, Tag, after: After) ?? new ModSummaryPage();
+            _page = await Api.SearchAsync(Q, Tag, after: After, type: TypeFilter) ?? new ModSummaryPage();
+
+            // Only when this tab came back empty, so the common path stays one request.
+            if (_page.Items.Count == 0)
+            {
+                var other = await Api.SearchAsync(
+                    Q, Tag, type: IsLoaders ? "mod" : "mod-loader");
+
+                _elsewhere = other?.Items.Count ?? 0;
+            }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
-            _error = "The API did not respond.";
+            _error = "The API isn't responding right now.";
         }
     }
 }

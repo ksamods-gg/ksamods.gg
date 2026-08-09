@@ -1,4 +1,5 @@
 using System.Data;
+using KsaMods.Exporter;
 using Npgsql;
 
 namespace KsaMods.Api.Data;
@@ -10,15 +11,56 @@ namespace KsaMods.Api.Data;
 /// </summary>
 public sealed class Database(NpgsqlDataSource source)
 {
-    public async Task<IDbConnection> OpenAsync(CancellationToken ct) =>
+    /// <summary>
+    /// Returns a connection that is <b>already open</b>. Callers must not call <c>Open()</c> on it.
+    ///
+    /// <para>Npgsql throws "Connection already open" rather than ignoring a redundant open, and
+    /// because only transactional writes bothered to open explicitly, that mistake sat undetected
+    /// through every read path until the first person tried to sign in. The return type is
+    /// <see cref="NpgsqlConnection"/> rather than <see cref="IDbConnection"/> partly so that
+    /// <see cref="BeginTransactionAsync"/> below is reachable without a cast.</para>
+    /// </summary>
+    public async Task<NpgsqlConnection> OpenAsync(CancellationToken ct) =>
         await source.OpenConnectionAsync(ct);
+
+    /// <summary>
+    /// Opens a connection and starts a transaction on it, so no call site has to remember which
+    /// of the two steps the factory already did.
+    /// </summary>
+    public async Task<(NpgsqlConnection Connection, NpgsqlTransaction Transaction)> BeginTransactionAsync(
+        CancellationToken ct)
+    {
+        var connection = await source.OpenConnectionAsync(ct);
+
+        try
+        {
+            return (connection, await connection.BeginTransactionAsync(ct));
+        }
+        catch
+        {
+            // Otherwise a failure between open and begin leaks the connection back to nobody.
+            await connection.DisposeAsync();
+            throw;
+        }
+    }
 
     public static NpgsqlDataSource CreateDataSource(string connectionString)
     {
-        var builder = new NpgsqlDataSourceBuilder(connectionString);
+        var builder = new NpgsqlDataSourceBuilder(Normalise(connectionString));
         builder.EnableDynamicJson();
         return builder.Build();
     }
+
+    /// <summary>
+    /// Accepts either form of connection string and returns the one Npgsql understands.
+    ///
+    /// <para>Forwards to <see cref="ConnectionUrl"/>, which the exporter and the worker call too.
+    /// All three processes take the same variable and have to agree about it, so there is one
+    /// implementation and it lives in the lowest assembly they share.</para>
+    /// </summary>
+    public static string Normalise(string connectionString) =>
+        ConnectionUrl.Normalise(connectionString);
+
 }
 
 /// <summary>
@@ -74,7 +116,7 @@ public sealed class JobQueue(Database database)
 
     /// <summary>
     /// Exponential backoff, then <c>dead</c> with an alert. A dead job is an operational signal,
-    /// not a silent drop — §16.3 alerts on it.
+    /// not a silent drop - §16.3 alerts on it.
     /// </summary>
     public async Task FailAsync(long id, int attempts, string error, CancellationToken ct)
     {
