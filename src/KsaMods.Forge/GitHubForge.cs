@@ -35,6 +35,15 @@ public sealed class GitHubForge(HttpClient client, string? token = null) : IForg
                 : "main",
             Archived = root.TryGetProperty("archived", out var archived) && archived.GetBoolean(),
             Private = root.TryGetProperty("private", out var isPrivate) && isPrivate.GetBoolean(),
+
+            // Present on this response already, so proving ownership by topic costs no extra
+            // request. Absent on older API versions rather than empty, hence the TryGetProperty.
+            Topics = root.TryGetProperty("topics", out var topics) && topics.ValueKind == JsonValueKind.Array
+                ? [.. topics.EnumerateArray()
+                        .Select(t => t.GetString())
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .Select(t => t!)]
+                : [],
         };
     }
 

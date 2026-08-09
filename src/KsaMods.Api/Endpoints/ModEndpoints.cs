@@ -502,10 +502,15 @@ public static class ModEndpoints
                 verified = verified is not null,
                 challenge,
                 file_path = RepositoryProof.FilePath,
+
+                // Two routes to the same proof. The topic is listed first because it asks less of
+                // the person: nothing enters git history, and there is no commit to make on a
+                // branch that may be protected or reviewed.
                 instructions =
-                    $"Commit a file called {RepositoryProof.FilePath} to the {repository.DefaultBranch} branch of "
-                  + $"{repository.FullName}, containing exactly this line, then verify. Only somebody who can write "
-                  + "to the repository can do that, which is the thing being checked. You can delete it afterwards.",
+                    $"Add '{challenge}' as a topic on {repository.FullName}, or commit a file called "
+                  + $"{RepositoryProof.FilePath} to its {repository.DefaultBranch} branch containing that same line. "
+                  + "Either one proves you control the repository, which is the thing being checked, and either "
+                  + "can be removed once you are verified.",
             });
         });
 
@@ -531,12 +536,29 @@ public static class ModEndpoints
             if (link is null) return Results.NotFound();
             if (link.VerifiedAt is not null) return Results.Ok(new { verified = true });
 
-            string? published;
+            // Two ways to prove the same claim, and the caller does not have to say which they
+            // used. The topic is checked first because it comes back on a request the site makes
+            // anyway, so somebody who took that route is verified without the file being fetched
+            // at all.
+            string? method = null;
+            string? published = null;
 
             try
             {
-                published = await forges.For(link.Provider)
-                    .ReadVerificationFileAsync(link.RepoFullName, RepositoryProof.FilePath, ct);
+                var forge = forges.For(link.Provider);
+
+                var repository = await forge.GetRepositoryAsync(link.RepoFullName, ct);
+                if (RepositoryProof.SatisfiedByTopic(repository.Topics, link.challenge))
+                {
+                    method = "topic";
+                }
+                else
+                {
+                    published = await forge.ReadVerificationFileAsync(
+                        link.RepoFullName, RepositoryProof.FilePath, ct);
+
+                    if (RepositoryProof.Satisfies(published, link.challenge)) method = "challenge";
+                }
             }
             catch (ForgeException e)
             {
@@ -544,15 +566,16 @@ public static class ModEndpoints
                     statusCode: StatusCodes.Status502BadGateway);
             }
 
-            if (!RepositoryProof.Satisfies(published, link.challenge))
+            if (method is null)
             {
                 return Results.Conflict(new
                 {
                     error = "not_verified",
                     detail = published is null
-                        ? $"No {RepositoryProof.FilePath} on the default branch yet. A new commit can take a "
-                          + "moment to show up in the API."
-                        : "That file does not contain the challenge for this listing.",
+                        ? "No matching topic, and no "
+                          + $"{RepositoryProof.FilePath} on the default branch. Either proof works, and a change "
+                          + "can take a moment to show up in the forge's API."
+                        : $"Neither the topics nor {RepositoryProof.FilePath} carry the challenge for this listing.",
                     challenge = link.challenge,
                     file_path = RepositoryProof.FilePath,
                 });
@@ -560,15 +583,21 @@ public static class ModEndpoints
 
             await connection.ExecuteAsync("""
                 update repo_link
-                set verified_at = now(), verified_by = 'challenge', challenge = null
+                set verified_at = now(), verified_by = @method, challenge = null
                 where mod_id = @modId
                 """,
-                new { modId = mod.Id });
+                new { modId = mod.Id, method });
 
             return Results.Ok(new
             {
                 verified = true,
-                note = "Connected. You can delete the verification file; the proof is recorded.",
+                verified_by = method,
+
+                // Names what they actually did. Telling somebody who added a topic that they can
+                // delete a file sends them looking for one that was never there.
+                note = method == "topic"
+                    ? "Connected. You can remove the topic now, the proof is recorded."
+                    : "Connected. You can delete the verification file now, the proof is recorded.",
             });
         });
 

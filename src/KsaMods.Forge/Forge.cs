@@ -33,6 +33,12 @@ public sealed record ForgeRepository
     public required string DefaultBranch { get; init; }
     public bool Archived { get; init; }
     public bool Private { get; init; }
+
+    /// <summary>
+    /// The repository's topics, which arrive in the same response as everything else here and so
+    /// cost nothing extra to carry. Used to prove ownership without asking for a commit.
+    /// </summary>
+    public IReadOnlyList<string> Topics { get; init; } = [];
 }
 
 public sealed class ForgeException(string message, bool transient = false) : Exception(message)
@@ -126,6 +132,22 @@ public static class RepositoryProof
         !string.IsNullOrWhiteSpace(challenge)
         && fileContent is not null
         && string.Equals(fileContent.Trim(), challenge.Trim(), StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether one of the repository's topics is the challenge.
+    ///
+    /// <para>The challenge doubles as a topic without any reshaping: it is 47 characters of
+    /// lowercase hex and hyphens, and a topic may be up to 50 of exactly those. Adding one is a
+    /// settings change, so it proves at least as much as a commit does and leaves nothing behind
+    /// in the repository's history.</para>
+    ///
+    /// <para>Compared case-insensitively because forges lowercase topics on the way in, and a
+    /// proof that fails on capitalisation the user never typed is a puzzle rather than a check.</para>
+    /// </summary>
+    public static bool SatisfiedByTopic(IReadOnlyList<string>? topics, string? challenge) =>
+        !string.IsNullOrWhiteSpace(challenge)
+        && topics is not null
+        && topics.Any(t => string.Equals(t?.Trim(), challenge.Trim(), StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>

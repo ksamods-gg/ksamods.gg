@@ -78,6 +78,50 @@ public class ForgeTests
     }
 
     [Fact]
+    public void A_challenge_is_usable_as_a_repository_topic_without_reshaping()
+    {
+        // The topic proof only works because the challenge already fits what a forge accepts as a
+        // topic: 50 characters at most, lowercase alphanumerics and hyphens, starting with one of
+        // them. If NewChallenge ever grows or gains a capital, that proof silently stops being
+        // offerable, and the failure would show up as a user unable to paste it rather than here.
+        var challenge = RepositoryProof.NewChallenge();
+
+        Assert.True(challenge.Length <= 50, $"'{challenge}' is {challenge.Length} characters, too long for a topic.");
+        Assert.Matches("^[a-z0-9][a-z0-9-]*$", challenge);
+    }
+
+    [Fact]
+    public void A_topic_matching_the_challenge_proves_the_repository()
+    {
+        var challenge = RepositoryProof.NewChallenge();
+
+        Assert.True(RepositoryProof.SatisfiedByTopic([challenge], challenge));
+
+        // Among the topics the repository already had, which is the normal case.
+        Assert.True(RepositoryProof.SatisfiedByTopic(["ksp", "modding", challenge], challenge));
+
+        // Forges lowercase topics on the way in, so a proof that failed on capitalisation the
+        // user never typed would be a puzzle rather than a check.
+        Assert.True(RepositoryProof.SatisfiedByTopic([challenge.ToUpperInvariant()], challenge));
+    }
+
+    [Fact]
+    public void Topics_without_the_challenge_prove_nothing()
+    {
+        var challenge = RepositoryProof.NewChallenge();
+
+        Assert.False(RepositoryProof.SatisfiedByTopic(null, challenge));
+        Assert.False(RepositoryProof.SatisfiedByTopic([], challenge));
+        Assert.False(RepositoryProof.SatisfiedByTopic(["ksp", "modding"], challenge));
+        Assert.False(RepositoryProof.SatisfiedByTopic([RepositoryProof.NewChallenge()], challenge));
+
+        // A listing with no challenge outstanding is not proven by anything at all, which is what
+        // stops an empty stored challenge matching an empty topic.
+        Assert.False(RepositoryProof.SatisfiedByTopic([challenge], null));
+        Assert.False(RepositoryProof.SatisfiedByTopic([""], ""));
+    }
+
+    [Fact]
     public void A_published_challenge_satisfies_the_proof_despite_a_trailing_newline()
     {
         // Every editor adds one. Refusing over it would be a puzzle rather than a safeguard.

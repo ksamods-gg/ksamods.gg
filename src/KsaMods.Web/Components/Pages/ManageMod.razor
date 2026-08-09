@@ -144,26 +144,49 @@ else
                 <div class="mt-5 rounded-lg border border-border bg-card/50 p-4">
                     <h3 class="eyebrow text-muted-foreground">One more step</h3>
                     <p class="mt-2 text-sm leading-relaxed">
-                        Add a file called
-                        <code class="font-mono text-xs">@_challenge.FilePath</code>
-                        to the <code class="font-mono text-xs">@_challenge.DefaultBranch</code>
-                        branch of
-                        <code class="font-mono text-xs">@_challenge.RepoFullName</code>,
-                        containing exactly this line:
+                        Prove you control
+                        <code class="font-mono text-xs">@_challenge.RepoFullName</code>
+                        by putting this string somewhere only you could put it:
                     </p>
 
-                    @* This one has to be readable character by character to be copied correctly,
-                       so reaching the end of it by keyboard is not a nicety. *@
+                    @* This has to be readable character by character to be copied correctly, so
+                       reaching the end of it by keyboard is not a nicety. *@
                     <pre class="mt-3 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
-                         tabindex="0" role="region" aria-label="Verification line to commit, scrollable"><code>@_challenge.Challenge</code></pre>
+                         tabindex="0" role="region" aria-label="Verification string, scrollable"><code>@_challenge.Challenge</code></pre>
+
+                    @*
+                        Two routes, topic first. It asks less: no commit, nothing in git history,
+                        and no fight with a protected branch or a review rule on a repository whose
+                        history the author keeps tidy.
+                    *@
+                    <ol class="mt-4 space-y-3 text-sm leading-relaxed">
+                        <li class="flex gap-3">
+                            <span class="mt-px shrink-0 font-mono text-xs text-primary">A</span>
+                            <span>
+                                <span class="font-medium">Add it as a topic.</span>
+                                On the repository page, next to the About heading, click the settings
+                                cog and paste it into Topics. Nothing is committed, and you can take
+                                it off again afterwards.
+                            </span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="mt-px shrink-0 font-mono text-xs text-muted-foreground">B</span>
+                            <span class="text-muted-foreground">
+                                <span class="font-medium text-foreground">Or commit a file.</span>
+                                Put it in <code class="font-mono text-xs">@_challenge.FilePath</code>
+                                on the <code class="font-mono text-xs">@_challenge.DefaultBranch</code>
+                                branch, as the whole contents.
+                            </span>
+                        </li>
+                    </ol>
 
                     <div class="mt-4 flex flex-wrap items-center gap-3">
                         <Button Size="sm" Disabled="Busy" Pending="@(_busy == "verify")"
                                 PendingLabel="Verifying…" @onclick="VerifyRepositoryAsync">
-                            Added it - verify
+                            Done - verify
                         </Button>
                         <span class="text-xs text-muted-foreground">
-                            You can delete the file afterwards. We record that the check passed, not the file.
+                            Either one works. We record that the check passed, not what you used.
                         </span>
                     </div>
                 </div>
