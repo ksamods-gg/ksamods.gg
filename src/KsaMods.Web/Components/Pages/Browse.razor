@@ -76,6 +76,11 @@
     }
     else
     {
+        @* ModCard heads itself at h3, which is right on the home page - the grid there sits under
+           a "Recently updated" h2. Here the grid follows the page h1 directly, so the levels
+           jumped 1 to 3 and the results had no name of their own. Undrawn because the h1 above
+           already says what these are; the outline needs the rung, the page does not. *@
+        <h2 class="sr-only">Results</h2>
         <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach (var mod in _page.Items)
             {

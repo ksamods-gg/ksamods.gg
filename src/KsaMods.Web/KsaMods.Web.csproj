@@ -21,9 +21,28 @@
     <ProjectReference Include="..\KsaMods.Metadata\KsaMods.Metadata.csproj" />
   </ItemGroup>
 
-  <!-- Tailwind is built before compile so wwwroot/app.css is never stale in a fresh clone. -->
+  <!--
+    Tailwind is built before compile so wwwroot/app.css is never stale in a fresh clone.
+
+    That promise used to be defeated by the flag meant to keep the build convenient. With
+    ContinueOnError="true" a missing node_modules, a syntax error in app.css, or an npm that is not
+    on PATH all failed silently, MSBuild carried on, and the app served whatever app.css happened
+    to be committed. The failure mode was the exact one this target exists to prevent, and it was
+    invisible: a green build serving stale CSS.
+
+    So the Exec now fails the build, and says which of the two likely causes it was. Pass
+    -p:SkipTailwind=true to opt out deliberately - a container build that has already run the CSS
+    step, for instance - which is a decision someone makes rather than one a missing tool makes
+    for them.
+  -->
   <Target Name="BuildTailwind" BeforeTargets="BeforeBuild" Condition="'$(SkipTailwind)' != 'true'">
-    <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)" ContinueOnError="true" />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/node_modules')"
+           Text="Tailwind cannot run: node_modules is missing. Run 'npm install' in $(MSBuildProjectDirectory), or build with -p:SkipTailwind=true to serve the committed wwwroot/app.css as-is." />
+
+    <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)" />
+
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/wwwroot/app.css')"
+           Text="Tailwind reported success but wwwroot/app.css does not exist." />
   </Target>
 
 </Project>

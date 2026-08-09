@@ -1,6 +1,29 @@
 @namespace KsaMods.Web.Components.Ui
 
-<div class="@Classes" role="@(Variant is "error" ? "alert" : "note")">
+@*
+    A block-level message about the page or about what just happened.
+
+    Two things were wrong with it and they had the same root: the variant list here had drifted
+    from Badge's, which is the other component the severity tokens feed.
+
+    Badge understood "ok" and this did not, so the seven places that announce a success - saving a
+    profile, publishing a listing, every moderation action - asked for the positive colour and fell
+    through to the neutral default. `--color-severity-ok` existed, cleared its contrast bar, was
+    used elsewhere, and never once appeared on the surface a person looks at to find out their work
+    was kept. The two vocabularies now match, and the ordering below is Badge's ordering, so a
+    future addition to either reads as obviously missing from the other.
+
+    The role was the other half. Only errors were a live region; everything else was `note`, which
+    is a real ARIA role but not one that announces. A screen-reader user pressed Save, the button
+    came back to rest, and nothing said so. Errors stay assertive because they interrupt on
+    purpose; everything else is polite, which is what a confirmation should be.
+
+    A server-rendered alert that is present at first paint does not announce, and should not - a
+    live region reports changes, and the withdrawn-listing notice on a mod page is not a change.
+    The role costs nothing there and is exactly right for the ones that appear after an action.
+*@
+
+<div class="@Classes" role="@Role">
     @if (Title is not null)
     {
         <p class="text-sm font-semibold">@Title</p>
@@ -12,18 +35,24 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Title { get; set; }
 
-    /// <summary>neutral | error | warning | info</summary>
+    /// <summary>neutral | error | warning | info | ok — the same set <see cref="Badge"/> takes.</summary>
     [Parameter] public string Variant { get; set; } = "neutral";
 
     [Parameter] public string? Class { get; set; }
 
     private string Classes => Cx.Of("rounded-lg border px-4 py-3", VariantClasses, Class);
 
+    /// <summary>
+    /// Assertive for errors, polite for everything else. `note` announced nothing at all.
+    /// </summary>
+    private string Role => Variant is "error" ? "alert" : "status";
+
     private string VariantClasses => Variant switch
     {
         "error" => "border-severity-error/30 bg-severity-error/10 text-severity-error",
         "warning" => "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
         "info" => "border-severity-info/30 bg-severity-info/10 text-severity-info",
+        "ok" => "border-severity-ok/30 bg-severity-ok/10 text-severity-ok",
         _ => "border-border bg-muted/40 text-foreground",
     };
 }

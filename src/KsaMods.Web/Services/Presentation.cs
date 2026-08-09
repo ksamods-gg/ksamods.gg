@@ -15,9 +15,22 @@ public static class Presentation
     /// <summary>
     /// RFC 0017's four compatibility states. Only Incompatible is a refusal - the copy has to
     /// carry that, or a warning reads as a block and users stop trusting either.
+    ///
+    /// <para>Revisions decide, version strings are shown. The fourth component is what orders
+    /// builds and what every comparison here runs on, but it is a machine number: nobody reads
+    /// "5000" off their title screen, they read "2026.6.2.5000". The display strings come in
+    /// alongside the revisions so the answer is phrased in the units the reader actually has,
+    /// which is what backend.md's listing-page rules ask for. Where a string is missing the
+    /// revision is still better than nothing, so it stands in.</para>
     /// </summary>
-    public static Pill Compatibility(int? installedRevision, int? min, int? max)
+    public static Pill Compatibility(
+        int? installedRevision, int? min, int? max,
+        string? minLabel = null, string? maxLabel = null, string? installedLabel = null)
     {
+        var needs = minLabel ?? min?.ToString();
+        var upTo = maxLabel ?? max?.ToString();
+        var yours = installedLabel ?? installedRevision?.ToString();
+
         if (min is null)
         {
             return new Pill("Unknown", "outline",
@@ -26,23 +39,23 @@ public static class Presentation
 
         if (installedRevision is null)
         {
-            return new Pill($"Needs {min}+", "outline",
+            return new Pill($"Needs {needs} or newer", "outline",
                 "Tell us your game build and we'll say whether this one fits.");
         }
 
         if (installedRevision < min)
         {
             return new Pill("Incompatible", "error",
-                $"Needs revision {min} or newer. You're on {installedRevision}.");
+                $"Needs {needs} or newer. You're on {yours}.");
         }
 
         if (max is not null && installedRevision > max)
         {
             return new Pill("Untested", "warning",
-                $"Only tested up to revision {max}, and you're on {installedRevision}. It might still work.");
+                $"Only tested up to {upTo}, and you're on {yours}. It might still work.");
         }
 
-        return new Pill("Compatible", "ok", $"Tested against your game build ({installedRevision}).");
+        return new Pill("Compatible", "ok", $"Tested against your game build ({yours}).");
     }
 
     /// <summary>

@@ -1,5 +1,33 @@
 @namespace KsaMods.Web.Components.Ui
 
+@*
+    A labelled form row.
+
+    The component already knows the id, the hint, and whether there is an error, so it is the only
+    thing on the page that can wire those together correctly - and it now does, rather than leaving
+    each caller to remember. It hands the control an attribute bag to splat:
+
+        <Field Context="field" Id="license" Label="License" Hint="An SPDX identifier.">
+            <input @attributes="field" @bind="_form.License" class="@InputClass" />
+        </Field>
+
+    The bag is named rather than left as Blazor's implicit `context`, because every one of these
+    sits inside an EditForm, which supplies a `context` of its own and makes the bare name
+    ambiguous. `field` also just reads better at the splat.
+
+    That bag carries the id, `aria-required`, and an `aria-describedby` pointing at whichever of the
+    hint or the error is actually on screen. Before this, one field out of eighteen was described
+    and the other seventeen announced their label and nothing else - so the field warning you that
+    an id can never be changed later read, to a screen reader, exactly like the one asking for a
+    display name.
+
+    `aria-invalid` matters as much: the only other signal that a control is in an error state is a
+    red border, and colour alone is not a signal.
+
+    Splatting first means a caller can still override any of it by writing the attribute afterwards,
+    which is Blazor's precedence rule and the right way round for an escape hatch.
+*@
+
 <div class="@Cx.Of("space-y-1.5", Class)">
     <label for="@Id" class="block text-sm font-medium">
         @Label
@@ -9,26 +37,68 @@
         }
     </label>
 
-    @ChildContent
+    @ChildContent?.Invoke(ControlAttributes)
 
+    @* The hint steps aside for an error rather than stacking with it: two lines of small print
+       under a control that is already wrong is not more help. Whichever one is showing is the one
+       aria-describedby points at, so what is announced is what is visible. *@
     @if (Hint is not null && Error is null)
     {
-        <p class="text-xs text-muted-foreground">@Hint</p>
+        <p id="@HintId" class="text-xs text-muted-foreground">@Hint</p>
     }
     @if (Error is not null)
     {
-        @* Tied to the control by aria-describedby so a screen reader announces the reason, not
-           just that something is invalid. *@
-        <p id="@($"{Id}-error")" class="text-xs text-severity-error">@Error</p>
+        <p id="@ErrorId" class="text-xs text-severity-error">@Error</p>
     }
 </div>
 
 @code {
     [Parameter, EditorRequired] public string Id { get; set; } = "";
     [Parameter, EditorRequired] public string Label { get; set; } = "";
-    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Receives the attribute bag to splat onto the control: <c>@attributes="context"</c>.
+    /// </summary>
+    [Parameter] public RenderFragment<IReadOnlyDictionary<string, object>>? ChildContent { get; set; }
+
     [Parameter] public string? Hint { get; set; }
     [Parameter] public string? Error { get; set; }
     [Parameter] public bool Required { get; set; } = true;
     [Parameter] public string? Class { get; set; }
+
+    private string HintId => $"{Id}-hint";
+    private string ErrorId => $"{Id}-error";
+
+    /// <summary>
+    /// Rebuilt per render rather than cached, because <see cref="Error"/> flips between renders and
+    /// a stale bag would keep describing a message that is no longer on the page.
+    /// </summary>
+    private IReadOnlyDictionary<string, object> ControlAttributes
+    {
+        get
+        {
+            var attributes = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["id"] = Id,
+            };
+
+            if (Required)
+            {
+                // Matches what a sighted reader gets from the absence of the "optional" marker.
+                attributes["aria-required"] = "true";
+            }
+
+            if (Error is not null)
+            {
+                attributes["aria-invalid"] = "true";
+                attributes["aria-describedby"] = ErrorId;
+            }
+            else if (Hint is not null)
+            {
+                attributes["aria-describedby"] = HintId;
+            }
+
+            return attributes;
+        }
+    }
 }

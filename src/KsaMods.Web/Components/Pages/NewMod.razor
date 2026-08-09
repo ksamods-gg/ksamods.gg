@@ -12,85 +12,92 @@
     someone fill in six fields and then telling them to sign in wastes their work and reads like
     a bug. They go to the sign-in page and come straight back here afterwards.
 *@
-@if (!_ready)
-{
-    <p class="font-mono text-xs text-muted-foreground">Loading…</p>
-    return;
-}
-
 <div class="mx-auto max-w-2xl">
     <h1 class="text-2xl font-semibold tracking-tight">Add a mod</h1>
     <p class="mt-2 text-muted-foreground">
         This creates the listing. Releases arrive later, by connecting the repository you tag them in.
     </p>
 
-    @if (_serverError is not null)
+    @*
+        The heading is outside the gate below, so it is on the page from the first frame rather
+        than arriving with the form. This component prerenders and then initialises a second time
+        when the interactive circuit attaches, and with the heading inside the gate that second
+        pass took it back off the page - a visible flicker, and a moment where the route has
+        changed and there is no heading for a screen reader to be sent to.
+    *@
+    @if (!_ready)
     {
-        <Alert Variant="error" Title="Could not create the listing" Class="mt-6">@_serverError</Alert>
+        <p class="mt-6 font-mono text-xs text-muted-foreground">Loading…</p>
     }
+    else
+    {
+        @if (_serverError is not null)
+        {
+            <Alert Variant="error" Title="Could not create the listing" Class="mt-6">@_serverError</Alert>
+        }
 
-    <EditForm Model="_form" OnValidSubmit="SubmitAsync" FormName="new-mod" class="mt-6 space-y-5">
-        <DataAnnotationsValidator />
+        <EditForm Model="_form" OnValidSubmit="SubmitAsync" FormName="new-mod" class="mt-6 space-y-5">
+            <DataAnnotationsValidator />
 
-        <Card>
-            <Field Id="id" Label="Mod id" Error="@_idError"
-                   Hint="The folder name the game will see, exactly. This is the mod's identity, and you can't change it later.">
-                <input id="id" @bind="_form.Id" @bind:event="oninput" @bind:after="ValidateId"
-                       autocomplete="off" spellcheck="false"
-                       aria-describedby="@(_idError is not null ? "id-error" : null)"
-                       class="@IdInputClass" />
-            </Field>
-
-            @if (_idPreview is not null)
-            {
-                <p class="mt-2 font-mono text-xs text-muted-foreground">
-                    Installs to <span class="text-foreground">…/mods/@_idPreview/</span>
-                </p>
-            }
-
-            <div class="mt-5 space-y-5">
-                <Field Id="name" Label="Display name" Hint="Whatever you want to call it. You can change this later.">
-                    <input id="name" @bind="_form.Name" class="@InputClass" />
+            <Card>
+                <Field Context="field" Id="id" Label="Mod id" Error="@_idError"
+                       Hint="The folder name the game will see, exactly. This is the mod's identity, and you can't change it later.">
+                    <input @attributes="field" @bind="_form.Id" @bind:event="oninput" @bind:after="ValidateId"
+                           autocomplete="off" spellcheck="false" class="@IdInputClass" />
                 </Field>
 
-                <Field Id="abstract" Label="Short description"
-                       Hint="One or two sentences, shown in search results.">
-                    <textarea id="abstract" @bind="_form.Abstract" rows="2" class="@InputClass"></textarea>
-                </Field>
+                @if (_idPreview is not null)
+                {
+                    <p class="mt-2 font-mono text-xs text-muted-foreground">
+                        Installs to <span class="text-foreground">…/mods/@_idPreview/</span>
+                    </p>
+                }
 
-                <Field Id="license" Label="License"
-                       Hint="An SPDX identifier such as MIT, Apache-2.0 or CC-BY-4.0.">
-                    <input id="license" @bind="_form.License" list="spdx" class="@InputClass" />
-                    <datalist id="spdx">
-                        <option value="MIT" />
-                        <option value="Apache-2.0" />
-                        <option value="GPL-3.0-or-later" />
-                        <option value="CC-BY-4.0" />
-                        <option value="CC0-1.0" />
-                    </datalist>
-                </Field>
+                <div class="mt-5 space-y-5">
+                    <Field Context="field" Id="name" Label="Display name" Hint="Whatever you want to call it. You can change this later.">
+                        <input @attributes="field" @bind="_form.Name" class="@InputClass" />
+                    </Field>
 
-                <Field Id="banner" Label="Banner image" Required="false"
-                       Hint="An https link to a wide image, roughly 3:1. It shows at the top of your mod page and on your card when people browse. We only store the link, so leave the file where it is.">
-                    <input id="banner" type="url" @bind="_form.BannerUrl"
-                           placeholder="https://…/banner.png" class="@InputClass" />
-                </Field>
+                    <Field Context="field" Id="abstract" Label="Short description"
+                           Hint="One or two sentences, shown in search results.">
+                        <textarea @attributes="field" @bind="_form.Abstract" rows="2" class="@InputClass"></textarea>
+                    </Field>
 
-                <Field Id="forums" Label="KSA forums thread" Required="false"
-                       Hint="You don't need this to create the listing: connecting your repository is what proves it's yours. You do need it before the listing shows up in the exported index other clients read.">
-                    <input id="forums" type="url" @bind="_form.Forums"
-                           placeholder="https://forums.ahwoo.com/threads/…" class="@InputClass" />
-                </Field>
+                    <Field Context="field" Id="license" Label="License"
+                           Hint="An SPDX identifier such as MIT, Apache-2.0 or CC-BY-4.0.">
+                        <input @attributes="field" @bind="_form.License" list="spdx" class="@InputClass" />
+                        <datalist id="spdx">
+                            <option value="MIT" />
+                            <option value="Apache-2.0" />
+                            <option value="GPL-3.0-or-later" />
+                            <option value="CC-BY-4.0" />
+                            <option value="CC0-1.0" />
+                        </datalist>
+                    </Field>
+
+                    <Field Context="field" Id="banner" Label="Banner image" Required="false"
+                           Hint="An https link to a wide image, roughly 3:1. It shows at the top of your mod page and on your card when people browse. We only store the link, so leave the file where it is.">
+                        <input @attributes="field" type="url" @bind="_form.BannerUrl"
+                               placeholder="https://…/banner.png" class="@InputClass" />
+                    </Field>
+
+                    <Field Context="field" Id="forums" Label="KSA forums thread" Required="false"
+                           Hint="You don't need this to create the listing: connecting your repository is what proves it's yours. You do need it before the listing shows up in the exported index other clients read.">
+                        <input @attributes="field" type="url" @bind="_form.Forums"
+                               placeholder="https://forums.ahwoo.com/threads/…" class="@InputClass" />
+                    </Field>
+                </div>
+            </Card>
+
+            <div class="flex items-center gap-3">
+                <Button Type="submit" Disabled="_submitting || _idError is not null" Pending="_submitting"
+                        PendingLabel="Creating…">
+                    Create listing
+                </Button>
+                <Button Href="/mods" Variant="ghost">Cancel</Button>
             </div>
-        </Card>
-
-        <div class="flex items-center gap-3">
-            <Button Type="submit" Disabled="_submitting || _idError is not null" Pending="_submitting">
-                Create listing
-            </Button>
-            <Button Href="/mods" Variant="ghost">Cancel</Button>
-        </div>
-    </EditForm>
+        </EditForm>
+    }
 </div>
 
 @code {

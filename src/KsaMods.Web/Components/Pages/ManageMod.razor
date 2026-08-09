@@ -5,36 +5,52 @@
 
 <PageTitle>Manage @Id | ksamods.gg</PageTitle>
 
+@*
+    The heading sits outside every branch below, because the route already carries enough to write
+    it: the id in the URL is the listing's identity, and the display name that replaces it once the
+    fetch lands is the same mod by a friendlier name. Waiting for the response to render any
+    heading at all meant the page had none during load, none on an error, and none for the "not
+    yours" case - and this component initialises twice, so on the second pass the heading it did
+    have disappeared and came back.
+*@
+<div class="mx-auto max-w-3xl">
+    <div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+        <div class="min-w-0">
+            <p class="eyebrow text-muted-foreground">Manage</p>
+            <h1 class="mt-2 truncate text-2xl font-bold tracking-tight">@(_mod?.Name ?? Id)</h1>
+            <code class="mt-1 block font-mono text-xs text-muted-foreground">@(_mod?.Id ?? Id)</code>
+        </div>
+        @if (_mod is not null)
+        {
+            <Button Href="@($"/mods/{Id}")" Variant="outline" Size="sm">View listing</Button>
+        }
+    </div>
+</div>
+
 @if (_loading)
 {
-    <p class="font-mono text-xs text-muted-foreground">Loading…</p>
+    <p class="mx-auto mt-6 max-w-3xl font-mono text-xs text-muted-foreground">Loading…</p>
 }
 else if (_mod is null)
 {
-    <Alert Variant="error" Title="Could not load this listing">
+    <Alert Variant="error" Title="Could not load this listing" Class="mx-auto mt-6 max-w-3xl">
         @(_loadError ?? "No listing with that id.")
     </Alert>
 }
 else if (!_mod.CanManage)
 {
     @* Reachable by typing the URL. Say why rather than showing an empty page. *@
-    <Alert Variant="info" Title="This isn't your listing">
-        Only the people who maintain a mod can manage it. If it's yours and you're signed in with
-        a different account, that's the one to sign in with.
-    </Alert>
-    <Button Href="@($"/mods/{Id}")" Variant="outline" Size="sm" Class="mt-6">Back to the listing</Button>
+    <div class="mx-auto max-w-3xl">
+        <Alert Variant="info" Title="This isn't your listing" Class="mt-6">
+            Only the people who maintain a mod can manage it. If it's yours and you're signed in with
+            a different account, that's the one to sign in with.
+        </Alert>
+        <Button Href="@($"/mods/{Id}")" Variant="outline" Size="sm" Class="mt-6">Back to the listing</Button>
+    </div>
 }
 else
 {
     <div class="mx-auto max-w-3xl">
-        <div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
-            <div class="min-w-0">
-                <p class="eyebrow text-muted-foreground">Manage</p>
-                <h1 class="mt-2 truncate text-2xl font-bold tracking-tight">@_mod.Name</h1>
-                <code class="mt-1 block font-mono text-xs text-muted-foreground">@_mod.Id</code>
-            </div>
-            <Button Href="@($"/mods/{Id}")" Variant="outline" Size="sm">View listing</Button>
-        </div>
 
         @if (_message is not null)
         {
@@ -71,7 +87,9 @@ else
                 </div>
 
                 <Button Size="sm" Variant="@(_mod.IsDraft ? "primary" : "outline")"
-                        Disabled="_busy" Pending="_busy" @onclick="ToggleVisibilityAsync">
+                        Disabled="Busy" Pending="@(_busy == "visibility")"
+                        PendingLabel="@(_mod.IsDraft ? "Publishing…" : "Saving…")"
+                        @onclick="ToggleVisibilityAsync">
                     @(_mod.IsDraft ? "Publish" : "Make it a draft again")
                 </Button>
             </div>
@@ -88,32 +106,32 @@ else
             </p>
 
             <div class="mt-5 space-y-4">
-                <Field Id="provider" Label="Forge">
+                <Field Context="field" Id="provider" Label="Forge">
                     @* GitHub only, because GitHub is the only adapter. Offering forges nothing can
                        read would produce a listing that looks connected and imports nothing. *@
-                    <select id="provider" @bind="_repo.Provider" class="@InputClass">
+                    <select @attributes="field" @bind="_repo.Provider" class="@InputClass">
                         <option value="github">GitHub</option>
                     </select>
                 </Field>
 
-                <Field Id="repoFullName" Label="Repository" Hint="Owner and name, like yourname/YourMod.">
-                    <input id="repoFullName" @bind="_repo.RepoFullName" placeholder="yourname/YourMod"
+                <Field Context="field" Id="repoFullName" Label="Repository" Hint="Owner and name, like yourname/YourMod.">
+                    <input @attributes="field" @bind="_repo.RepoFullName" placeholder="yourname/YourMod"
                            autocomplete="off" spellcheck="false" class="@InputClass" />
                 </Field>
 
-                <Field Id="assetGlob" Label="Asset pattern" Required="false"
+                <Field Context="field" Id="assetGlob" Label="Asset pattern" Required="false"
                        Hint="Which attached file to read, if a tag carries more than one. Leave it empty and we'll take the only archive.">
-                    <input id="assetGlob" @bind="_repo.AssetGlob" placeholder="*.zip" class="@InputClass" />
+                    <input @attributes="field" @bind="_repo.AssetGlob" placeholder="*.zip" class="@InputClass" />
                 </Field>
             </div>
 
             <div class="mt-5 flex flex-wrap items-center gap-3">
-                <Button Size="sm" Disabled="_busy || !CanConnect" Pending="_busy"
-                        @onclick="ConnectRepositoryAsync">
+                <Button Size="sm" Disabled="Busy || !CanConnect" Pending="@(_busy == "connect")"
+                        PendingLabel="Connecting…" @onclick="ConnectRepositoryAsync">
                     @(_challenge is null ? "Connect repository" : "Start over")
                 </Button>
-                <Button Size="sm" Variant="outline" Disabled="_busy" Pending="_busy"
-                        @onclick="ImportReleasesAsync">
+                <Button Size="sm" Variant="outline" Disabled="Busy" Pending="@(_busy == "import")"
+                        PendingLabel="Importing…" @onclick="ImportReleasesAsync">
                     Import releases now
                 </Button>
             </div>
@@ -134,10 +152,14 @@ else
                         containing exactly this line:
                     </p>
 
-                    <pre class="mt-3 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"><code>@_challenge.Challenge</code></pre>
+                    @* This one has to be readable character by character to be copied correctly,
+                       so reaching the end of it by keyboard is not a nicety. *@
+                    <pre class="mt-3 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+                         tabindex="0" role="region" aria-label="Verification line to commit, scrollable"><code>@_challenge.Challenge</code></pre>
 
                     <div class="mt-4 flex flex-wrap items-center gap-3">
-                        <Button Size="sm" Disabled="_busy" Pending="_busy" @onclick="VerifyRepositoryAsync">
+                        <Button Size="sm" Disabled="Busy" Pending="@(_busy == "verify")"
+                                PendingLabel="Verifying…" @onclick="VerifyRepositoryAsync">
                             Added it - verify
                         </Button>
                         <span class="text-xs text-muted-foreground">
@@ -150,35 +172,36 @@ else
 
         <Card Class="mt-6" Header="@(b => b.AddContent(0, "Listing details"))">
             <div class="space-y-5">
-                <Field Id="name" Label="Display name">
-                    <input id="name" @bind="_edit.Name" class="@InputClass" />
+                <Field Context="field" Id="name" Label="Display name">
+                    <input @attributes="field" @bind="_edit.Name" class="@InputClass" />
                 </Field>
 
-                <Field Id="abstract" Label="Short description" Hint="One or two sentences, shown in search results.">
-                    <textarea id="abstract" @bind="_edit.Abstract" rows="2" class="@InputClass"></textarea>
+                <Field Context="field" Id="abstract" Label="Short description" Hint="One or two sentences, shown in search results.">
+                    <textarea @attributes="field" @bind="_edit.Abstract" rows="2" class="@InputClass"></textarea>
                 </Field>
 
-                <Field Id="description" Label="Full description" Required="false"
+                <Field Context="field" Id="description" Label="Full description" Required="false"
                        Hint="Shown on the listing page. Plain text.">
-                    <textarea id="description" @bind="_edit.Description" rows="5" class="@InputClass"></textarea>
+                    <textarea @attributes="field" @bind="_edit.Description" rows="5" class="@InputClass"></textarea>
                 </Field>
 
-                <Field Id="license" Label="License" Hint="An SPDX identifier such as MIT, Apache-2.0 or CC-BY-4.0.">
-                    <input id="license" @bind="_edit.License" class="@InputClass" />
+                <Field Context="field" Id="license" Label="License" Hint="An SPDX identifier such as MIT, Apache-2.0 or CC-BY-4.0.">
+                    <input @attributes="field" @bind="_edit.License" class="@InputClass" />
                 </Field>
 
-                <Field Id="tags" Label="Tags" Required="false" Hint="Comma separated, like parts, planets, ui.">
-                    <input id="tags" @bind="_edit.Tags" class="@InputClass" />
+                <Field Context="field" Id="tags" Label="Tags" Required="false" Hint="Comma separated, like parts, planets, ui.">
+                    <input @attributes="field" @bind="_edit.Tags" class="@InputClass" />
                 </Field>
 
-                <Field Id="banner" Label="Banner image" Required="false"
+                <Field Context="field" Id="banner" Label="Banner image" Required="false"
                        Hint="An https link to a wide image, roughly 3:1. We only store the link, so leave the file where it is.">
-                    <input id="banner" type="url" @bind="_edit.BannerUrl" placeholder="https://…/banner.png"
+                    <input @attributes="field" type="url" @bind="_edit.BannerUrl" placeholder="https://…/banner.png"
                            class="@InputClass" />
                 </Field>
             </div>
 
-            <Button Size="sm" Class="mt-5" Disabled="_busy" Pending="_busy" @onclick="SaveAsync">
+            <Button Size="sm" Class="mt-5" Disabled="Busy" Pending="@(_busy == "save")"
+                    PendingLabel="Saving…" @onclick="SaveAsync">
                 Save changes
             </Button>
         </Card>
@@ -209,7 +232,7 @@ else
                     <div class="mt-4 flex flex-wrap items-center gap-3">
                         @if (!_confirmDelete)
                         {
-                            <Button Size="sm" Variant="destructive" Disabled="_busy"
+                            <Button Size="sm" Variant="destructive" Disabled="Busy"
                                     @onclick="() => _confirmDelete = true">
                                 Delete listing
                             </Button>
@@ -217,11 +240,11 @@ else
                         else
                         {
                             <span class="text-sm font-medium">Delete @_mod.Id for good?</span>
-                            <Button Size="sm" Variant="destructive" Disabled="_busy" Pending="_busy"
-                                    @onclick="DeleteAsync">
+                            <Button Size="sm" Variant="destructive" Disabled="Busy" Pending="@(_busy == "delete")"
+                                    PendingLabel="Deleting…" @onclick="DeleteAsync">
                                 Yes, delete it
                             </Button>
-                            <Button Size="sm" Variant="ghost" Disabled="_busy"
+                            <Button Size="sm" Variant="ghost" Disabled="Busy"
                                     @onclick="() => _confirmDelete = false">
                                 Cancel
                             </Button>
@@ -238,7 +261,17 @@ else
 
     private ModDetail? _mod;
     private bool _loading = true;
-    private bool _busy;
+    @* Which action is in flight, or null when nothing is. It used to be a plain bool shared by
+       every button on the page, which was survivable while the only pending signal was a spinner
+       and stopped being survivable the moment the buttons started saying what they were doing:
+       pressing Save made all six of them announce that they were saving.
+
+       Everything still disables together, because these all mutate the same listing and letting a
+       second one start mid-flight is how you get two answers for one record. Only the one that was
+       actually pressed reports itself as pending. *@
+    private string? _busy;
+
+    private bool Busy => _busy is not null;
     private bool _confirmDelete;
     private string? _loadError;
     private string? _error;
@@ -298,9 +331,9 @@ else
         }
     }
 
-    private async Task RunAsync(Func<Task<CreateModResult>> action, string success)
+    private async Task RunAsync(string key, Func<Task<CreateModResult>> action, string success)
     {
-        _busy = true;
+        _busy = key;
         _error = null;
         _message = null;
 
@@ -330,15 +363,17 @@ else
         }
         finally
         {
-            _busy = false;
+            _busy = null;
         }
     }
 
     private Task ToggleVisibilityAsync() => RunAsync(
+        "visibility",
         () => Api.SetModVisibilityAsync(Id, listed: _mod!.IsDraft),
         _mod!.IsDraft ? "Published. It's in browse and search now." : "Back to a draft. It's out of browse and search.");
 
     private Task SaveAsync() => RunAsync(
+        "save",
         () => Api.EditModAsync(Id, new EditModRequest(
             Name: _edit.Name.Trim(),
             Abstract: _edit.Abstract.Trim(),
@@ -351,7 +386,7 @@ else
 
     private async Task ConnectRepositoryAsync()
     {
-        _busy = true;
+        _busy = "connect";
         _error = null;
         _message = null;
 
@@ -380,13 +415,13 @@ else
         }
         finally
         {
-            _busy = false;
+            _busy = null;
         }
     }
 
     private async Task VerifyRepositoryAsync()
     {
-        _busy = true;
+        _busy = "verify";
         _error = null;
         _message = null;
 
@@ -413,13 +448,13 @@ else
         }
         finally
         {
-            _busy = false;
+            _busy = null;
         }
     }
 
     private async Task ImportReleasesAsync()
     {
-        _busy = true;
+        _busy = "import";
         _error = null;
         _message = null;
 
@@ -444,13 +479,13 @@ else
         }
         finally
         {
-            _busy = false;
+            _busy = null;
         }
     }
 
     private async Task DeleteAsync()
     {
-        _busy = true;
+        _busy = "delete";
         _error = null;
 
         try
@@ -472,7 +507,7 @@ else
         }
         finally
         {
-            _busy = false;
+            _busy = null;
         }
     }
 

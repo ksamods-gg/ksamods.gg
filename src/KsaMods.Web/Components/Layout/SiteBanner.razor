@@ -26,10 +26,20 @@
 
             @if (Banner.Dismissible)
             {
+                @* 32px square. It was a 26x18 hit box built out of padding around a glyph, which
+                   is under the 24px minimum in both directions on the control most likely to be
+                   pressed one-handed while walking. The mark is now drawn rather than typed: a
+                   multiplication sign is not an icon, and Tabler at stroke-width 2 is what the
+                   theme toggle beside it already uses. *@
                 <button type="button" data-banner-dismiss aria-label="Dismiss this notice"
-                        class="ml-auto shrink-0 rounded px-1.5 py-0.5 leading-none opacity-70
-                               hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2">
-                    &#x2715;
+                        class="ml-auto inline-flex size-8 shrink-0 items-center justify-center rounded
+                               opacity-70 transition-opacity hover:opacity-100
+                               focus-visible:outline-2 focus-visible:outline-offset-2">
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                    </svg>
                 </button>
             }
         </div>

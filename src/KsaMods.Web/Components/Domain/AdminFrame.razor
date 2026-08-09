@@ -14,6 +14,16 @@
 
 @if (_loading)
 {
+    @* Deliberately says nothing about what this page turns out to be. The two loaded branches are
+       "Moderation" and "Not found", and announcing either one early would answer the question the
+       gate below exists to refuse - whether /admin is here at all. Undrawn, so it costs nothing on
+       screen while still giving the route change something to announce.
+
+       Worth knowing: <PageTitle> on each admin page already reads "Moderation", "Reports" and so
+       on, set above this gate and therefore sent to everyone. The tab gives away what this
+       component is careful not to. Left alone here because it is a decision about the gate rather
+       than about headings. *@
+    <h1 class="sr-only">Loading</h1>
     <p class="text-sm text-muted-foreground">Loading…</p>
 }
 else if (_overview is null)

@@ -52,7 +52,10 @@
                 its time in.
             </p>
 
-            <div class="mt-4 overflow-x-auto">
+            @* min-w-[34rem] guarantees this overflows on a phone, so it guarantees a keyboard user
+               needs a way in. *@
+            <div class="mt-4 overflow-x-auto"
+                 tabindex="0" role="region" aria-label="Endpoint reference, scrollable">
                 <table class="w-full min-w-[34rem] border-collapse text-left">
                     <thead>
                         <tr class="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
@@ -133,7 +136,8 @@
                 otherwise finds out about by noticing something silently missing in game.
             </p>
 
-            <pre class="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs"><code>POST /api/v1/resolve
+            <pre class="mt-3 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs"
+                 tabindex="0" role="region" aria-label="Example resolve request, scrollable"><code>POST /api/v1/resolve
 Content-Type: application/json
 
 {

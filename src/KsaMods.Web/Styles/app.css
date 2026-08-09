@@ -78,46 +78,103 @@
 
   OKLCH throughout: lightness is perceptually even across hues, so a mid-teal and a mid-red at
   the same L actually look equally bright. Hex does not give you that.
+
+  It also makes the contrast floor a one-dimensional problem. Every colour that carries text is
+  set at the lightest L that still clears 4.5:1 against the surface it is read on, hue and chroma
+  untouched. The light ramp used to be tuned by eye and missed: the primary button sat at 4.00:1
+  and the warning badge at 3.02:1, which is the ordinary failure mode of picking a mid-tone that
+  looks right on a white artboard and never measuring it against the tint it actually sits on.
+
+  Two of these are chroma-capped rather than freely chosen. sRGB cannot hold 0.145 chroma at the
+  lightness the warning colour now needs, so it is declared at the in-gamut maximum instead of a
+  number the browser would silently clip. A token that lies about what it renders is worse than a
+  duller token.
+
+  ── One declaration per token ────────────────────────────────────────────────────────────────
+
+  Each colour is written once, as `light-dark(light, dark)`. The palette used to exist three
+  times: once here, once under `.dark`, and once more inside a `prefers-color-scheme` query that
+  repeated all twenty-four lines verbatim. Nothing kept those two dark copies honest, so the
+  drift was a matter of which one a future edit happened to land in.
+
+  What decides between the pair is `color-scheme` on the root element, set once at the bottom of
+  this file, which also buys the thing a class-and-media-query pair never could: the browser's
+  own surfaces. Scrollbars, the caret, spinners and the default form controls all follow
+  `color-scheme`, and until now they stayed light on a dark page because nothing here ever told
+  the browser what kind of document this is.
+
+  The cost is a floor: `light-dark()` is Baseline from May 2024, which is above Tailwind v4's own
+  minimum (Safari 16.4 against the 17.5 this needs). Without it a visitor keeps the light theme
+  rather than losing the page, so the failure is a degradation and not a break.
 */
 @theme {
-  /* Light: cool paper, the way a printed technical document is never pure white. */
-  --color-background: oklch(0.984 0.003 240);
-  --color-foreground: oklch(0.19 0.021 250);
+  /* Light is the first argument throughout: cool paper, the way a printed technical document is
+     never pure white. Dark is the second: not near-black but a deep blue-slate, which is both the
+     more interesting ground and the one that lets a teal accent sit on it without vibrating. */
+  --color-background: light-dark(oklch(0.984 0.003 240), oklch(0.171 0.021 254));
+  --color-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
 
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.19 0.021 250);
+  --color-card: light-dark(oklch(1 0 0), oklch(0.216 0.024 254));
+  --color-card-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
 
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.19 0.021 250);
+  --color-popover: light-dark(oklch(1 0 0), oklch(0.216 0.024 254));
+  --color-popover-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
 
-  --color-primary: oklch(0.58 0.093 205);
-  --color-primary-foreground: oklch(0.99 0.004 200);
+  /* 4.73:1 under primary-foreground as a fill, 4.64:1 as text on the page ground. Both roles
+     bind, and the fill is the tighter of the two, so the token is set by it. */
+  --color-primary: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
+  --color-primary-foreground: light-dark(oklch(0.99 0.004 200), oklch(0.185 0.026 254));
 
-  --color-secondary: oklch(0.957 0.006 245);
-  --color-secondary-foreground: oklch(0.24 0.021 250);
+  /* Hover darkens on light and lightens on dark, because that is the direction that adds contrast
+     in each. A filter that lightened both was taking the light button back under the floor at the
+     moment somebody had committed to pressing it. Written as a pair, the two directions sit on one
+     line and cannot quietly become the same one. */
+  --color-primary-hover: light-dark(oklch(0.49 0.084 205), oklch(0.83 0.105 197));
 
-  --color-muted: oklch(0.957 0.006 245);
-  --color-muted-foreground: oklch(0.505 0.018 248);
+  --color-secondary: light-dark(oklch(0.957 0.006 245), oklch(0.278 0.024 254));
+  --color-secondary-foreground: light-dark(oklch(0.24 0.021 250), oklch(0.947 0.008 245));
 
-  --color-accent: oklch(0.947 0.009 245);
-  --color-accent-foreground: oklch(0.24 0.021 250);
+  --color-muted: light-dark(oklch(0.957 0.006 245), oklch(0.278 0.024 254));
+  --color-muted-foreground: light-dark(oklch(0.505 0.018 248), oklch(0.695 0.018 248));
 
-  --color-destructive: oklch(0.565 0.208 25);
-  --color-destructive-foreground: oklch(0.99 0 0);
+  --color-accent: light-dark(oklch(0.947 0.009 245), oklch(0.278 0.024 254));
+  --color-accent-foreground: light-dark(oklch(0.24 0.021 250), oklch(0.947 0.008 245));
+
+  /* The dark fill is darker than the light one, which looks backwards until you remember it is a
+     fill carrying near-white text rather than a colour read on a tint. At the old 0.665 nothing
+     could fix it: white text on it tops out at 3.32:1, so the ceiling was below the floor and the
+     foreground was never the adjustable end. */
+  --color-destructive: light-dark(oklch(0.565 0.208 25), oklch(0.575 0.185 25));
+  --color-destructive-foreground: light-dark(oklch(0.99 0 0), oklch(0.985 0 0));
 
   /* Severity. Semantic, and deliberately nothing like the accent: a finding's colour must not
-     drift between the listing page, the release page and the CLI's mental model. */
-  --color-severity-error: oklch(0.565 0.208 25);
-  --color-severity-warning: oklch(0.635 0.145 72);
-  --color-severity-info: oklch(0.545 0.148 272);
-  --color-severity-ok: oklch(0.555 0.135 150);
+     drift between the listing page, the release page and the CLI's mental model.
 
-  --color-border: oklch(0.895 0.008 245);
-  --color-input: oklch(0.878 0.009 245);
-  --color-ring: oklch(0.58 0.093 205);
+     Each is set against its own 10% tint, not against the page, because that is where these
+     are actually read: Badge and Alert both put the colour on a wash of itself, which is the
+     lowest-contrast surface it ever meets. Clearing 4.5:1 there clears everything else. The
+     warning colour is at the in-gamut chroma ceiling for its lightness, so it reads as a darker
+     ochre than the old amber rather than a duller version of it. */
+  --color-severity-error: light-dark(oklch(0.538 0.208 25), oklch(0.685 0.178 25));
+  --color-severity-warning: light-dark(oklch(0.525 0.112 72), oklch(0.775 0.145 72));
+  --color-severity-info: light-dark(oklch(0.528 0.148 272), oklch(0.695 0.135 272));
+  --color-severity-ok: light-dark(oklch(0.505 0.135 150), oklch(0.715 0.145 150));
+
+  /* Border and input are not the same job and no longer share a value. A border separates two
+     regions and may be as quiet as it likes; an input's border is the only thing telling anyone
+     where the control is, so it owes 3:1 against both surfaces it appears on - the page ground
+     and a card. It reads as a noticeably firmer edge, which is what a text field should look
+     like.
+
+     Dark keeps both as an alpha of the foreground, and there that is the more robust choice
+     rather than the lazier one: one value has to clear its bar on the page ground and on a card,
+     and an alpha re-derives itself against whichever it lands on. */
+  --color-border: light-dark(oklch(0.895 0.008 245), oklch(0.947 0.008 245 / 13%));
+  --color-input: light-dark(oklch(0.65 0.009 245), oklch(0.947 0.008 245 / 40%));
+  --color-ring: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
 
   /* Hairline for the drafting grid behind the masthead. */
-  --color-rule: oklch(0.19 0.021 250 / 9%);
+  --color-rule: light-dark(oklch(0.19 0.021 250 / 9%), oklch(0.947 0.008 245 / 10%));
 
   /* Panels, not pills. A 4px corner reads as a machined edge; 12px reads as a chat bubble. */
   --radius-sm: 0.125rem;
@@ -130,79 +187,27 @@
 }
 
 /*
-  Dark. Not near-black: a deep blue-slate, which is both the more interesting ground and the one
-  that lets a teal accent sit on it without vibrating.
+  Which half of every `light-dark()` pair applies is decided here, and nowhere else.
 
-  Two selectors deliberately: `.dark` for an explicit choice, and the media query for visitors
-  who have never made one. The media query is scoped with :not(.light) so an explicit light
-  choice still wins on a machine set to dark.
+  `color-scheme: light dark` on the root means "this document is happy either way", so a visitor
+  who has never chosen gets the one their machine asked for. The two classes are an explicit
+  choice overriding that, and they are the same two classes the inline script in App.razor stamps
+  from localStorage before first paint.
+
+  No colour needs `:not(.light)` any more. The old media query had to exclude an explicit light
+  choice by hand, because a class and a media query are independent conditions with no natural
+  precedence between them; `color-scheme` resolves to one value at a time, so the later, more
+  specific rule simply wins and the exclusion has nothing left to do.
+
+  The one place still doing it by hand is the theme-toggle icon swap further down, and that is
+  not an oversight: `light-dark()` takes colours, and no selector exposes the resolved
+  `color-scheme`, so a rule that has to flip `display` cannot ask which theme won. Three small
+  rules is the whole remaining cost of that gap.
 */
 @layer base {
-  .dark {
-    --color-background: oklch(0.171 0.021 254);
-    --color-foreground: oklch(0.947 0.008 245);
-
-    --color-card: oklch(0.216 0.024 254);
-    --color-card-foreground: oklch(0.947 0.008 245);
-
-    --color-popover: oklch(0.216 0.024 254);
-    --color-popover-foreground: oklch(0.947 0.008 245);
-
-    --color-primary: oklch(0.775 0.105 197);
-    --color-primary-foreground: oklch(0.185 0.026 254);
-
-    --color-secondary: oklch(0.278 0.024 254);
-    --color-secondary-foreground: oklch(0.947 0.008 245);
-
-    --color-muted: oklch(0.278 0.024 254);
-    --color-muted-foreground: oklch(0.695 0.018 248);
-
-    --color-accent: oklch(0.278 0.024 254);
-    --color-accent-foreground: oklch(0.947 0.008 245);
-
-    --color-destructive: oklch(0.665 0.185 25);
-    --color-destructive-foreground: oklch(0.985 0 0);
-
-    --color-severity-error: oklch(0.685 0.178 25);
-    --color-severity-warning: oklch(0.775 0.145 72);
-    --color-severity-info: oklch(0.695 0.135 272);
-    --color-severity-ok: oklch(0.715 0.145 150);
-
-    --color-border: oklch(0.947 0.008 245 / 13%);
-    --color-input: oklch(0.947 0.008 245 / 18%);
-    --color-ring: oklch(0.775 0.105 197);
-
-    --color-rule: oklch(0.947 0.008 245 / 10%);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not(.light) {
-      --color-background: oklch(0.171 0.021 254);
-      --color-foreground: oklch(0.947 0.008 245);
-      --color-card: oklch(0.216 0.024 254);
-      --color-card-foreground: oklch(0.947 0.008 245);
-      --color-popover: oklch(0.216 0.024 254);
-      --color-popover-foreground: oklch(0.947 0.008 245);
-      --color-primary: oklch(0.775 0.105 197);
-      --color-primary-foreground: oklch(0.185 0.026 254);
-      --color-secondary: oklch(0.278 0.024 254);
-      --color-secondary-foreground: oklch(0.947 0.008 245);
-      --color-muted: oklch(0.278 0.024 254);
-      --color-muted-foreground: oklch(0.695 0.018 248);
-      --color-accent: oklch(0.278 0.024 254);
-      --color-accent-foreground: oklch(0.947 0.008 245);
-      --color-destructive: oklch(0.665 0.185 25);
-      --color-destructive-foreground: oklch(0.985 0 0);
-      --color-severity-error: oklch(0.685 0.178 25);
-      --color-severity-warning: oklch(0.775 0.145 72);
-      --color-severity-info: oklch(0.695 0.135 272);
-      --color-severity-ok: oklch(0.715 0.145 150);
-      --color-border: oklch(0.947 0.008 245 / 13%);
-      --color-input: oklch(0.947 0.008 245 / 18%);
-      --color-ring: oklch(0.775 0.105 197);
-      --color-rule: oklch(0.947 0.008 245 / 10%);
-    }
-  }
+  :root { color-scheme: light dark; }
+  .light { color-scheme: light; }
+  .dark { color-scheme: dark; }
 
   * {
     border-color: var(--color-border);
@@ -295,6 +300,45 @@
 .light .theme-icon-sun { display: none; }
 .light .theme-icon-moon { display: block; }
 
+/*
+  Skip link. First thing in the tab order, off-screen until it is the thing being tabbed to.
+
+  Landmarks already make the header bypassable in principle, and that is what kept this off the
+  list for a while. In practice a keyboard user meets the wordmark, three navigation links, the
+  theme switch and up to two buttons before the first word of the page - and on a phone the nav
+  row adds three more. A landmark is a way to leave; this is a way to leave that announces itself.
+
+  Moved rather than hidden: `display: none` and `visibility: hidden` both take an element out of
+  the tab order, which would defeat the only thing it exists for. Sitting off the top edge keeps
+  it focusable, and it comes back at the same 36px height as a primary button because that is
+  what it is - the first control on the page.
+*/
+.skip-link {
+  position: fixed;
+  top: -4rem;
+  left: 1rem;
+  z-index: 60;
+
+  display: inline-flex;
+  align-items: center;
+  height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: var(--radius-md);
+
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.8125rem;
+  font-weight: 500;
+
+  transition: top 150ms ease-out;
+}
+
+.skip-link:focus {
+  top: 1rem;
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
 /* An eyebrow is a label, not a sentence: condensed, spaced, and small enough to stay quiet. */
 .eyebrow {
   font-family: var(--font-display);
@@ -317,8 +361,29 @@
   font-size: 0.875rem;
 }
 
+/* The layout lives on the inner element: Blazor reveals the strip by writing an inline
+   `display: block` on the outer one, so anything set there would be overwritten the moment it
+   mattered. Same 72rem column as the header and footer, so the strip belongs to the page rather
+   than sitting across it. */
+.error-ui-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-inline: auto;
+  max-width: 72rem;
+}
+
 #blazor-error-ui .dismiss {
   cursor: pointer;
-  float: right;
-  padding-inline: 0.5rem;
+  flex: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* The ring is a teal that was chosen against the page, not against a red strip. On this one
+   surface the reliable focus indicator is the strip's own foreground. */
+#blazor-error-ui .dismiss:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
 }

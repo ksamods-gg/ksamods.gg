@@ -39,7 +39,11 @@
     }
     else
     {
-        <div class="mt-4 overflow-x-auto rounded-lg border border-border">
+        @* Focusable because it scrolls. A region that only moves under a mouse wheel or a swipe is
+           unreachable by keyboard, and the columns that overflow here are the ones a moderator
+           came for. The label is what a screen reader announces on landing in it. *@
+        <div class="mt-4 overflow-x-auto rounded-lg border border-border"
+             tabindex="0" role="region" aria-label="Job queue, scrollable">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-card/50 text-left">
                     <tr class="eyebrow text-muted-foreground">

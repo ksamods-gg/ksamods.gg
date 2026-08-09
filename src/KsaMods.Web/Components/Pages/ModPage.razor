@@ -9,8 +9,12 @@
 }
 else if (_notFound)
 {
-    <Card Class="text-center">
-        <p class="text-sm text-muted-foreground">
+    @* Headed, like every other state of this page and like /not-found itself. A miss on a mod id
+       is one of the likelier ways to arrive here - old links, renamed mods, a typo in a Discord
+       paste - and it was the one state that gave a screen reader nothing to be sent to. *@
+    <Card Class="mx-auto max-w-md text-center">
+        <h1 class="text-lg font-semibold tracking-tight">This mod isn't here</h1>
+        <p class="mt-2 text-sm text-muted-foreground">
             No listing with the id <code class="font-mono">@Id</code>.
         </p>
         <Button Href="/mods" Variant="outline" Size="sm" Class="mt-4">Browse mods</Button>
@@ -109,10 +113,14 @@ else
 
         @if (_mod.Tags.Count > 0)
         {
+            @* The anchor carries the height, not the badge inside it. A bare <a> wrapped around a
+               22px pill is a 22px target, and these are a standalone row rather than links inside
+               a sentence, so the inline exemption does not apply to them. *@
             <div class="mt-3 flex flex-wrap gap-1.5">
                 @foreach (var tag in _mod.Tags)
                 {
-                    <a href="@($"/mods?tag={Uri.EscapeDataString(tag)}")">
+                    <a href="@($"/mods?tag={Uri.EscapeDataString(tag)}")"
+                       class="inline-flex min-h-6 items-center rounded-sm transition-opacity hover:opacity-80">
                         <Badge Variant="outline">@tag</Badge>
                     </a>
                 }
@@ -146,7 +154,7 @@ else
                     {
                         <li class="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
                             <a href="@($"/mods/{_mod.Id}/releases/{release.Version}")"
-                               class="font-mono text-sm font-medium underline-offset-4 hover:underline">
+                               class="inline-flex min-h-6 items-center font-mono text-sm font-medium underline-offset-4 hover:underline">
                                 @release.Version
                             </a>
 

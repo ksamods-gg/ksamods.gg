@@ -6,6 +6,24 @@
 @inject NavigationManager Nav
 
 <div class="flex min-h-screen flex-col">
+    @*
+        First in the document, so it is the first thing Tab reaches - above the banner too, since a
+        dismissible notice is one more control between a keyboard user and the page.
+
+        The href carries the current path rather than a bare "#main", which does not work here and
+        fails in the worst way: App.razor sets <base href="/">, a fragment-only href resolves
+        against the document base rather than the current URL, and the control whose entire job is
+        "let me reach this page's content" quietly became a link to the home page. Keeping the
+        query string matters too - a skip link on /mods?q=fuel must not drop the search.
+
+        data-enhance-nav="false" hands this one anchor back to the browser. Enhanced navigation
+        intercepts same-document clicks and re-renders, which throws away the one behaviour being
+        asked for here: moving the sequential focus starting point to the fragment. With it
+        intercepted the link changed the URL, changed nothing else, and the next Tab went straight
+        back to the wordmark - a skip link that skipped nothing.
+    *@
+    <a href="@SkipTarget" class="skip-link" data-enhance-nav="false">Skip to content</a>
+
     <SiteBanner />
 
     @*
@@ -23,45 +41,87 @@
         <div class="grid-substrate pointer-events-none absolute inset-x-0 top-0 h-52" aria-hidden="true"></div>
 
         <header class="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
-            <div class="mx-auto flex h-14 max-w-6xl items-center gap-7 px-4">
-                <Wordmark />
+            <div class="mx-auto max-w-6xl px-4">
+                <div class="flex h-14 items-center gap-7">
+                    <Wordmark />
 
-                <nav class="hidden items-center gap-6 text-[0.8125rem] sm:flex">
-                    <a href="/mods" class="text-muted-foreground transition-colors hover:text-foreground">Browse</a>
-                    <a href="/collisions" class="text-muted-foreground transition-colors hover:text-foreground">Asset ids</a>
-                    <a href="/api-reference" class="text-muted-foreground transition-colors hover:text-foreground">API</a>
-                </nav>
+                    <nav class="hidden items-center gap-6 text-[0.8125rem] sm:flex" aria-label="Main">
+                        @foreach (var item in NavItems)
+                        {
+                            <a href="@item.Href" class="@WideNavLink">@item.Label</a>
+                        }
+                    </nav>
 
-                <div class="ml-auto flex items-center gap-1.5">
-                    <ThemeToggle />
-                    <span class="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true"></span>
-                    <Button Href="/mods/new" Variant="ghost" Size="sm">Add a mod</Button>
+                    <div class="ml-auto flex items-center gap-1.5">
+                        <ThemeToggle />
+                        <span class="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true"></span>
 
-                    @if (_user is not null)
-                    {
-                        <AccountMenu User="_user" ReturnTo="@ReturnTo" />
-                    }
-                    else if (_providers.Count > 0)
-                    {
-                        @* Shown only when the API has credentials for at least one provider. A
-                           sign-in button that 404s is worse than none: the reader cannot tell a
-                           misconfiguration from an outage. Which providers exist is the sign-in
-                           page's problem, not the header's, so adding Discord later changes one
-                           page rather than every layout.
+                        @* Moves down to the nav row on a phone rather than crowding the masthead,
+                           which is also the more honest place for it: it is a destination, not a
+                           tool sitting beside the theme switch.
 
-                           Outline rather than solid, with the reason on hover. Most visitors are
-                           here to install something and never need an account; a primary button
-                           in the corner asks them to justify not pressing it. *@
-                        <Button Href="@($"/signin?returnTo={ReturnTo}")" Variant="outline" Size="sm"
-                                title="Only needed to publish a mod or build a modlist.">
-                            Sign in
-                        </Button>
-                    }
+                           Hidden by a wrapper rather than by a class on the button, because the
+                           button's own base class list already sets a display and passing `hidden`
+                           alongside it decides nothing: two utilities of equal specificity are
+                           settled by their order in the stylesheet, not by their order in the
+                           attribute. `contents` then takes the wrapper back out of the layout, so
+                           the flex row spaces itself exactly as if the button were its own child. *@
+                        <span class="hidden sm:contents">
+                            <Button Href="/mods/new" Variant="ghost" Size="sm">Add a mod</Button>
+                        </span>
+
+                        @if (_user is not null)
+                        {
+                            <AccountMenu User="_user" ReturnTo="@ReturnTo" />
+                        }
+                        else if (_providers.Count > 0)
+                        {
+                            @* Shown only when the API has credentials for at least one provider. A
+                               sign-in button that 404s is worse than none: the reader cannot tell a
+                               misconfiguration from an outage. Which providers exist is the sign-in
+                               page's problem, not the header's, so adding Discord later changes one
+                               page rather than every layout.
+
+                               Outline rather than solid, with the reason on hover. Most visitors are
+                               here to install something and never need an account; a primary button
+                               in the corner asks them to justify not pressing it. *@
+                            <Button Href="@($"/signin?returnTo={ReturnTo}")" Variant="outline" Size="sm"
+                                    title="Only needed to publish a mod or build a modlist.">
+                                Sign in
+                            </Button>
+                        }
+                    </div>
                 </div>
+
+                @*
+                    The same three destinations, given a row of their own below 640px.
+
+                    They used to be display:none there with nothing in their place, so the entire
+                    catalogue sat behind a scroll to the footer on the one device most links to this
+                    site are opened on. A menu button is the reflex fix and it is the wrong one
+                    here: three labels this short fit a 320px viewport with room to spare, so a
+                    disclosure would spend a tap and hide the site's structure behind an icon to
+                    save width that was never scarce.
+
+                    Full-bleed rule, inset content: the negative margin lets the border reach both
+                    edges while the labels stay on the same left margin as everything else.
+                *@
+                <nav class="-mx-4 flex h-10 items-center gap-5 border-t border-border px-4 text-[0.8125rem] sm:hidden"
+                     aria-label="Main">
+                    @foreach (var item in NavItems)
+                    {
+                        <a href="@item.Href" class="@NarrowNavLink">@item.Label</a>
+                    }
+                    <Button Href="/mods/new" Variant="ghost" Size="sm" Class="-mr-3 ml-auto">Add a mod</Button>
+                </nav>
             </div>
         </header>
 
-        <main class="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-8">
+        @* tabindex="-1" so the skip link actually lands here rather than only scrolling: a bare
+           fragment jump moves the viewport but leaves focus at the top of the document in several
+           browsers, and the next Tab would go straight back into the header. The carve-out in
+           app.css keeps it from painting a focus ring it has no use for. *@
+        <main id="main" tabindex="-1" class="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-8">
             @Body
         </main>
     </div>
@@ -84,25 +144,52 @@
                 <div>
                     <h2 class="eyebrow text-muted-foreground">Mods</h2>
                     <ul class="mt-4 space-y-2.5 text-sm">
-                        <li><a href="/mods" class="text-muted-foreground transition-colors hover:text-foreground">Browse</a></li>
-                        <li><a href="/mods/new" class="text-muted-foreground transition-colors hover:text-foreground">Add a mod</a></li>
-                        <li><a href="/collisions" class="text-muted-foreground transition-colors hover:text-foreground">Asset ids</a></li>
-                        <li><a href="/api-reference" class="text-muted-foreground transition-colors hover:text-foreground">API</a></li>
+                        <li><a href="/mods" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Browse</a></li>
+                        <li><a href="/mods/new" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Add a mod</a></li>
+                        <li><a href="/collisions" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Asset ids</a></li>
+                        <li><a href="/api-reference" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">API</a></li>
                     </ul>
                 </div>
 
                 <div>
                     <h2 class="eyebrow text-muted-foreground">Site</h2>
                     <ul class="mt-4 space-y-2.5 text-sm">
-                        <li><a href="/terms" class="text-muted-foreground transition-colors hover:text-foreground">Terms</a></li>
-                        <li><a href="/privacy" class="text-muted-foreground transition-colors hover:text-foreground">Privacy</a></li>
+                        <li><a href="/terms" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Terms</a></li>
+                        <li><a href="/privacy" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Privacy</a></li>
                     </ul>
                 </div>
             </div>
 
-            @* These two stay on every page on purpose. The first is what the site is; the second
-               is the one thing a person should know before they install anything. *@
-            <div class="mt-12 max-w-3xl space-y-1.5 border-t border-border pt-6 text-[11px] leading-relaxed text-muted-foreground">
+            @*
+                These two stay on every page on purpose. The first is what the site is; the second
+                is the one thing a person should know before they install anything.
+
+                They are set at body size, which is a correction rather than a promotion. At 11px
+                they were the smallest prose on the page - smaller than the sentence describing
+                what the site is, smaller than the link lists - which had the type saying "this
+                matters least" over copy saying "this is the one thing you should know". Nothing
+                about a sentence being a disclosure makes it fine print, and this one is the whole
+                safety story: an unsandboxed .NET assembly with full access to the reader's machine.
+
+                Measure is what actually made them hard to read, though. The block was max-w-3xl,
+                which at 11px ran to 141 characters a line - roughly three times a comfortable
+                measure, and the reason the eye lost its place returning to the left edge. The
+                paragraph above, at 46 characters, was tuned and these never were.
+
+                28rem holds them at 65. Tailwind's prose width was the obvious reach and it lands
+                at 79: `ch` is the advance of the zero glyph, and in IBM Plex Sans a zero is wider
+                than the average letter, so a 65ch cap buys about 79 characters rather than 65.
+                Measured against the face rather than trusted from the unit.
+
+                (Naming that utility here would have been enough to ship its rule as dead CSS -
+                Tailwind reads source as text, comments included.)
+
+                The trademark line keeps the quieter size because it genuinely is metadata rather
+                than something a reader needs. What it does not keep is the 80% opacity, which was
+                taking muted-foreground down to 3.65:1 in the light theme. Rank is expressed by
+                size and position here; contrast is not available for it to spend.
+            *@
+            <div class="mt-12 max-w-md space-y-3 border-t border-border pt-6 text-sm leading-relaxed text-muted-foreground">
                 <p>
                     We index mods, we don't host them. Downloads come straight from the author's
                     own repository, and all we keep is the link and a hash of what we checked.
@@ -112,7 +199,12 @@
                     machine. We check that a mod is packaged correctly. We can't check that it's
                     safe.
                 </p>
-                <p class="pt-1 text-[10px] opacity-80">
+                @* Its own width, because measure follows the text size rather than the box: at
+                   12px this line fits 76 characters into the 65 the paragraphs above get, and it
+                   wraps, so the difference is real rather than theoretical. Narrower also steps it
+                   back from the two above it, which is the rank it should read at without spending
+                   any contrast to say so. *@
+                <p class="max-w-sm pt-3 text-xs">
                     Not affiliated with RocketWerkz. Kitten Space Agency is their game, not ours.
                 </p>
             </div>
@@ -120,18 +212,74 @@
     </footer>
 </div>
 
+@*
+    Blazor's own error strip. The control was a bare "✕" with no accessible name, which read as
+    "dismiss" while actually doing the one thing the sentence beside it asks for: href="" reloads
+    the current URL. Naming it after what it does costs nothing and removes the last glyph standing
+    in for an icon on this site.
+*@
 <div id="blazor-error-ui">
-    Something went wrong. Reload the page to continue.
-    <a href="" class="dismiss">✕</a>
+    @* Inner wrapper because the outer element's display belongs to Blazor - its script sets an
+       inline `display: block` to reveal this - so the layout has to happen a level down. It also
+       lets the strip line its content up with the same 72rem column as the rest of the site. *@
+    <div class="error-ui-inner">
+        <span>Something went wrong.</span>
+        <a href="" class="dismiss">Reload the page</a>
+    </div>
 </div>
 
 @code {
     private IReadOnlyList<string> _providers = [];
     private CurrentAccount? _user;
 
+    /// <summary>
+    /// Declared once and rendered twice, because the wide and narrow headers are two presentations
+    /// of one navigation rather than two navigations. A second hand-written copy is how the phone
+    /// ends up a route behind the desktop after somebody adds a page.
+    /// </summary>
+    private static readonly (string Href, string Label)[] NavItems =
+    [
+        ("/mods", "Browse"),
+        ("/collisions", "Asset ids"),
+        ("/api-reference", "API"),
+    ];
+
+    // Both carry their own height rather than inheriting the row's. A link's tappable box is its
+    // own box: sitting inside a 56px row centred does nothing for the 20px of it you can actually
+    // hit, which is under the 24px WCAG 2.2 asks for and well under what a thumb wants.
+    //
+    // min-w-6 is there for "API". Three characters measure 21px, and the width of a target is not
+    // less binding than its height just because the label is short. It clears by the spacing
+    // exception either way - the gaps are wide enough that nothing crowds it - but a floor the
+    // label length cannot fall through is worth more than an exemption that happens to hold.
+    // The extra 1.3px a side lands in gap that was already there, so nothing moves.
+    private const string WideNavLink =
+        "inline-flex min-w-6 items-center justify-center py-2 text-muted-foreground " +
+        "transition-colors hover:text-foreground";
+
+    private const string NarrowNavLink =
+        "inline-flex h-full min-w-6 items-center justify-center text-muted-foreground " +
+        "transition-colors hover:text-foreground";
+
     /// <summary>Come back to the page the user was on, not to the home page.</summary>
     private string ReturnTo => Uri.EscapeDataString(
         "/" + Nav.ToBaseRelativePath(Nav.Uri));
+
+    /// <summary>
+    /// The skip link's destination: this page's own path and query, plus the <c>#main</c> fragment.
+    /// Written out in full because a bare fragment resolves against <c>&lt;base href="/"&gt;</c>
+    /// and would send the reader to the home page instead of past the header.
+    /// </summary>
+    private string SkipTarget
+    {
+        get
+        {
+            var here = Nav.ToBaseRelativePath(Nav.Uri);
+            var fragment = here.IndexOf('#');
+            if (fragment >= 0) here = here[..fragment];
+            return $"/{here}#main";
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
