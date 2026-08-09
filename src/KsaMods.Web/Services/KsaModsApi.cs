@@ -1292,6 +1292,11 @@ public sealed record RepoLinkResult(bool Success, RepoLinkChallenge? Challenge, 
 public sealed record RepoLinkChallenge
 {
     [JsonPropertyName("repo_full_name")] public string RepoFullName { get; init; } = "";
+    [JsonPropertyName("provider")] public string Provider { get; init; } = "github";
+
+    /// <summary>Which attached file to read, when a tag carries more than one.</summary>
+    [JsonPropertyName("asset_glob")] public string? AssetGlob { get; init; }
+
     [JsonPropertyName("default_branch")] public string DefaultBranch { get; init; } = "main";
     [JsonPropertyName("verified")] public bool Verified { get; init; }
 

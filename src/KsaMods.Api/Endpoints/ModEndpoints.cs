@@ -25,6 +25,9 @@ internal sealed record PendingLink
     /// <summary>How the claim came to be trusted. Null while unverified.</summary>
     public string? VerifiedBy { get; init; }
 
+    /// <summary>Which attached file to read, when a tag carries more than one.</summary>
+    public string? AssetGlob { get; init; }
+
     public DateTime? VerifiedAt { get; init; }
 }
 
@@ -585,7 +588,8 @@ public static class ModEndpoints
 
             var link = await connection.QuerySingleOrDefaultAsync<PendingLink>("""
                 select provider, repo_full_name as RepoFullName, challenge,
-                       verified_at as VerifiedAt, verified_by as VerifiedBy
+                       verified_at as VerifiedAt, verified_by as VerifiedBy,
+                       asset_glob as AssetGlob
                 from repo_link where mod_id = @modId
                 """,
                 new { modId = mod.Id });
@@ -595,6 +599,13 @@ public static class ModEndpoints
             return Results.Ok(new
             {
                 repo_full_name = link.RepoFullName,
+
+                // The other two fields the connect form is made of. Without them the form has
+                // nothing to reload from, so a saved link came back to an empty Repository box
+                // that read as "nothing is connected" - and the obvious response to that is to
+                // retype it, which re-issues a challenge and drops a proof that was already good.
+                provider = link.Provider,
+                asset_glob = link.AssetGlob,
                 verified = link.VerifiedAt is not null,
 
                 // Carried so a reload says the same thing the connect response said. Without it a

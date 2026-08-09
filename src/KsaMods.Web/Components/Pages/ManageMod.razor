@@ -546,6 +546,17 @@ else
                 // listing with nothing connected answers 404, which GetAsync turns into null, so
                 // "not connected yet" needs no separate check.
                 _challenge = _mod.CanManageAsOwner ? await Api.GetRepoLinkAsync(Id) : null;
+
+                // Put the saved link back into the form. It is the state of the thing being
+                // edited, and a form that forgets it on every load is telling the reader nothing
+                // is connected. Worse than cosmetic: the obvious response is to type it in again,
+                // which issues a fresh challenge and throws away a proof that was already good.
+                if (_challenge is not null)
+                {
+                    _repo.Provider = _challenge.Provider;
+                    _repo.RepoFullName = _challenge.RepoFullName;
+                    _repo.AssetGlob = _challenge.AssetGlob ?? "";
+                }
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
@@ -662,6 +673,11 @@ else
             if (result.Success)
             {
                 _challenge = result.Challenge;
+
+                // Echo back what was actually stored rather than what was typed. Somebody who
+                // pasted a full address should see it settle to owner/repository, which is the
+                // form every other part of the site names it by.
+                if (_challenge is not null) _repo.RepoFullName = _challenge.RepoFullName;
 
                 _message = result.Challenge?.Verified == true
                     ? "Repository connected. Import releases when you've tagged one."
