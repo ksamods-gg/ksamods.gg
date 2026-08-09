@@ -33,13 +33,19 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         return client;
     }
 
+    /// <summary>
+    /// <paramref name="type"/> is <c>mod</c> or <c>mod-loader</c>; null returns both. The API has
+    /// always taken it and nothing asked, so loaders sat in the catalogue among the things they
+    /// exist to load.
+    /// </summary>
     public Task<ModSummaryPage?> SearchAsync(
         string? query = null, string? tag = null, int? gameBuild = null,
-        string? after = null, int limit = 24, CancellationToken ct = default)
+        string? after = null, int limit = 24, string? type = null, CancellationToken ct = default)
     {
         var parameters = new List<string> { $"limit={limit}" };
         if (!string.IsNullOrWhiteSpace(query)) parameters.Add($"q={Uri.EscapeDataString(query)}");
         if (!string.IsNullOrWhiteSpace(tag)) parameters.Add($"tag={Uri.EscapeDataString(tag)}");
+        if (!string.IsNullOrWhiteSpace(type)) parameters.Add($"type={Uri.EscapeDataString(type)}");
         if (gameBuild is not null) parameters.Add($"gameBuild={gameBuild}");
         if (!string.IsNullOrWhiteSpace(after)) parameters.Add($"after={Uri.EscapeDataString(after)}");
 
@@ -435,6 +441,12 @@ public sealed record ModDetail
 
     public bool IsWithdrawn => ListingState is "delisted" or "taken_down";
     public bool IsDeprecated => Status == "deprecated";
+
+    /// <summary>
+    /// Not a mod: the code other mods run on. Kept out of the mod lists, because nobody browses
+    /// for one - they install it because something they wanted asked for it.
+    /// </summary>
+    public bool IsLoader => Type == "mod-loader";
 
     /// <summary>Not in browse or search. Still reachable by anyone with the link.</summary>
     public bool IsDraft => ListingState == "unlisted";

@@ -11,7 +11,9 @@
     <div class="min-w-0">
         <p class="eyebrow text-muted-foreground">Catalogue</p>
         <h1 class="mt-2 text-2xl font-bold tracking-tight">
-            @(string.IsNullOrWhiteSpace(Q) ? "All mods" : $"Results for “{Q}”")
+            @(string.IsNullOrWhiteSpace(Q)
+                ? (IsLoaders ? "Mod loaders" : "All mods")
+                : $"Results for “{Q}”")
         </h1>
     </div>
 
@@ -26,6 +28,18 @@
     </div>
 </div>
 
+@*
+    A loader is not a mod you go looking for - it is the thing a mod tells you it needs. Mixed into
+    the same grid it reads as a rival to the mods around it, and it takes a slot from them. Two
+    lists, one of which most visitors never open.
+*@
+<nav class="mt-5 flex gap-1 border-b border-border" aria-label="Kind">
+    <a href="@TabUrl(null)" aria-current="@(IsLoaders ? null : "page")"
+       class="@Cx.Of(TabBase, IsLoaders ? TabIdle : TabActive)">Mods</a>
+    <a href="@TabUrl("mod-loader")" aria-current="@(IsLoaders ? "page" : null)"
+       class="@Cx.Of(TabBase, IsLoaders ? TabActive : TabIdle)">Loaders</a>
+</nav>
+
 <form action="/mods" method="get" class="mt-5 flex gap-2">
     <input name="q" type="search" value="@Q" placeholder="Search by name or description…"
            aria-label="Search mods"
@@ -36,8 +50,22 @@
     {
         <input type="hidden" name="tag" value="@Tag" />
     }
+    @if (IsLoaders)
+    {
+        @* Keeps the tab across a search, so searching from the Loaders list does not silently
+           drop you back among the mods. *@
+        <input type="hidden" name="type" value="mod-loader" />
+    }
     <Button Type="submit" Variant="secondary">Search</Button>
 </form>
+
+@if (IsLoaders)
+{
+    <p class="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        Loaders are the code that lets other mods run at all. You install one because something
+        you want says it needs it - a listing that requires one names it on its release page.
+    </p>
+}
 
 @if (!string.IsNullOrWhiteSpace(Tag))
 {
@@ -65,12 +93,32 @@
         <Card Class="text-center">
             <p class="text-sm text-muted-foreground">
                 @(string.IsNullOrWhiteSpace(Q)
-                    ? "No mods are listed yet."
+                    ? (IsLoaders ? "No loaders are listed yet." : "No mods are listed yet.")
                     : $"Nothing matched “{Q}”.")
             </p>
+
+            @* Splitting the lists creates a way to search from one tab for something that only
+               exists in the other and be told, flatly, that it does not exist. Searching for
+               "starmap" among mods is exactly that case. *@
+            @if (_elsewhere > 0)
+            {
+                <p class="mt-3 text-sm">
+                    <a href="@TabUrl(IsLoaders ? null : "mod-loader")"
+                       class="underline underline-offset-4">
+                        @_elsewhere @(IsLoaders ? "mod" : "loader")@(_elsewhere == 1 ? "" : "s")
+                        @(_elsewhere == 1 ? "matches" : "match") it
+                    </a>
+                    <span class="text-muted-foreground">
+                        under @(IsLoaders ? "Mods" : "Loaders").
+                    </span>
+                </p>
+            }
+
             @if (!string.IsNullOrWhiteSpace(Q))
             {
-                <Button Href="/mods" Variant="ghost" Size="sm" Class="mt-3">Clear the search</Button>
+                <Button Href="@TabUrl(TypeFilter)" Variant="ghost" Size="sm" Class="mt-3">
+                    Clear the search
+                </Button>
             }
         </Card>
     }
@@ -103,9 +151,26 @@
     [SupplyParameterFromQuery] public string? Q { get; set; }
     [SupplyParameterFromQuery] public string? Tag { get; set; }
     [SupplyParameterFromQuery] public string? After { get; set; }
+    [SupplyParameterFromQuery] public string? Type { get; set; }
+
+    private const string TabBase = "-mb-px border-b-2 px-3 py-2 text-sm transition-colors";
+    private const string TabActive = "border-foreground font-medium text-foreground";
+    private const string TabIdle = "border-transparent text-muted-foreground hover:text-foreground";
 
     private ModSummaryPage? _page;
     private string? _error;
+
+    /// <summary>How many of the other kind match, so an empty list is never a dead end.</summary>
+    private int _elsewhere;
+
+    private bool IsLoaders => Type == "mod-loader";
+
+    /// <summary>
+    /// Mods unless asked otherwise. Anything that is not the loader tab is the mod tab: a
+    /// hand-typed ?type=nonsense should land somewhere sensible rather than on an empty page
+    /// explaining a filter nobody chose.
+    /// </summary>
+    private string TypeFilter => IsLoaders ? "mod-loader" : "mod";
 
     private string NextPageUrl
     {
@@ -114,18 +179,43 @@
             var parameters = new List<string> { $"after={Uri.EscapeDataString(_page!.Next!)}" };
             if (!string.IsNullOrWhiteSpace(Q)) parameters.Add($"q={Uri.EscapeDataString(Q)}");
             if (!string.IsNullOrWhiteSpace(Tag)) parameters.Add($"tag={Uri.EscapeDataString(Tag)}");
+            if (IsLoaders) parameters.Add("type=mod-loader");
             return $"/mods?{string.Join('&', parameters)}";
         }
+    }
+
+    /// <summary>
+    /// The same list under the other tab. Keeps the query and the tag - switching kind should not
+    /// quietly discard what somebody typed.
+    /// </summary>
+    private string TabUrl(string? type)
+    {
+        var parameters = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Q)) parameters.Add($"q={Uri.EscapeDataString(Q)}");
+        if (!string.IsNullOrWhiteSpace(Tag)) parameters.Add($"tag={Uri.EscapeDataString(Tag)}");
+        if (type == "mod-loader") parameters.Add("type=mod-loader");
+
+        return parameters.Count == 0 ? "/mods" : $"/mods?{string.Join('&', parameters)}";
     }
 
     protected override async Task OnParametersSetAsync()
     {
         _error = null;
         _page = null;
+        _elsewhere = 0;
 
         try
         {
-            _page = await Api.SearchAsync(Q, Tag, after: After) ?? new ModSummaryPage();
+            _page = await Api.SearchAsync(Q, Tag, after: After, type: TypeFilter) ?? new ModSummaryPage();
+
+            // Only when this tab came back empty, so the common path stays one request.
+            if (_page.Items.Count == 0)
+            {
+                var other = await Api.SearchAsync(
+                    Q, Tag, type: IsLoaders ? "mod" : "mod-loader");
+
+                _elsewhere = other?.Items.Count ?? 0;
+            }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {

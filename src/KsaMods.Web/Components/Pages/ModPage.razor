@@ -54,7 +54,15 @@ else
 
         <header class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
             <div class="min-w-0">
-                <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight">@_mod.Name</h1>
+                <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight">@_mod.Name</h1>
+                    @if (_mod.IsLoader)
+                    {
+                        @* Next to the name, because the distinction changes what the page is for:
+                           this is not something to install because it looks good. *@
+                        <Badge Variant="info" Title="Not a mod. Other mods run on top of it.">loader</Badge>
+                    }
+                </div>
                 @* The id, verbatim: this is the folder name the game loads it under. *@
                 <code class="mt-1.5 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
             </div>
@@ -87,6 +95,15 @@ else
                     Publish it
                 </a>
                 when you're ready.
+            </Alert>
+        }
+
+        @if (_mod.IsLoader)
+        {
+            <Alert Variant="info" Title="This is a mod loader" Class="mt-4">
+                It is not a mod in its own right - it is the code other mods run on. Install it
+                because something you want has asked for it, and the release page of that mod will
+                say which version it needs.
             </Alert>
         }
 

@@ -77,6 +77,38 @@
 </section>
 
 @*
+    Loaders get a line rather than cards. There are one or two of them in the whole ecosystem and
+    nobody browses for one - you install it because a mod said it needed it - so a card in the grid
+    above would take a slot from the content this page exists to show, every time one was updated.
+*@
+@if (_loaders is { Count: > 0 })
+{
+    <section class="mt-8 rounded-lg border border-border bg-card/40 px-5 py-4">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 class="eyebrow text-muted-foreground">Loaders</h2>
+            <p class="text-sm text-muted-foreground">
+                The code mods run on. Install one when a mod asks for it.
+            </p>
+            <a href="/mods?type=mod-loader"
+               class="ml-auto text-[0.8125rem] text-muted-foreground transition-colors hover:text-foreground">
+                All loaders
+            </a>
+        </div>
+
+        <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+            @foreach (var loader in _loaders)
+            {
+                <li>
+                    <a href="@($"/mods/{loader.Id}")"
+                       class="text-sm font-medium underline-offset-4 hover:underline">@loader.Name</a>
+                    <code class="ml-1.5 font-mono text-xs text-muted-foreground">@loader.Id</code>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@*
     Two audiences with almost nothing in common: one wants to install things, the other wants to
     publish them. Writing for both at once produced copy that told players about repositories and
     authors about compatibility badges. Splitting them is also the honest place to answer "why
@@ -126,14 +158,20 @@
 
 @code {
     private IReadOnlyList<ModSummary>? _mods;
+    private IReadOnlyList<ModSummary>? _loaders;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var page = await Api.SearchAsync(limit: 6);
+            // Two requests rather than one filtered in the browser, so the six cards are six mods
+            // whether or not a loader happens to have been updated this week.
+            var page = await Api.SearchAsync(limit: 6, type: "mod");
             _mods = page?.Items ?? [];
+
+            var loaders = await Api.SearchAsync(limit: 6, type: "mod-loader");
+            _loaders = loaders?.Items ?? [];
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
