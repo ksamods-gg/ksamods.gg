@@ -89,6 +89,22 @@ public static class ReadEndpoints
                 // controls only to people they will work for. The principal is already loaded
                 // above for the visibility check, so this costs nothing extra.
                 your_role = principal?.ModRole,
+
+                // Whether they may manage it at all, which is not the same question. A moderator
+                // holds no role on the listing, so your_role stays honestly null for them while
+                // this is true. The frontend used to derive this from the role and therefore hid
+                // the Manage button from the very people moderation exists for.
+                //
+                // Answered here rather than recomputed in the client, because it is the same
+                // decision the write endpoints make and two copies of an authorisation rule is
+                // how they drift apart.
+                can_manage = principal is not null
+                             && Permissions.Allows(principal, Capability.EditModListing),
+
+                // Owner-level reach, held by the owner and by staff. Splits the controls that
+                // change who a listing belongs to from the ones that only change what it says.
+                can_manage_as_owner = principal is not null
+                                      && Permissions.Allows(principal, Capability.ManageMaintainers),
                 updated_at = mod.UpdatedAt,
                 releases = releases
                     .Where(r => Permissions.CanViewRelease(principal, r.ValidationState, mod.ListingState))

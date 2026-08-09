@@ -399,7 +399,7 @@ else
             }
         </Card>
 
-        @if (_mod.IsOwner)
+        @if (_mod.CanManageAsOwner)
         {
             <Card Class="mt-6 border-severity-error/30" Header="@(b => b.AddContent(0, "Delete this listing"))">
                 @if (_mod.Releases.Count > 0)
@@ -494,10 +494,10 @@ else
     /// the page would tell an admin it is not their listing. The API already lets them act here,
     /// which is the point of moderation: reaching a listing whose owner has gone quiet.
     /// </summary>
-    private bool MayManage => _mod?.CanManage == true || _me?.IsModerator == true;
+    private bool MayManage => _mod?.CanManage == true;
 
     /// <summary>Transferring and changing who else is here belong to the owner, or to staff.</summary>
-    private bool MayManagePeople => _mod?.IsOwner == true || _me?.IsModerator == true;
+    private bool MayManagePeople => _mod?.CanManageAsOwner == true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -540,10 +540,12 @@ else
                     : null;
 
                 // Picked up on every load, not just after connecting, so the instructions survive
-                // a reload. Owner-only because the challenge is a secret; a maintainer gets the
-                // rest of the page without it. A listing with nothing connected answers 404, which
-                // GetAsync turns into null, so "not connected yet" needs no separate check.
-                _challenge = _mod.IsOwner ? await Api.GetRepoLinkAsync(Id) : null;
+                // a reload. Owner-level because the challenge is a secret and a maintainer must
+                // not be able to re-point the listing; staff hold the same reach as the owner
+                // here, which is what lets them repair a listing whose author has gone quiet. A
+                // listing with nothing connected answers 404, which GetAsync turns into null, so
+                // "not connected yet" needs no separate check.
+                _challenge = _mod.CanManageAsOwner ? await Api.GetRepoLinkAsync(Id) : null;
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
