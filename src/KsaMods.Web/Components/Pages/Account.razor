@@ -244,6 +244,112 @@ else
             }
         </Card>
 
+        <!-- ── API tokens ──────────────────────────────────────────── -->
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "API tokens"))"
+              Description="@(b => b.AddContent(0, "For reading, not writing"))">
+
+            <p class="text-sm leading-relaxed text-muted-foreground">
+                A token lets a script or a mod manager read the API as you - including your own
+                drafts and failed validation reports - and raises the read limit from 300 requests
+                a minute to 3000. It <span class="font-medium text-foreground">cannot write</span>:
+                publishing stays in the browser, and releases import themselves from your
+                repository. So a token in a config file cannot be spent on your listings.
+            </p>
+
+            @if (_minted is { Success: true })
+            {
+                @* Shown until dismissed, not in a toast. Nothing stores the secret, so a page that
+                   loses this value has lost it permanently. *@
+                <Alert Variant="ok" Title="Copy it now" Class="mt-5">
+                    <p>This is the only time it is shown. We store a hash, so we cannot show it again.</p>
+
+                    <pre class="mt-3 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"><code>@_minted.Token</code></pre>
+
+                    @if (_minted.Note is { Length: > 0 })
+                    {
+                        <p class="mt-2 text-xs">@_minted.Note</p>
+                    }
+
+                    <Button Type="button" Variant="outline" Size="sm" Class="mt-3"
+                            @onclick="() => _minted = null">
+                        Done
+                    </Button>
+                </Alert>
+            }
+            else if (_minted is { Error: { Length: > 0 } problem })
+            {
+                <Alert Variant="error" Class="mt-5">@problem</Alert>
+            }
+
+            @if (_tokens.Count > 0)
+            {
+                <ul class="mt-5 divide-y divide-border">
+                    @foreach (var token in _tokens)
+                    {
+                        <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 first:pt-0">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium">@token.Name</p>
+                                <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                                    @token.Prefix…
+                                    · @(token.NeverUsed ? "never used" : $"used {Presentation.Ago(token.LastUsedAt!.Value)}")
+                                    @if (token.ExpiresAt is { } expires)
+                                    {
+                                        <text> · expires @expires.ToString("d MMM yyyy")</text>
+                                    }
+                                </p>
+                            </div>
+
+                            @if (token.IsApplication)
+                            {
+                                <Badge Variant="outline">application</Badge>
+                            }
+
+                            <Button Type="button" Variant="ghost" Size="sm" Class="ml-auto"
+                                    @onclick="() => RevokeTokenAsync(token)">
+                                Revoke
+                            </Button>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <div class="mt-5 flex flex-wrap items-end gap-2 border-t border-border pt-4">
+                <div class="min-w-48 flex-1">
+                    <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                           for="tokenName">
+                        Name it
+                    </label>
+                    <input id="tokenName" value="@_tokenName"
+                           @oninput='e => _tokenName = e.Value?.ToString() ?? ""'
+                           placeholder="release dashboard"
+                           class="@Cx.Of(InputClass, "mt-1")" autocomplete="off" />
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                           for="tokenKind">
+                        Kind
+                    </label>
+                    <select id="tokenKind" value="@_tokenKind"
+                            @onchange='e => _tokenKind = e.Value?.ToString() ?? "personal"'
+                            class="@Cx.Of(InputClass, "mt-1 w-auto")">
+                        <option value="personal">Personal - reads as you</option>
+                        <option value="application">Application - identifies software</option>
+                    </select>
+                </div>
+
+                <Button Type="button" Disabled="_minting" Pending="_minting" @onclick="CreateTokenAsync">
+                    Create
+                </Button>
+            </div>
+
+            <p class="mt-2 text-xs text-muted-foreground">
+                A personal token sees your drafts. An application token identifies a piece of
+                software and sees only what anybody can - use it for a public mod manager, where
+                the key ends up on somebody else's machine.
+            </p>
+        </Card>
+
         <!-- ── danger zone ─────────────────────────────────────────── -->
         <Card Class="mt-6 border-severity-error/30" Header="@(b => b.AddContent(0, "Delete account"))">
             @if (!_confirmingDelete)
@@ -302,6 +408,12 @@ else
     private string? _profileError;
     private string? _identityError;
 
+    private IReadOnlyList<ApiToken> _tokens = [];
+    private MintedToken? _minted;
+    private string _tokenName = "";
+    private string _tokenKind = "personal";
+    private bool _minting;
+
     private bool _handleChanged =>
         !string.Equals(_form.Handle?.Trim(), _originalHandle, StringComparison.Ordinal);
 
@@ -346,6 +458,7 @@ else
             if (_profile is not null)
             {
                 _sessions = await Api.GetSessionsAsync() ?? [];
+                _tokens = await Api.GetTokensAsync() ?? [];
                 _available = await Auth.ProvidersAsync();
 
                 _form.DisplayName = _profile.DisplayName;
@@ -444,6 +557,48 @@ else
         else
         {
             _identityError = result.Error ?? "Could not disconnect that account.";
+        }
+    }
+
+    private async Task CreateTokenAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_tokenName))
+        {
+            _minted = new MintedToken { Error = "Give it a name you will recognise in six months." };
+            return;
+        }
+
+        _minting = true;
+
+        try
+        {
+            _minted = await Api.CreateTokenAsync(_tokenName.Trim(), _tokenKind, expiresInDays: null);
+
+            if (_minted is { Success: true })
+            {
+                _tokenName = "";
+                _tokens = await Api.GetTokensAsync() ?? [];
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _minted = new MintedToken { Error = "The API isn't responding." };
+        }
+        finally
+        {
+            _minting = false;
+        }
+    }
+
+    private async Task RevokeTokenAsync(ApiToken token)
+    {
+        // No confirmation step. Revoking is the safe direction - the cost of doing it by accident
+        // is making a new one, and a dialog between somebody and revoking a leaked credential is
+        // a dialog on the wrong side.
+        if (await Api.RevokeTokenAsync(token.Id))
+        {
+            _notice = $"'{token.Name}' revoked. Anything using it stops working now.";
+            _tokens = await Api.GetTokensAsync() ?? [];
         }
     }
 

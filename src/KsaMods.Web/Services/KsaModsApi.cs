@@ -152,6 +152,34 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
             : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
     }
 
+    // ── API tokens ──
+    //
+    // Session only, every one of them: a credential that can list or mint its own successors
+    // cannot be revoked, so the browser is the only place tokens are born and die.
+
+    public Task<IReadOnlyList<ApiToken>?> GetTokensAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ApiToken>>("/api/v1/me/tokens", ct);
+
+    public async Task<MintedToken?> CreateTokenAsync(
+        string name, string kind, int? expiresInDays, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/me/tokens", new { name, kind, expiresInDays }, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<MintedToken>(Json, ct)
+            : new MintedToken { Error = await ReadProblemAsync(response, ct) ?? "Could not create that token." };
+    }
+
+    public async Task<bool> RevokeTokenAsync(long id, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.DeleteAsync($"/api/v1/me/tokens/{id}", ct);
+
+        return response.IsSuccessStatusCode;
+    }
+
     // ── tags ──
 
     /// <summary>
@@ -959,6 +987,39 @@ public sealed record GameBuild
     [JsonPropertyName("revision")] public int Revision { get; init; }
     [JsonPropertyName("build")] public string Build { get; init; } = "";
     [JsonPropertyName("date")] public DateTime? Date { get; init; }
+}
+
+// ── API tokens ──
+
+public sealed record ApiToken
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "personal";
+    [JsonPropertyName("prefix")] public string Prefix { get; init; } = "";
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("expires_at")] public DateTimeOffset? ExpiresAt { get; init; }
+    [JsonPropertyName("last_used_at")] public DateTimeOffset? LastUsedAt { get; init; }
+
+    public bool IsApplication => Kind == "application";
+    public bool NeverUsed => LastUsedAt is null;
+}
+
+/// <summary>
+/// The one time the secret exists outside the holder's hands. Nothing stores it, so a page that
+/// loses this value has lost it for good - which is why the UI shows it until dismissed rather
+/// than in a toast.
+/// </summary>
+public sealed record MintedToken
+{
+    [JsonPropertyName("token")] public string? Token { get; init; }
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "personal";
+    [JsonPropertyName("note")] public string? Note { get; init; }
+
+    public string? Error { get; init; }
+
+    public bool Success => Error is null && !string.IsNullOrWhiteSpace(Token);
 }
 
 // ── tags ──

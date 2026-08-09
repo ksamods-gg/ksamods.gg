@@ -33,7 +33,7 @@ public static class ReadEndpoints
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
 
-            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            var principal = await http.ReadPrincipalForModAsync(mods, id, ct);
 
             if (mod.ListingState is "delisted" or "taken_down" && principal?.IsModerator != true)
             {
@@ -102,7 +102,7 @@ public static class ReadEndpoints
 
             if (release is null) return Results.NotFound();
 
-            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            var principal = await http.ReadPrincipalForModAsync(mods, id, ct);
             if (!Permissions.CanViewRelease(principal, release.ValidationState, mod.ListingState))
             {
                 return Results.NotFound();

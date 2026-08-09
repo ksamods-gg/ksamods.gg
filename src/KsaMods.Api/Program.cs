@@ -30,6 +30,7 @@ builder.Services.AddScoped<ModlistRepository>();
 builder.Services.AddScoped<AccountStore>();
 builder.Services.AddScoped<TagVocabulary>();
 builder.Services.AddScoped<SessionStore>();
+builder.Services.AddScoped<TokenStore>();
 
 var sessionOptions = new SiteSessionOptions();
 builder.Services.AddSingleton(sessionOptions);
@@ -61,8 +62,18 @@ builder.Services.AddRateLimiter(limiter =>
 {
     limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    limiter.AddPolicy("reads", http => Partition(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", rateLimits.Reads));
+
+    // Anonymous reads stay open, which is the promise. A key lifts the ceiling and moves the
+    // bucket off a shared address, so one noisy client cannot spend a whole office's quota and
+    // heavy callers become visible instead of anonymous.
+    limiter.AddPolicy("reads", http =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            http.RateLimitPartition(),
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = http.HasKey() ? 3000 : 300,
+                Window = TimeSpan.FromMinutes(1),
+            }));
 
     // Webhooks have no session, so they cannot share the per-account bucket - every forge in the
     // world would land in one partition and a single busy repository would lock out the rest.
@@ -175,6 +186,7 @@ app.MapNoticeEndpoints();
 app.MapBugEndpoints();
 app.MapRateLimitEndpoints();
 app.MapTagEndpoints();
+app.MapTokenEndpoints();
 
 // Off unless a secret is configured: without one, every caller is anonymous and the endpoint is a
 // way to make the site do work on request.
