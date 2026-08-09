@@ -28,7 +28,7 @@
                 <Tile Label="Mods" Value="@Overview.Mods" Href="/admin/listings" />
                 <Tile Label="Releases" Value="@Overview.Releases" />
                 <Tile Label="Withdrawn" Value="@Overview.Withdrawn" Href="/admin/listings?state=delisted"
-                      Note="Delisted or taken down. Still resolvable by id - nothing is deleted." />
+                      Note="Delisted or taken down. Still resolvable by id, because nothing is deleted." />
                 <Tile Label="Accounts" Value="@Overview.Accounts" Href="/admin/accounts"
                       Note="@($"{Overview.Suspended} suspended")" />
             </div>
@@ -54,8 +54,8 @@
                 </p>
                 <p>
                     <span class="font-medium text-foreground">Every action needs a reason.</span>
-                    It is recorded against your name, it is public by default, and it cannot be
-                    edited afterwards - a correction is a new entry pointing at the old one.
+                    It's recorded against your name, it's public by default, and it can't be
+                    edited afterwards. A correction is a new entry pointing at the old one.
                 </p>
             </div>
         </Card>

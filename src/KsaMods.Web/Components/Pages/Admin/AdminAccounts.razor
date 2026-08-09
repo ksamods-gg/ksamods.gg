@@ -126,7 +126,7 @@
                                         </Button>
                                         <span class="text-xs text-muted-foreground">
                                             Ends every session now and stops them signing in. Their
-                                            mods stay up - withdraw those separately if they need it.
+                                            mods stay up, so withdraw those separately if they need it.
                                         </span>
                                     }
                                 </div>
@@ -141,9 +141,9 @@
                                             <select id="@($"role-{account.Id}")" value="@_role"
                                                     @onchange='e => _role = e.Value?.ToString() ?? "user"'
                                                     class="@Cx.Of(InputClass, "w-auto")">
-                                                <option value="user">user - no moderation powers</option>
-                                                <option value="moderator">moderator - can withdraw and suspend</option>
-                                                <option value="admin">admin - can also grant roles</option>
+                                                <option value="user">user (no moderation powers)</option>
+                                                <option value="moderator">moderator (can withdraw and suspend)</option>
+                                                <option value="admin">admin (can also grant roles)</option>
                                             </select>
                                             <Button Type="button" Size="sm" Disabled="@(_saving || _role == account.SiteRole)"
                                                     @onclick="() => SetRoleAsync(account)">
@@ -162,20 +162,20 @@
                                         </div>
                                         <p class="mt-2 text-xs text-muted-foreground">
                                             Signs them out everywhere, because a session carries the
-                                            role it was issued with. Only an admin can do this - a
+                                            role it was issued with. Only an admin can do this, because a
                                             moderator who could promote could grant themselves an
                                             accomplice.
                                             @if (Rank(_role) < Rank(account.SiteRole))
                                             {
                                                 <text>
-                                                    Taking a role back needs a reason; they are
+                                                    Taking a role back needs a reason. They're
                                                     losing something and will want to know why.
                                                 </text>
                                             }
                                             else
                                             {
                                                 <text>
-                                                    Giving someone a role needs no reason - who did
+                                                    Giving someone a role needs no reason. Who did
                                                     it and when is recorded either way.
                                                 </text>
                                             }

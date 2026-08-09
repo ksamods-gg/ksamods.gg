@@ -7,7 +7,7 @@
 <AdminFrame Current="limits">
     <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground">
         How many requests one caller gets per window. Lower these if the site is being hammered.
-        Reads are counted per address, writes per account where there is one, and webhooks per
+        Reads are counted per address, writes per account where there's one, and webhooks per
         sender.
     </p>
 
@@ -19,7 +19,8 @@
     {
         <Alert Variant="ok" Title="Applied" Class="mt-4">
             In effect now, for callers already being counted as well as new ones. Everybody's
-            current window restarted, which is what makes that true.
+            current window restarted, which is what makes that true of callers we were
+            already counting.
         </Alert>
     }
 
@@ -49,7 +50,7 @@
             </div>
 
             <p class="mt-4 text-xs leading-relaxed text-muted-foreground">
-                Between @_limits.Minimum and @_limits.Maximum. There is a floor because a limit of
+                Between @_limits.Minimum and @_limits.Maximum. There's a floor because a limit of
                 nothing locks out everybody including whoever set it, and the way back would be a
                 redeploy.
             </p>
