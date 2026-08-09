@@ -1,0 +1,63 @@
+@namespace KsaMods.Web.Components.Domain
+@rendermode InteractiveServer
+@using KsaMods.Web.Components.Ui
+@inject KsaModsApi Api
+
+@*
+    Tells somebody what happened to a bug they reported.
+
+    The ordinary experience of reporting a bug anywhere is never hearing anything again, so the
+    site says so the next time they come back. Shown once: acknowledging it is an explicit click
+    rather than a side effect of rendering, because a notice that clears itself the instant it
+    paints is one a person can miss by scrolling.
+*@
+
+@if (_bugs.Count > 0)
+{
+    <div class="mx-auto w-full max-w-6xl px-4 pt-6">
+        @foreach (var bug in _bugs)
+        {
+            <div class="mb-3 flex items-start gap-3 rounded-lg border px-4 py-3
+                        @(bug.IsGoodNews
+                            ? "border-severity-ok/30 bg-severity-ok/10"
+                            : "border-border bg-card")">
+                <div class="min-w-0 flex-1 text-sm">
+                    <p class="font-medium @(bug.IsGoodNews ? "text-severity-ok" : "")">
+                        @bug.Headline
+                    </p>
+                    <p class="mt-1 text-muted-foreground">
+                        You reported: <span class="text-foreground">@bug.Summary</span>
+                    </p>
+                    @if (!string.IsNullOrWhiteSpace(bug.Resolution))
+                    {
+                        <p class="mt-1.5 leading-relaxed">@bug.Resolution</p>
+                    }
+                </div>
+
+                <button type="button" @onclick="() => DismissAsync(bug.Id)"
+                        aria-label="Dismiss this update"
+                        class="shrink-0 rounded px-1.5 py-0.5 leading-none text-muted-foreground
+                               opacity-70 transition-opacity hover:opacity-100
+                               focus-visible:outline-2 focus-visible:outline-offset-2">
+                    &#x2715;
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<UnseenBug> _bugs = [];
+
+    protected override async Task OnInitializedAsync() => _bugs = await Api.UnseenBugsAsync();
+
+    private async Task DismissAsync(long id)
+    {
+        // Removed locally first so the notice goes away immediately. The call that records it is
+        // idempotent and unimportant enough that a failure should not leave the notice stuck on
+        // screen arguing with the person trying to close it.
+        _bugs = [.. _bugs.Where(b => b.Id != id)];
+
+        await Api.MarkBugSeenAsync(id);
+    }
+}

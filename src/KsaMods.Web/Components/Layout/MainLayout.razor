@@ -116,6 +116,10 @@
            fragment jump moves the viewport but leaves focus at the top of the document in several
            browsers, and the next Tab would go straight back into the header. The carve-out in
            app.css keeps it from painting a focus ring it has no use for. *@
+        @* Outcomes of bugs this visitor reported. Above the page rather than inside it, because
+           it is about them rather than about whatever they navigated to. *@
+        <BugNotice />
+
         <main id="main" tabindex="-1" class="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-8">
             @Body
         </main>
@@ -151,6 +155,7 @@
                     <ul class="mt-4 space-y-2.5 text-sm">
                         <li><a href="/terms" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Terms</a></li>
                         <li><a href="/privacy" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Privacy</a></li>
+                        <li><a href="/bug" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Report a bug</a></li>
                     </ul>
                 </div>
             </div>

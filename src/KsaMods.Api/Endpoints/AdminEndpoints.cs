@@ -12,6 +12,9 @@ public sealed record SuspendBody(bool Suspended, string Rationale);
 public sealed record SiteRoleBody(string Role, string Rationale);
 public sealed record ClearReviewBody(string? Notes);
 
+/// <summary>Requests permitted per window, per partition.</summary>
+public sealed record RateLimitBody(int Reads, int Writes, int Webhooks, int WindowSeconds);
+
 /// <summary>An empty message means no banner, which is how one is taken down.</summary>
 public sealed record NoticeBody(
     string? Message, string Variant, string? LinkText, string? LinkHref, bool Dismissible);
@@ -136,6 +139,57 @@ public static class AdminEndpoints
 
             return Results.NoContent();
         }).RequireRateLimiting("writes");
+    }
+
+    /// <summary>
+    /// Reading and lowering the request budgets.
+    ///
+    /// <para>Admin rather than moderator. A limit is not a moderation decision, and setting one
+    /// wrongly takes the site off the air for everybody rather than acting on one person.</para>
+    /// </summary>
+    public static void MapRateLimitEndpoints(this IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/v1/admin").RequireRateLimiting("writes");
+
+        api.MapGet("/rate-limits", (HttpContext http, RateLimits limits) =>
+        {
+            if (Deny(http, Capability.Moderate) is { } denied) return denied;
+
+            return Results.Ok(new
+            {
+                reads = limits.Reads,
+                writes = limits.Writes,
+                webhooks = limits.Webhooks,
+                window_seconds = (int)limits.Window.TotalSeconds,
+                changed_at = limits.ChangedAt,
+                minimum = RateLimits.Minimum,
+                maximum = RateLimits.Maximum,
+            });
+        });
+
+        api.MapPut("/rate-limits", (RateLimitBody body, HttpContext http, RateLimits limits, ILoggerFactory logging) =>
+        {
+            // Changing what everybody is allowed to do belongs with the people who can hand out
+            // roles, not with everybody who can withdraw a listing.
+            if (Deny(http, Capability.ManageSiteRoles) is { } denied) return denied;
+
+            if (!limits.Set(body.Reads, body.Writes, body.Webhooks, body.WindowSeconds, out var error))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["reads"] = [error!],
+                });
+            }
+
+            // Logged rather than written to the moderation log: that log is about what staff did
+            // to people, and this is an operational dial. It still needs to be findable afterwards
+            // when somebody asks why everything started returning 429.
+            logging.CreateLogger("RateLimits").LogWarning(
+                "Rate limits changed by {Account}: reads {Reads}, writes {Writes}, webhooks {Webhooks} per {Window}s.",
+                http.User()?.Handle, body.Reads, body.Writes, body.Webhooks, body.WindowSeconds);
+
+            return Results.NoContent();
+        });
     }
 
     public static void MapReportEndpoints(this IEndpointRouteBuilder app)
