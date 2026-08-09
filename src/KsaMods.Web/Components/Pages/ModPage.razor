@@ -264,20 +264,6 @@ else
                                 </div>
                             }
 
-                            @* Only when the forge has actually reported a figure. Rendering 0
-                               for "not counted" would state something about the mod that we do
-                               not know, and it is the author's number being misreported. *@
-                            @if (_mod.Downloads is { } downloads)
-                            {
-                                <div class="flex items-baseline justify-between gap-3">
-                                    <dt class="text-muted-foreground">Downloads</dt>
-                                    <dd class="font-mono text-xs tabular"
-                                        title="Counted by the forge that serves the file.">
-                                        @Presentation.Compact(downloads)
-                                    </dd>
-                                </div>
-                            }
-
                             @if (_mod.UpdatedAt is { } updated)
                             {
                                 <div class="flex items-baseline justify-between gap-3">

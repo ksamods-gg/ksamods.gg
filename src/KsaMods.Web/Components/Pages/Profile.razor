@@ -69,13 +69,6 @@ else
                     <dt class="eyebrow text-muted-foreground">Mods</dt>
                     <dd class="mt-1 font-mono text-lg">@_profile.Mods.Count</dd>
                 </div>
-                @if (_profile.Downloads is { } downloads)
-                {
-                    <div>
-                        <dt class="eyebrow text-muted-foreground">Downloads</dt>
-                        <dd class="mt-1 font-mono text-lg">@Presentation.Compact(downloads)</dd>
-                    </div>
-                }
             </dl>
         </header>
 
@@ -115,11 +108,7 @@ else
                                     @mod.Abstract
                                 </p>
 
-                                <div class="mt-2.5 flex items-center gap-3 font-mono text-[0.6875rem] text-muted-foreground tabular">
-                                    @if (mod.Downloads is { } d)
-                                    {
-                                        <span>@Presentation.Compact(d) downloads</span>
-                                    }
+                                <div class="mt-2.5 flex items-center font-mono text-[0.6875rem] text-muted-foreground tabular">
                                     <span class="ml-auto">@Presentation.Ago(mod.UpdatedAt)</span>
                                 </div>
                             </div>

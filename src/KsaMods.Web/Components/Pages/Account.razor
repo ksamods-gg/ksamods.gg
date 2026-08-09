@@ -65,7 +65,7 @@ else
 
             <div class="space-y-5">
                 <Field Context="field" Id="displayName" Label="Display name"
-                       Hint="Shown on your mods and modlists. Any characters you like.">
+                       Hint="Shown on your listings. Any characters you like.">
                     <input @attributes="field" @bind="_form.DisplayName" class="@InputClass" />
                 </Field>
 
@@ -174,55 +174,36 @@ else
             }
         </Card>
 
-        <!-- ── your content ────────────────────────────────────────── -->
-        @if (_profile.Mods.Count > 0 || _profile.Modlists.Count > 0)
+        <!-- ── your mods ──────────────────────────────────────────── -->
+        @* Modlists are deliberately absent here. The API and the schema have them, the frontend
+           does not, and this card used to link to /modlists/{id}, which is a 404. Listing
+           something a person cannot open is worse than not mentioning it. *@
+        @if (_profile.Mods.Count > 0)
         {
-            <Card Class="mt-6" Header="@(b => b.AddContent(0, "Your content"))">
-                @if (_profile.Mods.Count > 0)
-                {
-                    <div class="flex items-baseline justify-between gap-3">
-                        <h3 class="eyebrow text-muted-foreground">Mods</h3>
-                        @* This list says what you have; the other says what needs you. *@
-                        <a href="/my/mods"
-                           class="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-                            Manage your mods
-                        </a>
-                    </div>
-                    <ul class="mt-2 divide-y divide-border">
-                        @foreach (var mod in _profile.Mods)
-                        {
-                            <li class="flex items-center gap-3 py-2 text-sm">
-                                <a href="@($"/mods/{mod.Id}")" class="font-medium underline-offset-4 hover:underline">
-                                    @mod.Name
-                                </a>
-                                <code class="font-mono text-xs text-muted-foreground">@mod.Id</code>
-                                <Badge Variant="outline" Class="ml-auto">@mod.Role</Badge>
-                            </li>
-                        }
-                    </ul>
-                }
+            <Card Class="mt-6" Header="@(b => b.AddContent(0, "Your mods"))"
+                  Actions="@(b =>
+                  {
+                      b.OpenElement(0, "a");
+                      b.AddAttribute(1, "href", "/my/mods");
+                      b.AddAttribute(2, "class",
+                          "text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline");
+                      b.AddContent(3, "Manage your mods");
+                      b.CloseElement();
+                  })">
 
-                @if (_profile.Modlists.Count > 0)
-                {
-                    <h3 class="@Cx.Of("eyebrow text-muted-foreground", _profile.Mods.Count > 0 ? "mt-5" : null)">
-                        Modlists
-                    </h3>
-                    <ul class="mt-2 divide-y divide-border">
-                        @foreach (var list in _profile.Modlists)
-                        {
-                            <li class="flex items-center gap-3 py-2 text-sm">
-                                <a href="@($"/modlists/{list.Id}")" class="font-medium underline-offset-4 hover:underline">
-                                    @list.Name
-                                </a>
-                                @if (list.Visibility != "public")
-                                {
-                                    <Badge Variant="outline">@list.Visibility</Badge>
-                                }
-                                <Badge Variant="outline" Class="ml-auto">@list.Role</Badge>
-                            </li>
-                        }
-                    </ul>
-                }
+                @* This list says what you have; /my/mods says what needs you. *@
+                <ul class="divide-y divide-border">
+                    @foreach (var mod in _profile.Mods)
+                    {
+                        <li class="flex items-center gap-3 py-2 text-sm first:pt-0">
+                            <a href="@($"/mods/{mod.Id}")" class="font-medium underline-offset-4 hover:underline">
+                                @mod.Name
+                            </a>
+                            <code class="font-mono text-xs text-muted-foreground">@mod.Id</code>
+                            <Badge Variant="outline" Class="ml-auto">@mod.Role</Badge>
+                        </li>
+                    }
+                </ul>
             </Card>
         }
 
@@ -268,7 +249,7 @@ else
             @if (!_confirmingDelete)
             {
                 <p class="text-sm text-muted-foreground">
-                    Your mods and modlists stay published - people have them installed, and modlists
+                    Your mods stay published. People have them installed, and other listings
                     point at them. What goes is the account: your name, your avatar, your sign-in
                     links, and every session. It cannot be undone, and you cannot sign back in.
                 </p>

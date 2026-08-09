@@ -273,19 +273,21 @@ than the clock. A run that changes nothing produces no commit, or the history be
 
 ## Status
 
-Phases 1–5 of [backend.md §18](docs/backend.md) are implemented, plus a frontend, with 247 tests
-passing.
+Phases 1 to 5 of [backend.md §18](docs/backend.md) are implemented, plus a frontend, with 411
+tests passing.
 
 **Verified end-to-end:** the validation pipeline via the CLI and inside the hardened container;
 the migrations applied to a real Postgres 17 with every constraint checked individually
 (case-insensitive id uniqueness, single-owner-per-mod, the append-only moderation trigger,
 `superseded_by` requiring deprecation); the API serving live reads, resolve, collisions, 401 on
-unauthenticated writes, and its security headers; and the frontend rendering the full stack in a
-real browser, in both themes, with zero failed requests.
+unauthenticated writes, and its security headers; the import path from webhook to job to
+container to database; re-verification returning `verified`, `quarantined` and `unavailable`
+against a real forge; and the frontend rendering the full stack in a real browser, in both
+themes, with zero failed requests.
 
-**Not yet built:** the release-import worker loop that ties webhook → fetch → container →
-database together (its pieces all exist and are tested separately), the periodic re-verification
-job, forge adapters beyond GitHub, sign-in wired to real OAuth apps, and the modlist editor.
+**Not yet built:** the modlist editor, forge adapters beyond GitHub, and an app-installation
+proof alongside the challenge and topic ones. The modlist API and schema exist; only the pages
+are missing, which is why nothing in the interface offers modlists yet.
 
 ### One deployment note
 

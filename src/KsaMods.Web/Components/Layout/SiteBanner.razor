@@ -1,9 +1,8 @@
 @namespace KsaMods.Web.Components.Layout
 @using KsaMods.Web.Services
-@using Microsoft.Extensions.Options
-@inject IOptions<SiteBannerOptions> Options
+@inject SiteNoticeCache Notices
 
-@if (Banner.IsActive)
+@if (Banner is { IsActive: true })
 {
     <script type="module" src="@Assets["Components/Layout/SiteBanner.razor.js"]"></script>
 
@@ -47,11 +46,18 @@
 }
 
 @code {
-    private SiteBannerOptions Banner => Options.Value;
+    private SiteNotice? Banner;
 
-    private bool IsUrgent => Banner.Variant is "warning" or "error";
+    /// <summary>
+    /// Read on every render of the layout, which is every page. The cache is what makes that
+    /// cheap; without it this would be an API call per page view for a thing that is empty
+    /// almost always.
+    /// </summary>
+    protected override async Task OnInitializedAsync() => Banner = await Notices.CurrentAsync();
 
-    private string StripClass => Banner.Variant switch
+    private bool IsUrgent => Banner?.Variant is "warning" or "error";
+
+    private string StripClass => Banner?.Variant switch
     {
         "error" => "border-b border-severity-error/30 bg-severity-error/10 text-severity-error",
         "warning" => "border-b border-severity-warning/30 bg-severity-warning/10 text-severity-warning",

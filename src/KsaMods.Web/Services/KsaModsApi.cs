@@ -391,6 +391,72 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         PostAsync("/api/v1/reports",
             new { subjectKind, subjectId, category, body }, ct);
 
+    /// <summary>The site notice as stored. Moderators read this to edit it; the banner uses the cache.</summary>
+    public Task<SiteNotice?> GetNoticeAsync(CancellationToken ct = default) =>
+        GetAsync<SiteNotice>("/api/v1/notice", ct);
+
+    /// <summary>Puts a notice up, changes it, or takes it down by sending an empty message.</summary>
+    public async Task<ApiOutcome> SetNoticeAsync(
+        string message, string variant, string? linkText, string? linkHref, bool dismissible,
+        CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PutAsJsonAsync("/api/v1/admin/notice",
+            new { message, variant, linkText, linkHref, dismissible }, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    public Task<RateLimitSettings?> GetRateLimitsAsync(CancellationToken ct = default) =>
+        GetAsync<RateLimitSettings>("/api/v1/admin/rate-limits", ct);
+
+    public async Task<ApiOutcome> SetRateLimitsAsync(
+        int reads, int writes, int webhooks, int windowSeconds, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PutAsJsonAsync("/api/v1/admin/rate-limits",
+            new { reads, writes, webhooks, windowSeconds }, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
+    // ── bugs in the site ──
+
+    public Task<ApiOutcome> FileBugAsync(
+        string summary, string? detail, string? page, CancellationToken ct = default) =>
+        PostAsync("/api/v1/bugs", new { summary, detail, page }, ct);
+
+    /// <summary>
+    /// Outcomes the caller has not been shown yet. Empty for anyone signed out, and cheap enough
+    /// to ask on every page because a partial index answers the common "nothing" case instantly.
+    /// </summary>
+    public async Task<IReadOnlyList<UnseenBug>> UnseenBugsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await GetAsync<IReadOnlyList<UnseenBug>>("/api/v1/me/bugs/unseen", ct) ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            // A notification is never worth breaking a page over.
+            return [];
+        }
+    }
+
+    public Task<ApiOutcome> MarkBugSeenAsync(long id, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/me/bugs/{id}/seen", new { }, ct);
+
+    public Task<IReadOnlyList<BugReport>?> GetBugsAsync(string? state = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<BugReport>>($"/api/v1/admin/bugs{Query(("state", state))}", ct);
+
+    public Task<ApiOutcome> ResolveBugAsync(
+        long id, string state, string resolution, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/bugs/{id}/resolve", new { state, resolution }, ct);
+
     /// <summary>Somebody's public profile and the mods they publish. Null when there is no such handle.</summary>
     public Task<PublicProfile?> GetPublicProfileAsync(string handle, CancellationToken ct = default) =>
         GetAsync<PublicProfile>($"/api/v1/accounts/{Uri.EscapeDataString(handle)}", ct);
@@ -541,13 +607,6 @@ public sealed record ModDetail
     /// <summary>Whose listing this is. Absent only when the owning account has been anonymised.</summary>
     [JsonPropertyName("author")] public ModAuthor? Author { get; init; }
 
-    /// <summary>
-    /// Times the forge has served this mod's files, or null when nothing has been counted.
-    ///
-    /// <para>Null and zero are different claims and must render differently: one says we do not
-    /// know, the other says nobody wanted it.</para>
-    /// </summary>
-    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
 
@@ -647,8 +706,18 @@ public sealed record FindingInfo
     [JsonPropertyName("path")] public string? Path { get; init; }
 }
 
+public sealed record ModMatch
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("asset_ids")] public IReadOnlyList<string> AssetIds { get; init; } = [];
+}
+
 public sealed record CollisionResult
 {
+    /// <summary>Set when the search named a listing rather than an asset id.</summary>
+    [JsonPropertyName("mod_match")] public ModMatch? ModMatch { get; init; }
+
     [JsonPropertyName("asset_id")] public string AssetId { get; init; } = "";
     [JsonPropertyName("declared_by")] public IReadOnlyList<CollisionOwner> DeclaredBy { get; init; } = [];
     [JsonPropertyName("note")] public string? Note { get; init; }
@@ -678,7 +747,6 @@ public sealed record PublicProfile
     [JsonPropertyName("links")] public Dictionary<string, string> Links { get; init; } = [];
     [JsonPropertyName("forums_url")] public string? ForumsUrl { get; init; }
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
-    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("mods")] public IReadOnlyList<ProfileMod> Mods { get; init; } = [];
 }
 
@@ -690,8 +758,56 @@ public sealed record ProfileMod
     [JsonPropertyName("type")] public string Type { get; init; } = "mod";
     [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
     [JsonPropertyName("icon_url")] public string? IconUrl { get; init; }
-    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
+}
+
+public sealed record RateLimitSettings
+{
+    [JsonPropertyName("reads")] public int Reads { get; init; }
+    [JsonPropertyName("writes")] public int Writes { get; init; }
+    [JsonPropertyName("webhooks")] public int Webhooks { get; init; }
+    [JsonPropertyName("window_seconds")] public int WindowSeconds { get; init; }
+    [JsonPropertyName("changed_at")] public DateTimeOffset? ChangedAt { get; init; }
+    [JsonPropertyName("minimum")] public int Minimum { get; init; }
+    [JsonPropertyName("maximum")] public int Maximum { get; init; }
+}
+
+public sealed record UnseenBug
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("summary")] public string Summary { get; init; } = "";
+    [JsonPropertyName("state")] public string State { get; init; } = "";
+    [JsonPropertyName("resolution")] public string? Resolution { get; init; }
+    [JsonPropertyName("resolved_at")] public DateTimeOffset? ResolvedAt { get; init; }
+
+    /// <summary>Fixed is good news and reads as good news; the rest are answers, not victories.</summary>
+    public bool IsGoodNews => State == "fixed";
+
+    public string Headline => State switch
+    {
+        "fixed" => "A bug you reported is fixed",
+        "known" => "A bug you reported is known",
+        "declined" => "A bug you reported was closed",
+        "duplicate" => "A bug you reported was already known",
+        _ => "A bug you reported was updated",
+    };
+}
+
+public sealed record BugReport
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("summary")] public string Summary { get; init; } = "";
+    [JsonPropertyName("detail")] public string? Detail { get; init; }
+    [JsonPropertyName("page")] public string? Page { get; init; }
+    [JsonPropertyName("state")] public string State { get; init; } = "open";
+    [JsonPropertyName("resolution")] public string? Resolution { get; init; }
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("resolved_at")] public DateTimeOffset? ResolvedAt { get; init; }
+    [JsonPropertyName("reporter_handle")] public string? ReporterHandle { get; init; }
+    [JsonPropertyName("resolved_by")] public string? ResolvedBy { get; init; }
+    [JsonPropertyName("told")] public bool Told { get; init; }
+
+    public bool IsOpen => State == "open";
 }
 
 public sealed record MaintainerList

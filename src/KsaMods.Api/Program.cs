@@ -51,39 +51,39 @@ builder.Services.AddResponseCompression();
 
 // Reads are unauthenticated and heavily cached at the CDN; writes are per-account. Both limits
 // exist because this is a public API with no key (§10.3, §14.8).
+// The request budgets, from configuration and changeable at runtime. Held in a singleton the
+// partition factories read each time they build one, so lowering a limit during an incident does
+// not need a deploy. See RateLimits for what "takes effect" means precisely.
+var rateLimits = RateLimits.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(rateLimits);
+
 builder.Services.AddRateLimiter(limiter =>
 {
     limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    limiter.AddPolicy("reads", http =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 300,
-                Window = TimeSpan.FromMinutes(1),
-            }));
+    limiter.AddPolicy("reads", http => Partition(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", rateLimits.Reads));
 
     // Webhooks have no session, so they cannot share the per-account bucket - every forge in the
     // world would land in one partition and a single busy repository would lock out the rest.
     // Partitioned by the sender instead, and generous: a burst of releases is a normal morning.
-    limiter.AddPolicy("webhooks", http =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 120,
-                Window = TimeSpan.FromMinutes(1),
-            }));
+    limiter.AddPolicy("webhooks", http => Partition(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", rateLimits.Webhooks));
 
-    limiter.AddPolicy("writes", http =>
-        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            http.User.Identity?.Name ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    limiter.AddPolicy("writes", http => Partition(
+        http.User.Identity?.Name ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        rateLimits.Writes));
+
+    // The key carries the generation, so a changed limit produces different keys and therefore
+    // fresh partitions built with the new budget. Reading rateLimits here without that would only
+    // affect callers the limiter has never seen. See RateLimits for the measurement.
+    System.Threading.RateLimiting.RateLimitPartition<string> Partition(string caller, int permits) =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(rateLimits.Key(caller),
             _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
             {
-                PermitLimit = 60,
-                Window = TimeSpan.FromMinutes(1),
-            }));
+                PermitLimit = permits,
+                Window = rateLimits.Window,
+            });
 });
 
 var app = builder.Build();
@@ -171,6 +171,9 @@ app.MapAccountEndpoints();
 app.MapPublicProfileEndpoints();
 app.MapAdminEndpoints();
 app.MapReportEndpoints();
+app.MapNoticeEndpoints();
+app.MapBugEndpoints();
+app.MapRateLimitEndpoints();
 app.MapTagEndpoints();
 
 // Off unless a secret is configured: without one, every caller is anonymous and the endpoint is a

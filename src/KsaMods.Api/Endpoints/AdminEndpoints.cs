@@ -12,6 +12,13 @@ public sealed record SuspendBody(bool Suspended, string Rationale);
 public sealed record SiteRoleBody(string Role, string Rationale);
 public sealed record ClearReviewBody(string? Notes);
 
+/// <summary>Requests permitted per window, per partition.</summary>
+public sealed record RateLimitBody(int Reads, int Writes, int Webhooks, int WindowSeconds);
+
+/// <summary>An empty message means no banner, which is how one is taken down.</summary>
+public sealed record NoticeBody(
+    string? Message, string Variant, string? LinkText, string? LinkHref, bool Dismissible);
+
 /// <summary>What is being reported, why, and anything the reporter wants to add.</summary>
 public sealed record FileReportBody(string SubjectKind, string SubjectId, string Category, string? Body);
 
@@ -44,6 +51,147 @@ public static class AdminEndpoints
     /// Moderate, and this one is the only way anything ever reaches the queue those endpoints
     /// read. Without it the reports screen is a window onto a table nothing can write to.</para>
     /// </summary>
+    /// <summary>
+    /// The site notice, read and written.
+    ///
+    /// <para>The read is public and unauthenticated because the banner is on every page including
+    /// pages nobody is signed in for. The write needs Moderate, and lives here with the rest of
+    /// the moderation surface rather than in configuration, so putting up an outage message is
+    /// something a moderator does at the moment it is needed rather than a deploy.</para>
+    /// </summary>
+    public static void MapNoticeEndpoints(this IEndpointRouteBuilder app)
+    {
+        app.MapGet("/api/v1/notice", async (Database database, CancellationToken ct) =>
+        {
+            using var connection = await database.OpenAsync(ct);
+
+            var notice = await connection.QuerySingleOrDefaultAsync<NoticeRow>("""
+                select message, variant, link_text as LinkText, link_href as LinkHref,
+                       dismissible, updated_at as UpdatedAt
+                from site_notice where id = 1
+                """);
+
+            return Results.Ok(new
+            {
+                message = notice?.Message ?? "",
+                variant = notice?.Variant ?? "info",
+                link_text = notice?.LinkText,
+                link_href = notice?.LinkHref,
+                dismissible = notice?.Dismissible ?? true,
+                updated_at = notice?.UpdatedAt,
+            });
+        }).RequireRateLimiting("reads");
+
+        app.MapPut("/api/v1/admin/notice", async (
+            NoticeBody body, HttpContext http, Database database, CancellationToken ct) =>
+        {
+            if (Deny(http, Capability.Moderate) is { } denied) return denied;
+
+            var errors = new Dictionary<string, string[]>();
+
+            if (body.Variant is not ("info" or "warning" or "error"))
+            {
+                errors["variant"] = ["Pick info, warning or error."];
+            }
+
+            if (body.Message is { Length: > 400 })
+            {
+                errors["message"] = ["Keep it to 400 characters or fewer. It sits on every page."];
+            }
+
+            var hasText = !string.IsNullOrWhiteSpace(body.LinkText);
+            var hasHref = !string.IsNullOrWhiteSpace(body.LinkHref);
+
+            if (hasText != hasHref)
+            {
+                errors["linkHref"] = ["A link needs both its words and its address, or neither."];
+            }
+
+            if (hasHref && !body.LinkHref!.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                errors["linkHref"] = ["Must be an https:// link."];
+            }
+
+            if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+            using var connection = await database.OpenAsync(ct);
+
+            await connection.ExecuteAsync("""
+                update site_notice set
+                    message     = @message,
+                    variant     = @variant,
+                    link_text   = @linkText,
+                    link_href   = @linkHref,
+                    dismissible = @dismissible,
+                    updated_at  = now(),
+                    updated_by  = @by
+                where id = 1
+                """,
+                new
+                {
+                    message = (body.Message ?? "").Trim(),
+                    variant = body.Variant,
+                    linkText = hasText ? body.LinkText!.Trim() : null,
+                    linkHref = hasHref ? body.LinkHref!.Trim() : null,
+                    dismissible = body.Dismissible,
+                    by = http.User()?.AccountId,
+                });
+
+            return Results.NoContent();
+        }).RequireRateLimiting("writes");
+    }
+
+    /// <summary>
+    /// Reading and lowering the request budgets.
+    ///
+    /// <para>Admin rather than moderator. A limit is not a moderation decision, and setting one
+    /// wrongly takes the site off the air for everybody rather than acting on one person.</para>
+    /// </summary>
+    public static void MapRateLimitEndpoints(this IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/v1/admin").RequireRateLimiting("writes");
+
+        api.MapGet("/rate-limits", (HttpContext http, RateLimits limits) =>
+        {
+            if (Deny(http, Capability.Moderate) is { } denied) return denied;
+
+            return Results.Ok(new
+            {
+                reads = limits.Reads,
+                writes = limits.Writes,
+                webhooks = limits.Webhooks,
+                window_seconds = (int)limits.Window.TotalSeconds,
+                changed_at = limits.ChangedAt,
+                minimum = RateLimits.Minimum,
+                maximum = RateLimits.Maximum,
+            });
+        });
+
+        api.MapPut("/rate-limits", (RateLimitBody body, HttpContext http, RateLimits limits, ILoggerFactory logging) =>
+        {
+            // Changing what everybody is allowed to do belongs with the people who can hand out
+            // roles, not with everybody who can withdraw a listing.
+            if (Deny(http, Capability.ManageSiteRoles) is { } denied) return denied;
+
+            if (!limits.Set(body.Reads, body.Writes, body.Webhooks, body.WindowSeconds, out var error))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["reads"] = [error!],
+                });
+            }
+
+            // Logged rather than written to the moderation log: that log is about what staff did
+            // to people, and this is an operational dial. It still needs to be findable afterwards
+            // when somebody asks why everything started returning 429.
+            logging.CreateLogger("RateLimits").LogWarning(
+                "Rate limits changed by {Account}: reads {Reads}, writes {Writes}, webhooks {Webhooks} per {Window}s.",
+                http.User()?.Handle, body.Reads, body.Writes, body.Webhooks, body.WindowSeconds);
+
+            return Results.NoContent();
+        });
+    }
+
     public static void MapReportEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api/v1").RequireRateLimiting("writes");
@@ -725,6 +873,16 @@ public static class AdminEndpoints
         Results.Json(new { error = "forbidden", detail }, statusCode: StatusCodes.Status403Forbidden);
 
     // ── row shapes ────────────────────────────────────────────────────────
+
+    private sealed record NoticeRow
+    {
+        public string Message { get; init; } = "";
+        public string Variant { get; init; } = "info";
+        public string? LinkText { get; init; }
+        public string? LinkHref { get; init; }
+        public bool Dismissible { get; init; }
+        public DateTimeOffset UpdatedAt { get; init; }
+    }
 
     private sealed record OverviewRow
     {

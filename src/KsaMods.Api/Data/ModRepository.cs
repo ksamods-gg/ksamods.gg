@@ -279,29 +279,6 @@ public sealed class ModRepository(Database database)
             new { modId = modId.ToLowerInvariant() });
     }
 
-    /// <summary>
-    /// How many times the forge has served this listing's files, or null when nothing has been
-    /// counted yet.
-    ///
-    /// <para>Summed across releases, and null rather than zero when no release carries a figure:
-    /// "we have not counted" and "nobody downloaded it" are different statements, and showing the
-    /// second when the first is true is a lie about somebody's mod.</para>
-    /// </summary>
-    public async Task<int?> DownloadsAsync(string modId, CancellationToken ct)
-    {
-        using var connection = await database.OpenAsync(ct);
-
-        return await connection.ExecuteScalarAsync<int?>("""
-            select sum(a.download_count)::int
-            from release_artifact a
-            join mod_release r on r.id = a.release_id
-            where r.mod_id = (select id from mod where id_lower = @modId)
-              and a.is_mirror = false
-              and a.download_count is not null
-            """,
-            new { modId = modId.ToLowerInvariant() });
-    }
-
     /// <summary>Everyone with a role on this listing, owner first.</summary>
     public async Task<IReadOnlyList<MaintainerRow>> MaintainersAsync(string modId, CancellationToken ct)
     {
@@ -431,6 +408,29 @@ public sealed class ModRepository(Database database)
     /// later mod is silently discarded with no error a user will ever find. One indexed lookup
     /// is what turns that into something the site can show.</para>
     /// </summary>
+    /// <summary>
+    /// The asset ids a mod declares, newest release first.
+    ///
+    /// <para>Exists so that typing a mod id into the collision lookup is not a dead end. An asset
+    /// id is an in-archive identifier most people have never had to name, and the obvious thing
+    /// to type is the mod. Answering "nothing found" to that is technically right and useless.</para>
+    /// </summary>
+    public async Task<IReadOnlyList<string>> AssetIdsOfAsync(string modId, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        var rows = await connection.QueryAsync<string>("""
+            select distinct a.asset_id
+            from release_asset_id a
+            join mod_release r on r.id = a.release_id
+            where r.mod_id = (select id from mod where id_lower = @modId)
+            order by a.asset_id
+            """,
+            new { modId = modId.ToLowerInvariant() });
+
+        return rows.ToList();
+    }
+
     public async Task<IReadOnlyList<(string ModId, string Version, string XmlPath)>> CollisionsAsync(
         string assetId, CancellationToken ct)
     {

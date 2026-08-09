@@ -51,7 +51,6 @@ public static class ReadEndpoints
 
             var releases = await mods.ReleasesAsync(mod.Id, ct);
             var owner = await mods.OwnerAsync(mod.Id, ct);
-            var downloads = await mods.DownloadsAsync(mod.Id, ct);
 
             return Results.Ok(new
             {
@@ -68,8 +67,6 @@ public static class ReadEndpoints
                     avatar_url = owner.AvatarUrl,
                 },
 
-                // Null means not counted, not zero. See ModRepository.DownloadsAsync.
-                downloads,
                 name = mod.Name,
                 @abstract = mod.Abstract,
                 description = mod.Description,
@@ -194,10 +191,24 @@ public static class ReadEndpoints
         {
             var owners = await mods.CollisionsAsync(assetId, ct);
 
+            // Nothing declares it. Before saying so, check whether they typed a mod id, which is
+            // the obvious thing to type and the one answer this endpoint cannot give.
+            var mod = owners.Count == 0 ? await mods.FindAsync(assetId, ct) : null;
+            var declares = mod is null ? [] : await mods.AssetIdsOfAsync(mod.Id, ct);
+
             return Results.Ok(new
             {
                 asset_id = assetId,
                 declared_by = owners.Select(o => new { id = o.ModId, version = o.Version, xml_path = o.XmlPath }),
+
+                // Set when the search term names a listing rather than an asset id. The frontend
+                // turns it into "that is a mod; here are the asset ids it declares".
+                mod_match = mod is null ? null : new
+                {
+                    id = mod.Id,
+                    name = mod.Name,
+                    asset_ids = declares,
+                },
                 // The explanation matters as much as the data: this failure mode is invisible
                 // in-game, so a bare list would not tell anyone why it matters.
                 note = owners.Count > 1

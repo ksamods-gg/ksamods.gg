@@ -1,0 +1,211 @@
+@page "/admin/bugs"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+
+<PageTitle>Bugs | ksamods.gg</PageTitle>
+
+<AdminFrame Current="bugs">
+    <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        Problems with the site itself, as people hit them. Closing one writes an answer that the
+        reporter is shown the next time they visit, so the note is worth a sentence even when the
+        outcome is no.
+    </p>
+
+    @if (_error is not null)
+    {
+        <Alert Variant="error" Class="mt-4">@_error</Alert>
+    }
+
+    <div class="mt-5 flex flex-wrap gap-2">
+        @foreach (var (key, label) in Filters)
+        {
+            <Button Size="sm" Variant="@(_state == key ? "secondary" : "ghost")"
+                    @onclick="() => FilterAsync(key)">
+                @label
+            </Button>
+        }
+    </div>
+
+    @if (_bugs is null)
+    {
+        <p class="mt-6 font-mono text-xs text-muted-foreground">Loading…</p>
+    }
+    else if (_bugs.Count == 0)
+    {
+        <Card Class="mt-5">
+            <p class="text-sm text-muted-foreground">Nothing here.</p>
+        </Card>
+    }
+    else
+    {
+        <div class="mt-5 space-y-3">
+            @foreach (var bug in _bugs)
+            {
+                <Card>
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 class="text-sm font-semibold">@bug.Summary</h2>
+                                <Badge Variant="@StateVariant(bug.State)">@bug.State</Badge>
+                                @if (!bug.IsOpen && !bug.Told)
+                                {
+                                    <Badge Variant="outline" Title="The reporter has not seen the outcome yet.">
+                                        not seen
+                                    </Badge>
+                                }
+                            </div>
+
+                            <p class="mt-1 font-mono text-xs text-muted-foreground tabular">
+                                #@bug.Id
+                                @if (bug.ReporterHandle is { } who)
+                                {
+                                    <span> by @who</span>
+                                }
+                                <span> · @Presentation.Ago(bug.CreatedAt)</span>
+                                @if (bug.Page is { Length: > 0 })
+                                {
+                                    <span> · @bug.Page</span>
+                                }
+                            </p>
+
+                            @if (!string.IsNullOrWhiteSpace(bug.Detail))
+                            {
+                                <p class="mt-2.5 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                                    @bug.Detail
+                                </p>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(bug.Resolution))
+                            {
+                                <p class="mt-3 border-l-2 border-border pl-3 text-sm leading-relaxed">
+                                    <span class="text-muted-foreground">Told them:</span> @bug.Resolution
+                                </p>
+                            }
+                        </div>
+
+                        @if (bug.IsOpen)
+                        {
+                            <Button Size="sm" Variant="outline" Disabled="_busy is not null"
+                                    @onclick="() => _open = _open == bug.Id ? null : bug.Id">
+                                @(_open == bug.Id ? "Cancel" : "Close it")
+                            </Button>
+                        }
+                    </div>
+
+                    @if (_open == bug.Id)
+                    {
+                        <div class="mt-4 space-y-4 border-t border-border pt-4">
+                            <Field Context="field" Id="@($"state{bug.Id}")" Label="Outcome">
+                                <select @attributes="field" @bind="_form.State" class="@InputClass">
+                                    <option value="fixed">Fixed</option>
+                                    <option value="known">Known, not fixed yet</option>
+                                    <option value="declined">Working as intended</option>
+                                    <option value="duplicate">Already reported</option>
+                                </select>
+                            </Field>
+
+                            <Field Context="field" Id="@($"note{bug.Id}")" Label="What the reporter is told"
+                                   Hint="Required. This is the whole reason they hear back at all.">
+                                <textarea @attributes="field" @bind="_form.Resolution" rows="3"
+                                          class="@InputClass"></textarea>
+                            </Field>
+
+                            <Button Size="sm" Disabled="_busy is not null || string.IsNullOrWhiteSpace(_form.Resolution)"
+                                    Pending="@(_busy == bug.Id)" PendingLabel="Closing…"
+                                    @onclick="() => ResolveAsync(bug.Id)">
+                                Close and tell them
+                            </Button>
+                        </div>
+                    }
+                </Card>
+            }
+        </div>
+    }
+</AdminFrame>
+
+@code {
+    private IReadOnlyList<BugReport>? _bugs;
+    private string? _state = "open";
+    private long? _open;
+    private long? _busy;
+    private string? _error;
+    private readonly ResolveForm _form = new();
+
+    private static readonly (string? Key, string Label)[] Filters =
+    [
+        ("open", "Open"),
+        ("fixed", "Fixed"),
+        (null, "Everything"),
+    ];
+
+    private const string InputClass =
+        "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+    private static string StateVariant(string state) => state switch
+    {
+        "open" => "warning",
+        "fixed" => "ok",
+        "declined" => "outline",
+        _ => "neutral",
+    };
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task FilterAsync(string? state)
+    {
+        _state = state;
+        _open = null;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _bugs = await Api.GetBugsAsync(_state) ?? [];
+            _error = null;
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "Could not load the bug queue.";
+            _bugs = [];
+        }
+    }
+
+    private async Task ResolveAsync(long id)
+    {
+        _busy = id;
+        _error = null;
+
+        try
+        {
+            var result = await Api.ResolveBugAsync(id, _form.State, _form.Resolution.Trim());
+
+            if (result.Success)
+            {
+                _open = null;
+                _form.Resolution = "";
+                await LoadAsync();
+            }
+            else
+            {
+                _error = result.Error ?? "The API refused that.";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = null;
+        }
+    }
+
+    private sealed class ResolveForm
+    {
+        public string State { get; set; } = "fixed";
+        public string Resolution { get; set; } = "";
+    }
+}
