@@ -530,6 +530,7 @@ public static class ModEndpoints
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
+
             if (!Permissions.Allows(principal, Capability.ConnectRepository)) return ApiResults.Forbidden();
 
             var mod = await mods.FindAsync(id, ct);
@@ -560,7 +561,14 @@ public static class ModEndpoints
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
-            if (!Permissions.Allows(principal, Capability.ConnectRepository)) return ApiResults.Forbidden();
+            // Either the owner proving it, or staff vouching for it. Two different permissions,
+            // because they are two different acts: vouching cannot re-point a listing at another
+            // repository, which is the takeover risk ConnectRepository exists to prevent.
+            if (!Permissions.Allows(principal, Capability.ConnectRepository)
+                && !Permissions.Allows(principal, Capability.VouchRepository))
+            {
+                return ApiResults.Forbidden();
+            }
 
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
@@ -575,6 +583,32 @@ public static class ModEndpoints
 
             if (link is null) return Results.NotFound();
             if (link.VerifiedAt is not null) return Results.Ok(new { verified = true });
+
+            // Staff can vouch for a link without the proof.
+            //
+            // The proof answers "can this person write to that repository", and a moderator can
+            // establish that by other means: a forum thread, a conversation, a repository whose
+            // owner has plainly abandoned it. Refusing them the ability to act on what they know
+            // does not make the site safer, it just makes an unreachable author permanent.
+            //
+            // Recorded as its own method rather than dressed up as a challenge, so the link says
+            // truthfully how it came to be trusted.
+            if (principal.IsModerator)
+            {
+                await connection.ExecuteAsync("""
+                    update repo_link
+                    set verified_at = now(), verified_by = 'staff', challenge = null
+                    where mod_id = @modId
+                    """,
+                    new { modId = mod.Id });
+
+                return Results.Ok(new
+                {
+                    verified = true,
+                    verified_by = "staff",
+                    note = "Verified by staff without the usual proof. This is recorded on the link.",
+                });
+            }
 
             // Two ways to prove the same claim, and the caller does not have to say which they
             // used. The topic is checked first because it comes back on a request the site makes

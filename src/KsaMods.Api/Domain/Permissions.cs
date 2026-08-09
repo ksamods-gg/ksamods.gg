@@ -53,6 +53,7 @@ public enum Capability
     TransferModOwnership,
     SetModVisibility,
     DeleteMod,
+    VouchRepository,
 
     EditModlistDraft,
     PublishModlistVersion,
@@ -84,6 +85,13 @@ public static class Permissions
         // Connecting a repository is the ownership proof, so only the owner may change it.
         // A maintainer who could re-point it could quietly take over the listing.
         Capability.ConnectRepository => principal.IsModOwner,
+
+        // Vouching is not connecting. Staff cannot point a listing at a different repository,
+        // which is the takeover risk the rule above exists for; they can only attest that the
+        // repository already named is the right one. That is a judgement they can reach by means
+        // the automated proofs cannot see, and an unreachable author should not make a listing
+        // permanently unmanageable.
+        Capability.VouchRepository => principal.IsModerator,
 
         Capability.ImportRelease => principal.IsModMaintainer || principal.IsModerator,
         Capability.YankRelease => principal.IsModMaintainer || principal.IsModerator,

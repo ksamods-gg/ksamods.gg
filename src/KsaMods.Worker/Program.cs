@@ -96,6 +96,15 @@ builder.Services.AddSingleton(new ReverifyPolicy
     SweepInterval = TimeSpan.FromMinutes(builder.Configuration.GetValue("Reverify:SweepMinutes", 30)),
 });
 builder.Services.AddSingleton<IJobHandler, ReverifyHandler>();
+
+// Polling for releases nobody told us about. The webhook stays the fast path where it works; this
+// is the floor under it.
+builder.Services.AddSingleton(new PollPolicy
+{
+    Interval = TimeSpan.FromMinutes(builder.Configuration.GetValue("Poll:IntervalMinutes", 20)),
+    BatchSize = builder.Configuration.GetValue("Poll:BatchSize", 50),
+});
+builder.Services.AddHostedService<ReleasePoller>();
 builder.Services.AddHostedService<ReverifySweeper>();
 builder.Services.AddHostedService<JobPump>();
 

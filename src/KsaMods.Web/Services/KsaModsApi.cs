@@ -658,8 +658,18 @@ public sealed record FindingInfo
     [JsonPropertyName("path")] public string? Path { get; init; }
 }
 
+public sealed record ModMatch
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("asset_ids")] public IReadOnlyList<string> AssetIds { get; init; } = [];
+}
+
 public sealed record CollisionResult
 {
+    /// <summary>Set when the search named a listing rather than an asset id.</summary>
+    [JsonPropertyName("mod_match")] public ModMatch? ModMatch { get; init; }
+
     [JsonPropertyName("asset_id")] public string AssetId { get; init; } = "";
     [JsonPropertyName("declared_by")] public IReadOnlyList<CollisionOwner> DeclaredBy { get; init; } = [];
     [JsonPropertyName("note")] public string? Note { get; init; }
