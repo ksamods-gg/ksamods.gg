@@ -391,6 +391,24 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         PostAsync("/api/v1/reports",
             new { subjectKind, subjectId, category, body }, ct);
 
+    /// <summary>The site notice as stored. Moderators read this to edit it; the banner uses the cache.</summary>
+    public Task<SiteNotice?> GetNoticeAsync(CancellationToken ct = default) =>
+        GetAsync<SiteNotice>("/api/v1/notice", ct);
+
+    /// <summary>Puts a notice up, changes it, or takes it down by sending an empty message.</summary>
+    public async Task<ApiOutcome> SetNoticeAsync(
+        string message, string variant, string? linkText, string? linkHref, bool dismissible,
+        CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PutAsJsonAsync("/api/v1/admin/notice",
+            new { message, variant, linkText, linkHref, dismissible }, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? ApiOutcome.Ok()
+            : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
+    }
+
     /// <summary>Somebody's public profile and the mods they publish. Null when there is no such handle.</summary>
     public Task<PublicProfile?> GetPublicProfileAsync(string handle, CancellationToken ct = default) =>
         GetAsync<PublicProfile>($"/api/v1/accounts/{Uri.EscapeDataString(handle)}", ct);
@@ -541,13 +559,6 @@ public sealed record ModDetail
     /// <summary>Whose listing this is. Absent only when the owning account has been anonymised.</summary>
     [JsonPropertyName("author")] public ModAuthor? Author { get; init; }
 
-    /// <summary>
-    /// Times the forge has served this mod's files, or null when nothing has been counted.
-    ///
-    /// <para>Null and zero are different claims and must render differently: one says we do not
-    /// know, the other says nobody wanted it.</para>
-    /// </summary>
-    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
 
@@ -678,7 +689,6 @@ public sealed record PublicProfile
     [JsonPropertyName("links")] public Dictionary<string, string> Links { get; init; } = [];
     [JsonPropertyName("forums_url")] public string? ForumsUrl { get; init; }
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
-    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("mods")] public IReadOnlyList<ProfileMod> Mods { get; init; } = [];
 }
 
@@ -690,7 +700,6 @@ public sealed record ProfileMod
     [JsonPropertyName("type")] public string Type { get; init; } = "mod";
     [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
     [JsonPropertyName("icon_url")] public string? IconUrl { get; init; }
-    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
 }
 

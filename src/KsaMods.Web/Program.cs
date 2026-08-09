@@ -19,8 +19,9 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddHttpContextAccessor();
 
-// Turning on a site notice is a config change and a restart, not a deploy.
-builder.Services.Configure<SiteBannerOptions>(builder.Configuration.GetSection("SiteBanner"));
+// The site notice lives in the database and is edited by moderators, so this is a cache rather
+// than a configuration binding. Singleton: one shared answer, refreshed on a short timer.
+builder.Services.AddSingleton<SiteNoticeCache>();
 
 // One HttpClient for both the typed client and the proxy. AllowAutoRedirect is off because the
 // OAuth flow's redirects belong to the browser, not to us - we forward them verbatim.

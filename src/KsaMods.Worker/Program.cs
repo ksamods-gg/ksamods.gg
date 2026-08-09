@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using KsaMods.Api.Data;
 using KsaMods.Worker;
 using Microsoft.Extensions.DependencyInjection;
@@ -84,6 +85,18 @@ builder.Services.AddSingleton(services => new ContainerRunner(
     services.GetRequiredService<ContainerPolicy>()));
 
 builder.Services.AddSingleton<IJobHandler, ImportHandler>();
+
+// Re-verification: the sweeper decides what is stale, the handler re-checks one release. Both
+// configurable, because "how often is often enough" depends on how much traffic the forges will
+// tolerate and that is an operational answer rather than a code one.
+builder.Services.AddSingleton(new ReverifyPolicy
+{
+    MaxAge = TimeSpan.FromDays(builder.Configuration.GetValue("Reverify:MaxAgeDays", 7)),
+    BatchSize = builder.Configuration.GetValue("Reverify:BatchSize", 25),
+    SweepInterval = TimeSpan.FromMinutes(builder.Configuration.GetValue("Reverify:SweepMinutes", 30)),
+});
+builder.Services.AddSingleton<IJobHandler, ReverifyHandler>();
+builder.Services.AddHostedService<ReverifySweeper>();
 builder.Services.AddHostedService<JobPump>();
 
 var host = builder.Build();

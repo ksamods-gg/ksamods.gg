@@ -51,7 +51,6 @@ public static class ReadEndpoints
 
             var releases = await mods.ReleasesAsync(mod.Id, ct);
             var owner = await mods.OwnerAsync(mod.Id, ct);
-            var downloads = await mods.DownloadsAsync(mod.Id, ct);
 
             return Results.Ok(new
             {
@@ -68,8 +67,6 @@ public static class ReadEndpoints
                     avatar_url = owner.AvatarUrl,
                 },
 
-                // Null means not counted, not zero. See ModRepository.DownloadsAsync.
-                downloads,
                 name = mod.Name,
                 @abstract = mod.Abstract,
                 description = mod.Description,

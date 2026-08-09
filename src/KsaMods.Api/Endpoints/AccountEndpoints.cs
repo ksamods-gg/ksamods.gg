@@ -60,10 +60,7 @@ public static class AccountEndpoints
             // "what this person publishes", and drafts are unpublished by definition.
             var mods = await connection.QueryAsync<PublicProfileModRow>("""
                 select m.id as Id, m.name as Name, m.abstract as "Abstract", m.type as Type,
-                       m.tags as Tags, m.icon_url as IconUrl, m.updated_at as UpdatedAt,
-                       (select sum(a.download_count)::int
-                          from release_artifact a join mod_release r on r.id = a.release_id
-                         where r.mod_id = m.id and a.is_mirror = false) as Downloads
+                       m.tags as Tags, m.icon_url as IconUrl, m.updated_at as UpdatedAt
                 from mod m
                 join mod_maintainer mm on mm.mod_id = m.id and mm.role = 'owner'
                 where mm.account_id = @id and m.listing_state = 'listed'
@@ -85,11 +82,6 @@ public static class AccountEndpoints
                 forums_url = account.ForumsUrl,
                 created_at = account.CreatedAt,
 
-                // Summed over their listed mods. Null when nothing has been counted, for the same
-                // reason it is null on a listing: not counted is not the same as nobody wanted it.
-                downloads = list.Any(m => m.Downloads is not null)
-                    ? list.Sum(m => m.Downloads ?? 0)
-                    : (int?)null,
 
                 mods = list.Select(m => new
                 {
@@ -99,7 +91,6 @@ public static class AccountEndpoints
                     type = m.Type,
                     tags = m.Tags,
                     icon_url = m.IconUrl,
-                    downloads = m.Downloads,
                     updated_at = m.UpdatedAt,
                 }),
             });
@@ -549,7 +540,6 @@ public static class AccountEndpoints
         public string Type { get; init; } = "mod";
         public string[] Tags { get; init; } = [];
         public string? IconUrl { get; init; }
-        public int? Downloads { get; init; }
         public DateTimeOffset UpdatedAt { get; init; }
     }
 

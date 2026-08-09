@@ -171,6 +171,7 @@ app.MapAccountEndpoints();
 app.MapPublicProfileEndpoints();
 app.MapAdminEndpoints();
 app.MapReportEndpoints();
+app.MapNoticeEndpoints();
 app.MapTagEndpoints();
 
 // Off unless a secret is configured: without one, every caller is anonymous and the endpoint is a
