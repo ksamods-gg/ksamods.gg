@@ -168,11 +168,16 @@ public sealed class FindingSuppressionTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task A_suppression_needs_a_reason()
+    public async Task The_reason_column_can_never_be_blank()
     {
-        // Enforced in the database as well as at the endpoint. A blank reason six months later is
-        // indistinguishable from a mistake, and this table exists for the cases somebody has to
-        // justify.
+        // The reason is optional to a moderator: the endpoint substitutes "No reason given." when
+        // they do not write one, because making a one-click judgement into a form stopped people
+        // using the feature at all.
+        //
+        // What is not optional is the column. A row that says a warning was hidden and carries an
+        // empty string is indistinguishable from a bug six months later, so the substitution
+        // happening at the endpoint is load-bearing and this is the constraint that proves nothing
+        // can get past it.
         var (_, releaseId, actor) = await SeedAsync();
 
         using var connection = await Db.OpenAsync(default);

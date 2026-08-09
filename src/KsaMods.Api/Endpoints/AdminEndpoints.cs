@@ -538,13 +538,20 @@ public static class AdminEndpoints
 
             var reason = body.Reason?.Trim() ?? "";
 
-            if (reason.Length is 0 or > 500)
+            if (reason.Length > 500)
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
-                    ["reason"] = ["Say why, in 500 characters or less. This one goes in the log."],
+                    ["reason"] = ["Keep it to 500 characters or fewer."],
                 });
             }
+
+            // Optional. It used to be required, which made a one-click judgement into a form and
+            // stopped moderators doing the thing this endpoint exists for. The log still records
+            // who and when either way, which is the part that has to be true; a sentence nobody
+            // wanted to write adds nothing to it. The column stays not-null, so the substitution
+            // happens here rather than becoming an empty string in the record.
+            if (reason.Length == 0) reason = "No reason given.";
 
             var actor = http.Require().AccountId;
             var (connection, transaction) = await database.BeginTransactionAsync(ct);

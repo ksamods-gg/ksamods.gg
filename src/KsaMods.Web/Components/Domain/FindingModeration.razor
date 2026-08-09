@@ -47,7 +47,10 @@
                                     Set aside by @finding.SuppressedBy
                                     @if (finding.SuppressedAt is { } when)
                                     {
-                                        <span> @Presentation.Ago(when)</span>
+                                        @* Margin rather than a leading space inside the span:
+                                           Razor trims whitespace at the start of markup, so the
+                                           name and the timestamp ran together as "Bossjust now". *@
+                                        <span class="ml-1">@Presentation.Ago(when)</span>
                                     }
                                     @if (!string.IsNullOrWhiteSpace(finding.SuppressedReason))
                                     {
@@ -71,16 +74,26 @@
                                    looking for the control that would have been here. *@
                                 <span class="text-xs text-muted-foreground">Errors can't be set aside</span>
                             }
-                            else if (_opened == finding.Code)
-                            {
-                                <Button Size="sm" Variant="ghost" @onclick="() => _opened = null">Cancel</Button>
-                            }
                             else
                             {
-                                <Button Size="sm" Variant="outline" Disabled="_busy is not null"
-                                        @onclick="() => Open(finding.Code)">
-                                    Set aside
-                                </Button>
+                                @* Acts on the first press. It used to open a form and refuse until
+                                   a reason had been typed, which turned a judgement somebody makes
+                                   in a second into a chore. Safe to do immediately because it is
+                                   reversible from the same spot: "Show it again" appears here the
+                                   moment this is pressed. *@
+                                <div class="flex items-center gap-1">
+                                    <Button Size="sm" Variant="outline" Disabled="_busy is not null"
+                                            Pending="@(_busy == finding.Code)" PendingLabel="Saving…"
+                                            @onclick="() => SuppressAsync(finding.Code)">
+                                        Set aside
+                                    </Button>
+
+                                    <Button Size="sm" Variant="ghost" Disabled="_busy is not null"
+                                            title="Set aside with a note in the log"
+                                            @onclick="() => Toggle(finding.Code)">
+                                        @(_opened == finding.Code ? "Cancel" : "Note…")
+                                    </Button>
+                                </div>
                             }
                         </div>
                     </div>
@@ -88,8 +101,9 @@
                     @if (_opened == finding.Code)
                     {
                         <div class="mt-3 rounded-md border border-border bg-card/40 p-3">
-                            <Field Context="field" Id="@($"reason-{finding.Code}")" Label="Why"
-                                   Hint="Goes in the moderation log with your name on it. Say what makes this finding wrong here rather than that it is.">
+                            <Field Context="field" Id="@($"reason-{finding.Code}")" Label="Note"
+                                   Required="false"
+                                   Hint="Optional, and goes in the log with your name on it. Worth writing when the reason is not obvious from the finding.">
                                 <input @attributes="field" @bind="_reason" class="@InputClass"
                                        placeholder="False positive: the loader ships this path deliberately." />
                             </Field>
@@ -112,8 +126,8 @@
             <div class="mt-4 border-t border-border pt-4">
                 @if (_opened == AllWarnings)
                 {
-                    <Field Context="field" Id="reason-all" Label="@($"Why, for all {_findings.OutstandingWarnings}")"
-                           Hint="Recorded once per finding, so the log still says which codes were set aside.">
+                    <Field Context="field" Id="reason-all" Label="Note" Required="false"
+                           Hint="Optional. Recorded once per finding, so the log still says which codes were set aside.">
                         <input @attributes="field" @bind="_reason" class="@InputClass" />
                     </Field>
 
@@ -127,10 +141,17 @@
                 }
                 else
                 {
-                    <Button Size="sm" Variant="outline" Disabled="_busy is not null"
-                            @onclick="() => Open(AllWarnings)">
-                        Set aside all @_findings.OutstandingWarnings warnings
-                    </Button>
+                    <div class="flex items-center gap-1">
+                        <Button Size="sm" Variant="outline" Disabled="_busy is not null"
+                                Pending="@(_busy == AllWarnings)" PendingLabel="Saving…"
+                                @onclick="() => SuppressAsync(null)">
+                            Set aside all @_findings.OutstandingWarnings warnings
+                        </Button>
+                        <Button Size="sm" Variant="ghost" Disabled="_busy is not null"
+                                @onclick="() => Toggle(AllWarnings)">
+                            Note…
+                        </Button>
+                    </div>
                 }
             </div>
         }
@@ -168,9 +189,13 @@
         await LoadAsync();
     }
 
-    private void Open(string code)
+    /// <summary>
+    /// Opens or closes the optional note for one target. Nothing is gated behind it: the buttons
+    /// beside it act whether or not anything has been typed here.
+    /// </summary>
+    private void Toggle(string code)
     {
-        _opened = code;
+        _opened = _opened == code ? null : code;
         _reason = "";
         _error = null;
     }
