@@ -1,0 +1,312 @@
+@page "/admin/tags"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+
+<PageTitle>Tags | ksamods.gg</PageTitle>
+
+<AdminFrame Current="tags">
+    <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        The vocabulary every listing files itself under. Authors pick from it and can suggest
+        additions; approving one is what puts it in front of everybody. RFC 0031 leaves the field
+        free-form on purpose, so this list is this site's curation rather than part of the format -
+        a listing that arrives from another index keeps whatever words it came with.
+    </p>
+
+    @if (_error is not null)
+    {
+        <Alert Variant="error" Class="mt-4">@_error</Alert>
+    }
+
+    @if (_notice is not null)
+    {
+        <Alert Variant="ok" Class="mt-4">@_notice</Alert>
+    }
+
+    @if (_loading)
+    {
+        <p class="mt-6 text-sm text-muted-foreground">Loading…</p>
+    }
+    else
+    {
+        @* ── waiting on a decision ── *@
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "Suggested"))"
+              Description="@(b => b.AddContent(0, $"{Pending.Count} waiting"))">
+
+            @if (Pending.Count == 0)
+            {
+                <p class="text-sm text-muted-foreground">Nothing waiting.</p>
+            }
+            else
+            {
+                <ul class="divide-y divide-border">
+                    @foreach (var tag in Pending)
+                    {
+                        <li class="py-4 first:pt-0 last:pb-0">
+                            <div class="flex flex-wrap items-baseline gap-2">
+                                <code class="font-mono text-sm font-medium">@tag.Slug</code>
+                                <span class="text-xs text-muted-foreground">
+                                    @(tag.ProposerHandle is { Length: > 0 } ? $"@{tag.ProposerHandle}" : "removed account")
+                                    · @Presentation.Ago(tag.CreatedAt)
+                                </span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(tag.Reason))
+                            {
+                                @* Their words, quoted plainly. It is the only case the decision
+                                   has to answer. *@
+                                <p class="mt-1.5 text-sm leading-relaxed">@tag.Reason</p>
+                            }
+
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                <input value="@Note(tag.Slug)"
+                                       @oninput="e => SetNote(tag.Slug, e.Value?.ToString())"
+                                       placeholder="Why not, if turning it down"
+                                       class="@Cx.Of(InputClass, "min-w-56 flex-1")" />
+
+                                <Button Type="button" Size="sm" Disabled="@(_busy == tag.Slug)"
+                                        @onclick="() => ApproveAsync(tag)">
+                                    Approve
+                                </Button>
+                                <Button Type="button" Size="sm" Variant="ghost" Disabled="@(_busy == tag.Slug)"
+                                        @onclick="() => RejectAsync(tag)">
+                                    Turn down
+                                </Button>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </Card>
+
+        @* ── the vocabulary ── *@
+        <Card Class="mt-6" Header="@(b => b.AddContent(0, "In use"))"
+              Description="@(b => b.AddContent(0, $"{Approved.Count} tags"))">
+
+            <div class="flex flex-wrap items-end gap-2 border-b border-border pb-4">
+                <div>
+                    <label class="eyebrow text-muted-foreground" for="newSlug">Add one</label>
+                    <input id="newSlug" value="@_newSlug"
+                           @oninput='e => _newSlug = e.Value?.ToString() ?? ""'
+                           placeholder="lowercase-with-hyphens"
+                           class="@Cx.Of(InputClass, "mt-1 w-56 font-mono")"
+                           autocomplete="off" spellcheck="false" />
+                </div>
+                <input value="@_newDescription"
+                       @oninput='e => _newDescription = e.Value?.ToString() ?? ""'
+                       placeholder="What it means, for the author picking it"
+                       class="@Cx.Of(InputClass, "min-w-56 flex-1")" />
+                <Button Type="button" Size="sm" Disabled="@(_busy == "new")" @onclick="CreateAsync">
+                    Add
+                </Button>
+            </div>
+
+            @if (Approved.Count == 0)
+            {
+                <p class="mt-4 text-sm text-muted-foreground">No tags yet.</p>
+            }
+            else
+            {
+                <ul class="mt-4 divide-y divide-border">
+                    @foreach (var tag in Approved)
+                    {
+                        <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 first:pt-0">
+                            <code class="font-mono text-sm">@tag.Slug</code>
+                            @if (!string.IsNullOrWhiteSpace(tag.Description))
+                            {
+                                <span class="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                                    @tag.Description
+                                </span>
+                            }
+                            <a href="@($"/mods?tag={Uri.EscapeDataString(tag.Slug)}")"
+                               class="ml-auto font-mono text-xs text-muted-foreground underline-offset-4 hover:underline">
+                                @tag.Uses use@(tag.Uses == 1 ? "" : "s")
+                            </a>
+                            <Button Type="button" Variant="ghost" Size="sm" Disabled="@(_busy == tag.Slug)"
+                                    @onclick="() => RetireAsync(tag)">
+                                Retire
+                            </Button>
+                        </li>
+                    }
+                </ul>
+
+                <p class="mt-4 text-xs leading-relaxed text-muted-foreground">
+                    Retiring takes the tag off every listing carrying it, in one transaction, and
+                    records that in the moderation log. Leaving it on them would make this list a
+                    lie: the tag would keep filtering and keep showing on cards while the
+                    vocabulary said it was not a tag.
+                </p>
+            }
+        </Card>
+
+        @* ── the backlog the permissive column creates ── *@
+        @if (_unknown is { Count: > 0 })
+        {
+            <Card Class="mt-6" Header="@(b => b.AddContent(0, "In use but not on the list"))">
+                <p class="text-sm leading-relaxed text-muted-foreground">
+                    Tags carried by listings that the vocabulary does not know - from before it
+                    existed, or from a listing ingested elsewhere. Nothing is broken; these are
+                    simply undecided. Adding one adopts it, and it becomes pickable.
+                </p>
+
+                <ul class="mt-4 flex flex-wrap gap-2">
+                    @foreach (var unknown in _unknown)
+                    {
+                        <li>
+                            <button type="button" @onclick="() => AdoptAsync(unknown.Tag)"
+                                    title="@($"Add '{unknown.Tag}' to the vocabulary")"
+                                    class="rounded-full border border-dashed border-border px-2.5 py-1
+                                           font-mono text-xs text-muted-foreground transition-colors
+                                           hover:border-foreground/40 hover:text-foreground">
+                                @unknown.Tag
+                                <span class="ml-1 opacity-60">@unknown.Uses</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </Card>
+        }
+    }
+</AdminFrame>
+
+@code {
+    private const string InputClass =
+        "rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    private IReadOnlyList<AdminTag> _tags = [];
+    private IReadOnlyList<UnknownTag>? _unknown;
+    private readonly Dictionary<string, string> _notes = [];
+
+    private string _newSlug = "";
+    private string _newDescription = "";
+
+    private string? _busy;
+    private bool _loading = true;
+    private string? _error;
+    private string? _notice;
+
+    private List<AdminTag> Pending => [.. _tags.Where(t => t.IsPending)];
+    private List<AdminTag> Approved => [.. _tags.Where(t => t.State == "approved")];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _tags = await Api.GetAdminTagsAsync() ?? [];
+            _unknown = await Api.GetUnknownTagsAsync() ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _tags = [];
+            _unknown = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string Note(string slug) => _notes.GetValueOrDefault(slug, "");
+
+    private void SetNote(string slug, string? value) => _notes[slug] = value ?? "";
+
+    private Task ApproveAsync(AdminTag tag) => RunAsync(
+        tag.Slug,
+        () => Api.ApproveTagAsync(tag.Slug, label: null, description: null),
+        $"'{tag.Slug}' is now a tag authors can pick.");
+
+    private async Task RejectAsync(AdminTag tag)
+    {
+        if (string.IsNullOrWhiteSpace(Note(tag.Slug)))
+        {
+            // The note is the entire value of a rejection: without it the same tag comes back next
+            // month from somebody who cannot know it was considered.
+            _error = "Say why you are turning it down. Whoever suggested it sees this.";
+            _notice = null;
+            return;
+        }
+
+        await RunAsync(tag.Slug,
+            () => Api.RejectTagAsync(tag.Slug, Note(tag.Slug).Trim()),
+            $"'{tag.Slug}' turned down.");
+    }
+
+    private async Task RetireAsync(AdminTag tag)
+    {
+        var note = Note(tag.Slug);
+
+        if (string.IsNullOrWhiteSpace(note))
+        {
+            _error = tag.Uses > 0
+                ? $"'{tag.Slug}' is on {tag.Uses} listing(s) and retiring it removes it from them. "
+                  + "Write the reason in the box next to a suggestion above first."
+                : "Write a reason before retiring a tag.";
+            _notice = null;
+            return;
+        }
+
+        await RunAsync(tag.Slug,
+            () => Api.RejectTagAsync(tag.Slug, note.Trim()),
+            $"'{tag.Slug}' retired.");
+    }
+
+    private Task AdoptAsync(string slug) => RunAsync(
+        slug,
+        () => Api.CreateTagAsync(slug, label: null, description: null),
+        $"'{slug}' adopted into the vocabulary.");
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newSlug))
+        {
+            _error = "Type the tag.";
+            return;
+        }
+
+        var slug = _newSlug.Trim().ToLowerInvariant();
+
+        await RunAsync("new",
+            () => Api.CreateTagAsync(slug, label: null,
+                description: string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription.Trim()),
+            $"'{slug}' added.");
+
+        _newSlug = "";
+        _newDescription = "";
+    }
+
+    private async Task RunAsync(string key, Func<Task<ApiOutcome>> action, string success)
+    {
+        _busy = key;
+        _error = null;
+        _notice = null;
+
+        try
+        {
+            var result = await action();
+
+            if (result.Success)
+            {
+                _notice = success;
+                _notes.Clear();
+                await LoadAsync();
+            }
+            else
+            {
+                _error = result.Error ?? "That did not work.";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding.";
+        }
+        finally
+        {
+            _busy = null;
+        }
+    }
+}

@@ -63,6 +63,7 @@ public enum Capability
     Moderate,
     SuspendAccount,
     ManageSiteRoles,
+    ManageTags,
 }
 
 /// <summary>
@@ -123,6 +124,12 @@ public static class Permissions
         // themselves an admin accomplice; an admin doing it is at least a deliberate choice by
         // someone who already had the keys.
         Capability.ManageSiteRoles => principal.IsAdmin,
+
+        // The tag vocabulary is a curation decision rather than an abuse one: it shapes how the
+        // whole catalogue is filed, and a tag added on a whim outlives whoever added it. Moderators
+        // act on things that are wrong; this is about deciding what the site's categories are, and
+        // it sits with the people who own that.
+        Capability.ManageTags => principal.IsAdmin,
 
         _ => false,
     };

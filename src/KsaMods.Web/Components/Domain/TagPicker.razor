@@ -1,0 +1,218 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+@using KsaMods.Web.Services
+@inject KsaModsApi Api
+
+@*
+    A list to pick from rather than a box to type in.
+
+    The free-text box produced what free-text boxes always produce: "ui", "UI", "user-interface"
+    and "interface" filing four mods four different ways, so no filter finds all of them. RFC 0031
+    leaves tags free-form in the format and says a curated vocabulary can come later; this is the
+    site's half of that.
+
+    Typing is still how somebody asks for a word that is missing - it just goes to an admin instead
+    of straight into the catalogue.
+*@
+
+@if (_loading)
+{
+    <p class="text-xs text-muted-foreground">Loading tags…</p>
+}
+else if (_options.Count == 0)
+{
+    <p class="text-sm text-muted-foreground">
+        No tags exist yet. Suggest one below and an admin will decide.
+    </p>
+}
+else
+{
+    <div class="flex flex-wrap gap-1.5">
+        @foreach (var option in _options)
+        {
+            var chosen = Selected.Contains(option.Slug, StringComparer.Ordinal);
+
+            @* The strings, not the bool. Blazor renders a true bool as a bare attribute and omits
+               a false one, so aria-pressed would be present-or-absent - and a toggle that never
+               says "not pressed" is one a screen reader reads as an ordinary button. *@
+            <button type="button" @onclick="() => ToggleAsync(option.Slug)"
+                    aria-pressed="@(chosen ? "true" : "false")"
+                    title="@option.Description"
+                    class="@Cx.Of(ChipBase, chosen ? ChipOn : ChipOff)">
+                @option.Label
+            </button>
+        }
+    </div>
+}
+
+<p class="mt-2 text-xs text-muted-foreground">
+    @Selected.Count of @TagVocabularyLimit used.
+    @if (Selected.Count >= TagVocabularyLimit)
+    {
+        <text>That is the limit - a listing tagged with everything has said nothing.</text>
+    }
+</p>
+
+<div class="mt-3 border-t border-border pt-3">
+    @if (!_suggesting)
+    {
+        <button type="button" @onclick="() => _suggesting = true"
+                class="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
+            Nothing here fits? Suggest a tag
+        </button>
+    }
+    else
+    {
+        <label class="eyebrow text-muted-foreground" for="newTag">Suggest a tag</label>
+
+        <div class="mt-1 flex flex-wrap gap-2">
+            <input id="newTag" value="@_proposed"
+                   @oninput='e => _proposed = e.Value?.ToString() ?? ""'
+                   placeholder="lowercase-with-hyphens"
+                   class="@Cx.Of(InputClass, "w-48 font-mono")" autocomplete="off" spellcheck="false" />
+
+            <input value="@_reason" @oninput='e => _reason = e.Value?.ToString() ?? ""'
+                   placeholder="What would it be for?"
+                   class="@Cx.Of(InputClass, "min-w-48 flex-1")" />
+
+            <Button Type="button" Size="sm" Variant="outline" Disabled="_proposing" Pending="_proposing"
+                    @onclick="ProposeAsync">
+                Suggest
+            </Button>
+        </div>
+
+        @if (_noticeIsError)
+        {
+            <p class="mt-2 text-xs text-severity-error">@_notice</p>
+        }
+        else if (_notice is not null)
+        {
+            <p class="mt-2 text-xs text-severity-ok">@_notice</p>
+        }
+        else
+        {
+            <p class="mt-2 text-xs text-muted-foreground">
+                An admin decides whether it joins the list. You cannot tag anything with it until
+                they do, so save this listing with the tags that already fit.
+            </p>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// The chosen slugs. Bound rather than owned, because the parent form is what saves them and a
+    /// picker that held its own copy would drift from the field being submitted.
+    /// </summary>
+    [Parameter, EditorRequired] public List<string> Selected { get; set; } = [];
+
+    [Parameter] public EventCallback<List<string>> SelectedChanged { get; set; }
+
+    /// <summary>Mirrors TagVocabulary.MaxPerListing on the server, which is the real limit.</summary>
+    private const int TagVocabularyLimit = 8;
+
+    private const string ChipBase =
+        "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+    private const string ChipOn = "border-primary bg-primary/10 font-medium text-primary";
+    private const string ChipOff = "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground";
+
+    private const string InputClass =
+        "rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    private IReadOnlyList<TagOption> _options = [];
+    private bool _loading = true;
+
+    private bool _suggesting;
+    private bool _proposing;
+    private string _proposed = "";
+    private string _reason = "";
+    private string? _notice;
+    private bool _noticeIsError;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var page = await Api.GetTagsAsync();
+            _options = page?.Items ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _options = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleAsync(string slug)
+    {
+        if (Selected.Contains(slug, StringComparer.Ordinal))
+        {
+            Selected.Remove(slug);
+        }
+        else
+        {
+            // Silently ignoring the click past the limit reads as a broken button, so the count
+            // line above says what the limit is and this simply refuses to exceed it.
+            if (Selected.Count >= TagVocabularyLimit) return;
+
+            Selected.Add(slug);
+        }
+
+        await SelectedChanged.InvokeAsync(Selected);
+    }
+
+    private async Task ProposeAsync()
+    {
+        var slug = _proposed.Trim().ToLowerInvariant();
+
+        if (slug.Length == 0)
+        {
+            _notice = "Type the tag you want.";
+            _noticeIsError = true;
+            return;
+        }
+
+        _proposing = true;
+        _notice = null;
+
+        try
+        {
+            var result = await Api.ProposeTagAsync(slug, string.IsNullOrWhiteSpace(_reason) ? null : _reason.Trim());
+
+            if (!result.Success)
+            {
+                _notice = result.Error ?? "That suggestion was not accepted.";
+                _noticeIsError = true;
+                return;
+            }
+
+            _noticeIsError = false;
+            _notice = result.Response?.Note;
+            _proposed = "";
+            _reason = "";
+
+            // It already existed and is approved - reload so it can be picked straight away
+            // rather than telling somebody to come back later for a tag that is right there.
+            if (result.Response?.UsableNow == true) await LoadAsync();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _notice = "The API isn't responding.";
+            _noticeIsError = true;
+        }
+        finally
+        {
+            _proposing = false;
+        }
+    }
+}

@@ -189,8 +189,11 @@ else
                     <input @attributes="field" @bind="_edit.License" class="@InputClass" />
                 </Field>
 
-                <Field Context="field" Id="tags" Label="Tags" Required="false" Hint="Comma separated, like parts, planets, ui.">
-                    <input @attributes="field" @bind="_edit.Tags" class="@InputClass" />
+                @* A list, not a text box. Free text produced "ui", "UI" and "user-interface"
+                   filing the same thing three ways, so no filter found all of them. *@
+                <Field Id="tags" Label="Tags" Required="false"
+                       Hint="Pick from the site's list. Suggest one if nothing fits.">
+                    <TagPicker @bind-Selected="_tags" />
                 </Field>
 
                 <Field Context="field" Id="banner" Label="Banner image" Required="false"
@@ -278,6 +281,9 @@ else
     private string? _message;
 
     private readonly EditForm _edit = new();
+
+    /// <summary>Chosen tag slugs. Owned here because the save call is what submits them.</summary>
+    private List<string> _tags = [];
     private readonly RepoForm _repo = new();
 
     private const string InputClass =
@@ -317,7 +323,7 @@ else
                 _edit.Abstract = _mod.Abstract ?? "";
                 _edit.Description = _mod.Description ?? "";
                 _edit.License = _mod.License ?? "";
-                _edit.Tags = string.Join(", ", _mod.Tags);
+                _tags = [.. _mod.Tags];
                 _edit.BannerUrl = _mod.BannerUrl ?? "";
             }
         }
@@ -379,8 +385,7 @@ else
             Abstract: _edit.Abstract.Trim(),
             Description: string.IsNullOrWhiteSpace(_edit.Description) ? null : _edit.Description.Trim(),
             License: _edit.License.Trim(),
-            Tags: _edit.Tags
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            Tags: [.. _tags],
             BannerUrl: string.IsNullOrWhiteSpace(_edit.BannerUrl) ? null : _edit.BannerUrl.Trim())),
         "Listing updated.");
 
@@ -517,7 +522,6 @@ else
         public string Abstract { get; set; } = "";
         public string Description { get; set; } = "";
         public string License { get; set; } = "";
-        public string Tags { get; set; } = "";
         public string BannerUrl { get; set; } = "";
     }
 

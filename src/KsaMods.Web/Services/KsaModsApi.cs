@@ -144,6 +144,52 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
             : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
     }
 
+    // ── tags ──
+
+    /// <summary>
+    /// The site's curated vocabulary. RFC 0031 leaves tags free-form and notes a vocabulary can
+    /// come later without a format change; this is that list, so the picker offers it rather than
+    /// letting somebody invent a synonym for a tag that already exists.
+    /// </summary>
+    public Task<TagListPage?> GetTagsAsync(CancellationToken ct = default) =>
+        GetAsync<TagListPage>("/api/v1/tags", ct);
+
+    public async Task<TagProposalResult> ProposeTagAsync(
+        string slug, string? reason, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/tags", new { slug, reason }, Json, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new TagProposalResult(false, null, await ReadProblemAsync(response, ct));
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<TagProposalResponse>(Json, ct);
+
+        return new TagProposalResult(true, body, null);
+    }
+
+    public Task<IReadOnlyList<AdminTag>?> GetAdminTagsAsync(
+        string? state = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AdminTag>>($"/api/v1/admin/tags{Query(("state", state))}", ct);
+
+    public Task<IReadOnlyList<UnknownTag>?> GetUnknownTagsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<UnknownTag>>("/api/v1/admin/tags/unknown", ct);
+
+    public Task<ApiOutcome> ApproveTagAsync(
+        string slug, string? label, string? description, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/tags/{Uri.EscapeDataString(slug)}/approve",
+            new { label, description }, ct);
+
+    public Task<ApiOutcome> RejectTagAsync(string slug, string note, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/tags/{Uri.EscapeDataString(slug)}/reject", new { note }, ct);
+
+    public Task<ApiOutcome> CreateTagAsync(
+        string slug, string? label, string? description, CancellationToken ct = default) =>
+        PostAsync("/api/v1/admin/tags", new { slug, label, description }, ct);
+
     // ── moderation ──
     //
     // Every read here comes back null when the caller is not staff, because the API answers 404
@@ -615,6 +661,54 @@ public sealed record GameBuild
     [JsonPropertyName("date")] public DateTime? Date { get; init; }
 }
 
+// ── tags ──
+
+public sealed record TagListPage
+{
+    [JsonPropertyName("items")] public IReadOnlyList<TagOption> Items { get; init; } = [];
+}
+
+public sealed record TagOption
+{
+    [JsonPropertyName("slug")] public string Slug { get; init; } = "";
+    [JsonPropertyName("label")] public string Label { get; init; } = "";
+    [JsonPropertyName("description")] public string? Description { get; init; }
+}
+
+public sealed record TagProposalResponse
+{
+    [JsonPropertyName("slug")] public string Slug { get; init; } = "";
+    [JsonPropertyName("state")] public string State { get; init; } = "proposed";
+    [JsonPropertyName("note")] public string? Note { get; init; }
+
+    /// <summary>True when the tag turned out to exist already and can be used immediately.</summary>
+    public bool UsableNow => State == "approved";
+}
+
+public sealed record TagProposalResult(bool Success, TagProposalResponse? Response, string? Error);
+
+public sealed record AdminTag
+{
+    [JsonPropertyName("slug")] public string Slug { get; init; } = "";
+    [JsonPropertyName("label")] public string Label { get; init; } = "";
+    [JsonPropertyName("description")] public string? Description { get; init; }
+    [JsonPropertyName("state")] public string State { get; init; } = "proposed";
+    [JsonPropertyName("reason")] public string? Reason { get; init; }
+    [JsonPropertyName("proposer_handle")] public string? ProposerHandle { get; init; }
+    [JsonPropertyName("review_note")] public string? ReviewNote { get; init; }
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("reviewed_at")] public DateTimeOffset? ReviewedAt { get; init; }
+    [JsonPropertyName("uses")] public int Uses { get; init; }
+
+    public bool IsPending => State == "proposed";
+}
+
+public sealed record UnknownTag
+{
+    [JsonPropertyName("tag")] public string Tag { get; init; } = "";
+    [JsonPropertyName("uses")] public int Uses { get; init; }
+}
+
 // ── moderation ──
 
 public sealed record AdminOverview
@@ -623,6 +717,7 @@ public sealed record AdminOverview
     [JsonPropertyName("quarantined")] public int Quarantined { get; init; }
     [JsonPropertyName("needs_review")] public int NeedsReview { get; init; }
     [JsonPropertyName("dead_jobs")] public int DeadJobs { get; init; }
+    [JsonPropertyName("pending_tags")] public int PendingTags { get; init; }
     [JsonPropertyName("withdrawn")] public int Withdrawn { get; init; }
     [JsonPropertyName("suspended")] public int Suspended { get; init; }
     [JsonPropertyName("accounts")] public int Accounts { get; init; }

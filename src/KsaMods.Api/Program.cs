@@ -28,6 +28,7 @@ builder.Services.AddSingleton<JobQueue>();
 builder.Services.AddScoped<ModRepository>();
 builder.Services.AddScoped<ModlistRepository>();
 builder.Services.AddScoped<AccountStore>();
+builder.Services.AddScoped<TagVocabulary>();
 builder.Services.AddScoped<SessionStore>();
 
 var sessionOptions = new SiteSessionOptions();
@@ -168,6 +169,7 @@ app.MapModEndpoints();
 app.MapModlistEndpoints();
 app.MapAccountEndpoints();
 app.MapAdminEndpoints();
+app.MapTagEndpoints();
 
 // Off unless a secret is configured: without one, every caller is anonymous and the endpoint is a
 // way to make the site do work on request.

@@ -52,6 +52,7 @@ public static class AdminEndpoints
                   (select count(*) from mod_release where availability = 'quarantined')         as Quarantined,
                   (select count(*) from mod_release r where {NeedsReview})                      as NeedsReview,
                   (select count(*) from job where state = 'dead')                               as DeadJobs,
+                  (select count(*) from tag where state = 'proposed')                            as PendingTags,
                   (select count(*) from mod where listing_state in ('delisted', 'taken_down'))  as Withdrawn,
                   (select count(*) from account where suspended_at is not null)                 as Suspended,
                   (select count(*) from account where deleted_at is null)                       as Accounts,
@@ -65,6 +66,7 @@ public static class AdminEndpoints
                 quarantined = counts.Quarantined,
                 needs_review = counts.NeedsReview,
                 dead_jobs = counts.DeadJobs,
+                pending_tags = counts.PendingTags,
                 withdrawn = counts.Withdrawn,
                 suspended = counts.Suspended,
                 accounts = counts.Accounts,
@@ -643,6 +645,7 @@ public static class AdminEndpoints
         public int Quarantined { get; init; }
         public int NeedsReview { get; init; }
         public int DeadJobs { get; init; }
+        public int PendingTags { get; init; }
         public int Withdrawn { get; init; }
         public int Suspended { get; init; }
         public int Accounts { get; init; }

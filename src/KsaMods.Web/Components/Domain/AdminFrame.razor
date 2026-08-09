@@ -107,6 +107,7 @@ else
         new("reviews", "Review queue", "/admin/reviews", true),
         new("listings", "Listings", "/admin/listings", false),
         new("accounts", "Accounts", "/admin/accounts", false),
+        new("tags", "Tags", "/admin/tags", true),
         new("jobs", "Jobs", "/admin/jobs", true),
         new("log", "Log", "/admin/log", false),
     ];
@@ -138,6 +139,7 @@ else
         "reports" => _overview?.OpenReports ?? 0,
         "reviews" => _overview?.NeedsReview ?? 0,
         "jobs" => _overview?.DeadJobs ?? 0,
+        "tags" => _overview?.PendingTags ?? 0,
         _ => 0,
     };
 

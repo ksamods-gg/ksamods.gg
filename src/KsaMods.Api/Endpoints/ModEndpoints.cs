@@ -60,7 +60,8 @@ public static class ModEndpoints
         var api = app.MapGroup("/api/v1").RequireRateLimiting("writes");
 
         api.MapPost("/mods", async (
-            CreateModBody body, HttpContext http, ModRepository mods, CancellationToken ct) =>
+            CreateModBody body, HttpContext http, ModRepository mods,
+            TagVocabulary vocabulary, CancellationToken ct) =>
         {
             var user = http.User();
             if (user is null) return Results.Unauthorized();
@@ -94,6 +95,14 @@ public static class ModEndpoints
                 });
             }
 
+            // Tags come from the site's curated list (RFC 0031 allows free-form strings and notes
+            // that a vocabulary can come later; this is that vocabulary). Rejected outright rather
+            // than filtered quietly: dropping a tag somebody typed leaves them believing their
+            // listing is filed somewhere it is not.
+            var (tags, refused) = await vocabulary.VetAsync(body.Tags ?? [], ct);
+
+            if (refused.Count > 0) return UnknownTags(refused);
+
             var links = body.Links ?? [];
 
             await mods.CreateAsync(new ModRow
@@ -104,7 +113,7 @@ public static class ModEndpoints
                 Abstract = body.Abstract,
                 Description = body.Description,
                 License = body.License,
-                Tags = body.Tags ?? [],
+                Tags = tags,
                 Links = System.Text.Json.JsonSerializer.Serialize(links),
                 Status = "active",
 
@@ -133,7 +142,8 @@ public static class ModEndpoints
         // Editing a listing. The id is absent on purpose: it is the folder name the game loads
         // the mod under, so it cannot change without breaking every install of it.
         api.MapPatch("/mods/{id}", async (
-            string id, EditModBody body, HttpContext http, ModRepository mods, CancellationToken ct) =>
+            string id, EditModBody body, HttpContext http, ModRepository mods,
+            TagVocabulary vocabulary, CancellationToken ct) =>
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
@@ -150,6 +160,19 @@ public static class ModEndpoints
                 });
             }
 
+            // Only vetted when the caller actually sent tags. Otherwise editing a description on
+            // a listing that predates the vocabulary - or one ingested from elsewhere - would fail
+            // on tags the author never touched.
+            var tags = mod.Tags;
+
+            if (body.Tags is not null)
+            {
+                var (accepted, refused) = await vocabulary.VetAsync(body.Tags, ct);
+                if (refused.Count > 0) return UnknownTags(refused);
+
+                tags = accepted;
+            }
+
             // Absent fields keep their current value, so a caller sending only one field does not
             // silently blank the rest.
             await mods.UpdateAsync(mod with
@@ -158,7 +181,7 @@ public static class ModEndpoints
                 Abstract = body.Abstract ?? mod.Abstract,
                 Description = body.Description ?? mod.Description,
                 License = body.License ?? mod.License,
-                Tags = body.Tags ?? mod.Tags,
+                Tags = tags,
                 Links = body.Links is null
                     ? mod.Links
                     : System.Text.Json.JsonSerializer.Serialize(body.Links),
@@ -632,6 +655,20 @@ public static class ModEndpoints
     /// are the ones that decide whether a browser will render it at all: https, because the page
     /// is https and mixed content is blocked silently, and a length the column will accept.
     /// </summary>
+    /// <summary>
+    /// One rejection carrying every tag that could not be used and why.
+    ///
+    /// <para>All of them at once, rather than the first: an author fixing tags one round-trip at a
+    /// time gives up before the vocabulary has taught them anything.</para>
+    /// </summary>
+    private static IResult UnknownTags(Dictionary<string, string> refused) =>
+        Results.ValidationProblem(
+            new Dictionary<string, string[]>
+            {
+                ["tags"] = [.. refused.Select(r => $"{r.Key}: {r.Value}")],
+            },
+            detail: "Tags come from the site's list. You can suggest a new one, and an admin decides.");
+
     private static bool IsUsableBannerUrl(string candidate) =>
         candidate.Trim() is { Length: > 0 and <= 2048 } url
         && Uri.TryCreate(url, UriKind.Absolute, out var parsed)
