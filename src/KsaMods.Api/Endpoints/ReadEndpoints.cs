@@ -65,6 +65,7 @@ public static class ReadEndpoints
                 superseded_by = mod.SupersededBy,
                 listing_state = mod.ListingState,
                 banner_url = mod.BannerUrl,
+                icon_url = mod.IconUrl,
 
                 // The caller's own role on this listing, so the frontend can offer management
                 // controls only to people they will work for. The principal is already loaded
@@ -259,8 +260,8 @@ public static class ReadEndpoints
 
         // Keyset pagination, not offset: offset over a table changing mid-scroll skips and
         // repeats rows, and the offline-snapshot use case makes stable iteration a requirement.
-        var rows = await connection.QueryAsync<(string Id, string Type, string Name, string Abstract, string[] Tags, DateTimeOffset UpdatedAt, string? BannerUrl)>("""
-            select m.id, m.type, m.name, m.abstract, m.tags, m.updated_at, m.banner_url
+        var rows = await connection.QueryAsync<(string Id, string Type, string Name, string Abstract, string[] Tags, DateTimeOffset UpdatedAt, string? BannerUrl, string? IconUrl)>("""
+            select m.id, m.type, m.name, m.abstract, m.tags, m.updated_at, m.banner_url, m.icon_url
             from mod m
             where m.listing_state = 'listed'
               and (@type is null or m.type = @type)
@@ -291,6 +292,7 @@ public static class ReadEndpoints
                 tags = r.Tags,
                 updated_at = r.UpdatedAt,
                 banner_url = r.BannerUrl,
+                icon_url = r.IconUrl,
             }),
             next = list.Count == take ? list[^1].Id : null,
         });

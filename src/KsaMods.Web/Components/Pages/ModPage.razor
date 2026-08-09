@@ -41,47 +41,58 @@ else if (_mod.IsWithdrawn)
 else
 {
     <article>
-        @if (!string.IsNullOrWhiteSpace(_mod.BannerUrl))
-        {
-            @* Author-hosted, so it may 404 at any time: onerror drops the strip instead of
-               leaving a broken image sitting above the title. *@
-            <div class="mb-6 aspect-[4/1] w-full overflow-hidden rounded-lg border border-border bg-muted">
-                <img src="@_mod.BannerUrl" alt="" referrerpolicy="no-referrer"
-                     onerror="this.parentElement.remove()"
-                     class="h-full w-full object-cover" />
-            </div>
-        }
+        @*
+            One header object rather than a stack of bands: banner as its lid, icon overlapping the
+            seam, identity and actions on the same line underneath. The overlap is what makes it
+            read as a single card instead of an image with a title under it.
+        *@
+        <header class="overflow-hidden rounded-lg border border-border bg-card shadow-card">
+            @if (!string.IsNullOrWhiteSpace(_mod.BannerUrl))
+            {
+                @* Author-hosted, so it may 404 at any time: onerror drops the strip instead of
+                   leaving a broken image sitting above the title. *@
+                <div class="aspect-[5/1] w-full overflow-hidden border-b border-border bg-secondary">
+                    <img src="@_mod.BannerUrl" alt="" referrerpolicy="no-referrer"
+                         onerror="this.parentElement.remove()"
+                         class="h-full w-full object-cover" />
+                </div>
+            }
 
-        <header class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
-            <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight">@_mod.Name</h1>
-                    @if (_mod.IsLoader)
+            <div class="flex flex-wrap items-start gap-4 p-5">
+                <ModIcon Id="@_mod.Id" IconUrl="@_mod.IconUrl" Size="lg"
+                         Class="@(string.IsNullOrWhiteSpace(_mod.BannerUrl) ? null : "-mt-12 ring-4 ring-card")" />
+
+                <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight">@_mod.Name</h1>
+                        @if (_mod.IsLoader)
+                        {
+                            @* Next to the name, because the distinction changes what the page is
+                               for: this is not something to install because it looks good. *@
+                            <Badge Variant="info" Title="Not a mod. Other mods run on top of it.">loader</Badge>
+                        }
+                    </div>
+
+                    @* The id, verbatim: this is the folder name the game loads it under. *@
+                    <code class="mt-1 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
+
+                    <p class="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                        @_mod.Abstract
+                    </p>
+                </div>
+
+                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    @if (_mod.CanManage)
                     {
-                        @* Next to the name, because the distinction changes what the page is for:
-                           this is not something to install because it looks good. *@
-                        <Badge Variant="info" Title="Not a mod. Other mods run on top of it.">loader</Badge>
+                        <Button Href="@($"/mods/{_mod.Id}/manage")" Variant="outline" Size="sm">Manage</Button>
+                    }
+                    @if (_latest is not null)
+                    {
+                        <Button Href="@($"/mods/{_mod.Id}/releases/{_latest.Version}")" Size="sm">
+                            Get @_latest.Version
+                        </Button>
                     }
                 </div>
-                @* The id, verbatim: this is the folder name the game loads it under. *@
-                <code class="mt-1.5 block font-mono text-sm text-muted-foreground">@_mod.Id</code>
-            </div>
-
-            <div class="flex shrink-0 flex-wrap items-center gap-2">
-                @if (_mod.License is not null)
-                {
-                    <Badge Variant="outline">@_mod.License</Badge>
-                }
-                @if (_mod.CanManage)
-                {
-                    <Button Href="@($"/mods/{_mod.Id}/manage")" Variant="outline" Size="sm">Manage</Button>
-                }
-                @if (_latest is not null)
-                {
-                    <Button Href="@($"/mods/{_mod.Id}/releases/{_latest.Version}")" Size="sm">
-                        Latest: @_latest.Version
-                    </Button>
-                }
             </div>
         </header>
 
@@ -126,7 +137,13 @@ else
             </Alert>
         }
 
-        <p class="mt-4 max-w-2xl text-muted-foreground">@_mod.Abstract</p>
+        @*
+            Content left, facts right. The right column is what a visitor checks before installing -
+            what it needs, what it is, where it came from - and it stays put while the description
+            and the release list scroll.
+        *@
+        <div class="mt-6 flex flex-col gap-6 lg:flex-row lg:gap-8">
+            <div class="min-w-0 flex-1">
 
         @if (_mod.Tags.Count > 0)
         {
@@ -200,6 +217,55 @@ else
                 </ul>
             }
         </Card>
+            </div>
+
+            <aside class="w-full shrink-0 lg:w-72">
+                <div class="lg:sticky lg:top-20 space-y-4">
+                    <div class="rounded-lg border border-border bg-card p-4 shadow-card">
+                        <h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Details
+                        </h2>
+
+                        <dl class="mt-3 space-y-2.5 text-sm">
+                            <div class="flex items-baseline justify-between gap-3">
+                                <dt class="text-muted-foreground">Licence</dt>
+                                <dd class="min-w-0 truncate font-mono text-xs">@(_mod.License ?? "not stated")</dd>
+                            </div>
+
+                            <div class="flex items-baseline justify-between gap-3">
+                                <dt class="text-muted-foreground">Releases</dt>
+                                <dd class="font-mono text-xs tabular">@_mod.Releases.Count</dd>
+                            </div>
+
+                            @if (_latest is not null)
+                            {
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="text-muted-foreground">Latest</dt>
+                                    <dd class="min-w-0 truncate font-mono text-xs">@_latest.Version</dd>
+                                </div>
+                            }
+
+                            @if (_mod.UpdatedAt is { } updated)
+                            {
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="text-muted-foreground">Updated</dt>
+                                    <dd class="font-mono text-xs tabular">@Presentation.Ago(updated)</dd>
+                                </div>
+                            }
+                        </dl>
+
+                        @* Said on every listing that offers a download, not tucked into a policy
+                           page. The site checks packaging; it cannot check intent, and a visitor
+                           deciding whether to run somebody's assembly deserves that in front of
+                           them rather than behind a link. *@
+                        <p class="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                            Downloads come from the author's own repository. We record the link and a
+                            hash of what we checked - we never host the file.
+                        </p>
+                    </div>
+                </div>
+            </aside>
+        </div>
     </article>
 }
 

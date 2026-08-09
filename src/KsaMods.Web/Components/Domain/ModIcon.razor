@@ -1,0 +1,136 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+
+@*
+    The square mark that identifies a listing in a row, a header, a modlist, or a client.
+
+    Most listings will not have one for a long time, so the fallback is the normal case rather than
+    the error case: initials drawn from the id, on a tint derived from the id itself. Deterministic,
+    so a mod is always the same colour and the eye can learn it, and drawn from the palette's own
+    hues so a grid of them still reads as one page.
+
+    No gradients and no generated art. A mark that tries to look like an icon somebody made is
+    worse than one that plainly stands in for it.
+*@
+
+<span class="@Cx.Of(Base, SizeClasses, Class)"
+      style="@(HasImage ? null : $"background: {Tint}; color: {Ink};")"
+      aria-hidden="true">
+
+    @if (HasImage)
+    {
+        @* Author-hosted, so it can vanish. onerror drops the image and leaves the initials
+           underneath rather than a broken-image glyph in the middle of a card. *@
+        <img src="@IconUrl" alt="" loading="lazy" referrerpolicy="no-referrer"
+             onerror="this.remove()"
+             class="h-full w-full rounded-[inherit] object-cover" />
+    }
+    else
+    {
+        <span class="@InitialsClasses">@Initials</span>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter] public string? IconUrl { get; set; }
+
+    /// <summary>sm for a dense row, md for a card, lg for a listing header.</summary>
+    [Parameter] public string Size { get; set; } = "md";
+
+    [Parameter] public string? Class { get; set; }
+
+    private bool HasImage => !string.IsNullOrWhiteSpace(IconUrl);
+
+    private const string Base =
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden " +
+        "rounded-lg border border-border/60 bg-secondary font-display font-semibold " +
+        "leading-none tracking-tight select-none";
+
+    private string SizeClasses => Size switch
+    {
+        "sm" => "size-9 rounded-md",
+        "lg" => "size-20 rounded-xl",
+        _ => "size-14",
+    };
+
+    private string InitialsClasses => Size switch
+    {
+        "sm" => "text-[0.6875rem]",
+        "lg" => "text-2xl",
+        _ => "text-base",
+    };
+
+    /// <summary>
+    /// Up to two letters, taken from the id's own word boundaries: dots, hyphens and camel humps.
+    /// "OuterPlanets" gives OP, "life-support" gives LS, "StarMap" gives SM - the same shape a
+    /// person would abbreviate it to.
+    /// </summary>
+    private string Initials
+    {
+        get
+        {
+            var letters = new List<char>();
+            var atBoundary = true;
+
+            foreach (var c in Id)
+            {
+                if (c is '.' or '-' or '_' or ' ')
+                {
+                    atBoundary = true;
+                    continue;
+                }
+
+                if (atBoundary || char.IsUpper(c))
+                {
+                    if (char.IsLetterOrDigit(c)) letters.Add(char.ToUpperInvariant(c));
+                    atBoundary = false;
+                }
+
+                if (letters.Count == 2) break;
+            }
+
+            // A single lowercase word gives one boundary letter; take its second character rather
+            // than shipping a lone initial that collides with every other mod starting that way.
+            if (letters.Count == 1 && Id.Length > 1)
+            {
+                var second = Id.Skip(1).FirstOrDefault(char.IsLetterOrDigit);
+                if (second != default) letters.Add(char.ToUpperInvariant(second));
+            }
+
+            return letters.Count == 0 ? "?" : new string([.. letters]);
+        }
+    }
+
+    /// <summary>
+    /// A stable hue per id. Spread across the wheel but held at the palette's own chroma and
+    /// lightness, so twenty of them in a grid read as a set rather than a fruit bowl.
+    /// </summary>
+    private int Hue
+    {
+        get
+        {
+            // FNV-1a. Deterministic across processes, unlike string.GetHashCode, which is
+            // randomised per run - a mod would change colour every time the server restarted.
+            var hash = 2166136261u;
+
+            foreach (var c in Id.ToLowerInvariant())
+            {
+                hash = (hash ^ c) * 16777619u;
+            }
+
+            return (int)(hash % 360);
+        }
+    }
+
+    /// <summary>
+    /// Both ends written with light-dark() rather than one value that has to work on two grounds.
+    /// The tint sits on a white card in one theme and a blue-slate one in the other; a single
+    /// alpha lands washed out on one of them, and the ink has to invert outright to stay legible.
+    /// </summary>
+    private string Tint =>
+        $"light-dark(oklch(0.62 0.085 {Hue} / 18%), oklch(0.72 0.09 {Hue} / 22%))";
+
+    private string Ink =>
+        $"light-dark(oklch(0.42 0.105 {Hue}), oklch(0.86 0.075 {Hue}))";
+}

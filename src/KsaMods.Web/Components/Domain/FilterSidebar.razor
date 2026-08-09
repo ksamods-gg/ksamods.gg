@@ -1,0 +1,114 @@
+@namespace KsaMods.Web.Components.Domain
+@using KsaMods.Web.Components.Ui
+@using KsaMods.Web.Services
+@inject KsaModsApi Api
+
+@*
+    Facets down the left, the way every catalogue this audience already uses puts them.
+
+    Links, not checkboxes with a submit button: each facet is a URL, so a filtered view is
+    shareable, back works, and the whole thing functions with no JavaScript at all. The tag list is
+    the curated vocabulary - the same list authors pick from - which is the payoff for having
+    curated it: a facet list built from free text would be a hundred near-duplicates.
+*@
+
+<aside class="w-full shrink-0 lg:w-56">
+    <nav aria-label="Filters" class="lg:sticky lg:top-20">
+        <div class="rounded-lg border border-border bg-card p-4 shadow-card">
+            <h2 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Kind</h2>
+
+            <ul class="mt-2.5 space-y-0.5">
+                <li>@KindLink(null, "Mods")</li>
+                <li>@KindLink("mod-loader", "Loaders")</li>
+            </ul>
+
+            @if (_tags.Count > 0)
+            {
+                <h2 class="mt-5 border-t border-border pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Tags
+                </h2>
+
+                <ul class="mt-2.5 space-y-0.5">
+                    @foreach (var tag in _tags)
+                    {
+                        var chosen = string.Equals(tag.Slug, ActiveTag, StringComparison.OrdinalIgnoreCase);
+
+                        <li>
+                            <a href="@TagUrl(chosen ? null : tag.Slug)"
+                               aria-current="@(chosen ? "true" : "false")"
+                               title="@tag.Description"
+                               class="@Cx.Of(Row, chosen ? RowOn : RowOff)">
+                                <span class="truncate">@tag.Label</span>
+
+                                @if (chosen)
+                                {
+                                    @* The way out has to be where the way in was: a chosen facet
+                                       whose only removal is the browser's back button strands
+                                       anybody who arrived on the link. *@
+                                    <svg viewBox="0 0 16 16" aria-hidden="true"
+                                         class="ml-auto size-3.5 shrink-0 opacity-70">
+                                        <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor"
+                                              stroke-width="1.75" stroke-linecap="round" />
+                                    </svg>
+                                }
+                            </a>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </nav>
+</aside>
+
+@code {
+    /// <summary>The tag currently filtering the list, if any.</summary>
+    [Parameter] public string? ActiveTag { get; set; }
+
+    /// <summary>mod-loader when the loader list is showing, null for mods.</summary>
+    [Parameter] public string? ActiveType { get; set; }
+
+    /// <summary>Carried through every facet link so filtering never discards what was typed.</summary>
+    [Parameter] public string? Query { get; set; }
+
+    private IReadOnlyList<TagOption> _tags = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var page = await Api.GetTagsAsync();
+            _tags = page?.Items ?? [];
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            // The list still works without facets; an empty rail is better than a failed page.
+            _tags = [];
+        }
+    }
+
+    private const string Row =
+        "flex min-h-8 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors";
+    private const string RowOn = "bg-primary/12 font-medium text-primary";
+    private const string RowOff = "text-muted-foreground hover:bg-accent hover:text-foreground";
+
+    private RenderFragment KindLink(string? type, string label)
+    {
+        var chosen = string.Equals(type, ActiveType, StringComparison.Ordinal);
+
+        return @<a href="@Url(type, ActiveTag)" aria-current="@(chosen ? "page" : "false")"
+                   class="@Cx.Of(Row, chosen ? RowOn : RowOff)">@label</a>;
+    }
+
+    private string TagUrl(string? tag) => Url(ActiveType, tag);
+
+    private string Url(string? type, string? tag)
+    {
+        var parameters = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(Query)) parameters.Add($"q={Uri.EscapeDataString(Query)}");
+        if (!string.IsNullOrWhiteSpace(tag)) parameters.Add($"tag={Uri.EscapeDataString(tag)}");
+        if (type == "mod-loader") parameters.Add("type=mod-loader");
+
+        return parameters.Count == 0 ? "/mods" : $"/mods?{string.Join('&', parameters)}";
+    }
+}

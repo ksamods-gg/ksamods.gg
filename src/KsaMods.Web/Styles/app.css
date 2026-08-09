@@ -173,13 +173,30 @@
   --color-input: light-dark(oklch(0.65 0.009 245), oklch(0.947 0.008 245 / 40%));
   --color-ring: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
 
-  /* Hairline for the drafting grid behind the masthead. */
-  --color-rule: light-dark(oklch(0.19 0.021 250 / 9%), oklch(0.947 0.008 245 / 10%));
+  /* This used to read "panels, not pills - a 4px corner reads as a machined edge; 12px reads as a
+     chat bubble", and the machined edge was the right call for a drafting-instrument world. That
+     world has been replaced: the site is now shaped like the mod catalogues its visitors already
+     use, where the card is a soft object you scan a hundred of rather than a panel you read.
 
-  /* Panels, not pills. A 4px corner reads as a machined edge; 12px reads as a chat bubble. */
-  --radius-sm: 0.125rem;
-  --radius-md: 0.25rem;
-  --radius-lg: 0.375rem;
+     Three steps, each with a job. sm is the pill and the chip. md is the control - button, input,
+     select - large enough to read as soft, small enough that the label still sits square in it.
+     lg is the card, and it is the one carrying the change: at 14px a card stops looking like a
+     region of the page and starts looking like a thing on it. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+
+  /* Elevation, not decoration. Every one carries a vertical offset and a soft blur, because a
+     zero-offset halo is a glow and glows do not tell you which surface is nearer.
+
+     The colour is the ground's own hue rather than neutral black: a grey shadow over a blue-slate
+     page reads as dirt on the surface. In dark the ambient shadow does almost nothing - there is
+     no light above a dark room - so the border carries separation there and this stays subtle
+     enough not to smear. */
+  --shadow-card: 0 1px 2px light-dark(oklch(0.19 0.021 250 / 6%), oklch(0 0 0 / 24%)),
+                 0 2px 8px light-dark(oklch(0.19 0.021 250 / 5%), oklch(0 0 0 / 18%));
+  --shadow-raised: 0 2px 4px light-dark(oklch(0.19 0.021 250 / 7%), oklch(0 0 0 / 28%)),
+                   0 8px 24px light-dark(oklch(0.19 0.021 250 / 8%), oklch(0 0 0 / 24%));
 
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
@@ -221,6 +238,44 @@
     text-rendering: optimizeLegibility;
   }
 
+  /*
+    The surfaces nobody draws.
+
+    Selection, the caret, the scrollbar and the numerals in a table all ship with browser defaults
+    that belong to no design system, and they are the cheapest tell that a page was assembled
+    rather than built. A blue Chrome selection over a teal page is somebody else's accent colour
+    sitting in the middle of ours.
+  */
+  ::selection {
+    /* Tinted, not solid: a solid accent selection inverts the text under it and the contrast then
+       depends on whichever colour happened to be selected. */
+    background: color-mix(in oklch, var(--color-primary) 26%, transparent);
+    color: var(--color-foreground);
+  }
+
+  :root {
+    caret-color: var(--color-primary);
+    scrollbar-color: var(--color-input) transparent;
+    scrollbar-width: thin;
+  }
+
+  /* WebKit ignores scrollbar-color, and its default bar is a hard grey slab on a dark ground. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-input);
+    border: 2px solid transparent;
+    background-clip: content-box;
+    border-radius: var(--radius-md);
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--color-muted-foreground); background-clip: content-box; }
+
+  /* Versions, revisions, byte counts and dates are compared down a column far more often than they
+     are read in a sentence, and proportional digits make that comparison a guess. */
+  code, kbd, samp, pre, time, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Headings are condensed and tight. The width contrast against the body face is the point:
      it is what stops a page set in one family reading as one undifferentiated block. */
   h1, h2, h3 {
@@ -258,24 +313,6 @@
       transition-duration: 0.01ms !important;
     }
   }
-}
-
-/*
-  The masthead grid: a 64px hairline rule, the drafting-paper substrate a parts drawing sits on.
-  It fades downward so it reads as ground the content stands on rather than a texture laid over
-  the top of it.
-*/
-.grid-substrate {
-  background-image:
-    linear-gradient(to right, var(--color-rule) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-rule) 1px, transparent 1px);
-  background-size: 64px 64px;
-
-  /* Holds full strength through the masthead and the top of the hero before falling away. A
-     mask that starts fading at 0% spends its whole visible range already half gone, which is
-     how the grid ends up invisible rather than subtle. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 38%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 38%, transparent 100%);
 }
 
 /*

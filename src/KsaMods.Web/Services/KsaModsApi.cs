@@ -469,6 +469,7 @@ public sealed record ModSummary
     [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
     [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
     [JsonPropertyName("banner_url")] public string? BannerUrl { get; init; }
+    [JsonPropertyName("icon_url")] public string? IconUrl { get; init; }
 }
 
 public sealed record ModDetail
@@ -484,6 +485,7 @@ public sealed record ModDetail
     [JsonPropertyName("superseded_by")] public string? SupersededBy { get; init; }
     [JsonPropertyName("listing_state")] public string ListingState { get; init; } = "listed";
     [JsonPropertyName("banner_url")] public string? BannerUrl { get; init; }
+    [JsonPropertyName("icon_url")] public string? IconUrl { get; init; }
 
     /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
     [JsonPropertyName("your_role")] public string? YourRole { get; init; }
@@ -889,13 +891,13 @@ public sealed record AdminJob
 public sealed record CreateModRequest(
     string Id, string Name, string Abstract, string License,
     string? Description = null, string[]? Tags = null,
-    Dictionary<string, string>? Links = null, string? BannerUrl = null);
+    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null);
 
 /// <summary>Null means "leave this one alone", so a partial edit stays partial.</summary>
 public sealed record EditModRequest(
     string? Name = null, string? Abstract = null, string? Description = null,
     string? License = null, string[]? Tags = null,
-    Dictionary<string, string>? Links = null, string? BannerUrl = null);
+    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null);
 
 /// <summary>
 /// RepoId is no longer asked of the author: the API resolves it from the forge, which is one less

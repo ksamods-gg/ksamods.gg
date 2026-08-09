@@ -35,11 +35,6 @@
        column, so without it main's own flex-1 has nothing to grow against and the footer
        rides up under short pages. *@
     <div class="relative flex flex-1 flex-col">
-        @* Masthead texture, not a page background. Tall enough to sit under the header and the
-           first line of a page, short enough that it is gone before body copy starts: a grid
-           running behind paragraphs is noise, and inner pages start higher than the home hero. *@
-        <div class="grid-substrate pointer-events-none absolute inset-x-0 top-0 h-52" aria-hidden="true"></div>
-
         <header class="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-sm">
             <div class="mx-auto max-w-6xl px-4">
                 <div class="flex h-14 items-center gap-7">

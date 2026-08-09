@@ -9,8 +9,9 @@
 *@
 <div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
     <div class="min-w-0">
-        <p class="eyebrow text-muted-foreground">Catalogue</p>
-        <h1 class="mt-2 text-2xl font-bold tracking-tight">
+        @* No eyebrow above the heading. The heading says what this is; a label above it saying
+           "Catalogue" was scaffolding the page did not need. *@
+        <h1 class="text-2xl font-bold tracking-tight">
             @(string.IsNullOrWhiteSpace(Q)
                 ? (IsLoaders ? "Mod loaders" : "All mods")
                 : $"Results for “{Q}”")
@@ -20,7 +21,7 @@
     <div class="flex items-center gap-3">
         @if (_page is not null && _page.Items.Count > 0)
         {
-            <span class="font-mono text-xs text-muted-foreground tabular-nums">
+            <span class="font-mono text-xs text-muted-foreground tabular">
                 @_page.Items.Count shown@(_page.Next is not null ? ", more available" : "")
             </span>
         }
@@ -29,18 +30,16 @@
 </div>
 
 @*
-    A loader is not a mod you go looking for - it is the thing a mod tells you it needs. Mixed into
-    the same grid it reads as a rival to the mods around it, and it takes a slot from them. Two
-    lists, one of which most visitors never open.
+    Facets left, results right. The rail is a column on desktop and a block above the results on
+    narrow screens rather than a drawer behind a button: there are two facet groups and a dozen
+    tags, which fits, and a filter you cannot see is a filter nobody uses.
 *@
-<nav class="mt-5 flex gap-1 border-b border-border" aria-label="Kind">
-    <a href="@TabUrl(null)" aria-current="@(IsLoaders ? null : "page")"
-       class="@Cx.Of(TabBase, IsLoaders ? TabIdle : TabActive)">Mods</a>
-    <a href="@TabUrl("mod-loader")" aria-current="@(IsLoaders ? "page" : null)"
-       class="@Cx.Of(TabBase, IsLoaders ? TabActive : TabIdle)">Loaders</a>
-</nav>
+<div class="mt-5 flex flex-col gap-6 lg:flex-row lg:gap-8">
+    <FilterSidebar ActiveTag="@Tag" ActiveType="@(IsLoaders ? "mod-loader" : null)" Query="@Q" />
 
-<form action="/mods" method="get" class="mt-5 flex gap-2">
+    <div class="min-w-0 flex-1">
+
+<form action="/mods" method="get" class="flex gap-2">
     <input name="q" type="search" value="@Q" placeholder="Search by name or description…"
            aria-label="Search mods"
            class="h-9 flex-1 rounded-md border border-input bg-card px-3 text-sm
@@ -67,17 +66,7 @@
     </p>
 }
 
-@if (!string.IsNullOrWhiteSpace(Tag))
-{
-    <div class="mt-4 flex items-center gap-2 text-sm">
-        <span class="text-muted-foreground">Filtered by</span>
-        <Badge Variant="outline">@Tag</Badge>
-        <a href="@($"/mods{(string.IsNullOrWhiteSpace(Q) ? "" : $"?q={Uri.EscapeDataString(Q!)}")}")"
-           class="text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
-            clear
-        </a>
-    </div>
-}
+
 
 <div class="mt-6">
     @if (_error is not null)
@@ -129,7 +118,7 @@
            jumped 1 to 3 and the results had no name of their own. Undrawn because the h1 above
            already says what these are; the outline needs the rung, the page does not. *@
         <h2 class="sr-only">Results</h2>
-        <div class="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid items-start gap-4 sm:grid-cols-2">
             @foreach (var mod in _page.Items)
             {
                 <ModCard Mod="mod" />
@@ -145,6 +134,8 @@
             </div>
         }
     }
+        </div>
+    </div>
 </div>
 
 @code {
@@ -152,10 +143,6 @@
     [SupplyParameterFromQuery] public string? Tag { get; set; }
     [SupplyParameterFromQuery] public string? After { get; set; }
     [SupplyParameterFromQuery] public string? Type { get; set; }
-
-    private const string TabBase = "-mb-px border-b-2 px-3 py-2 text-sm transition-colors";
-    private const string TabActive = "border-foreground font-medium text-foreground";
-    private const string TabIdle = "border-transparent text-muted-foreground hover:text-foreground";
 
     private ModSummaryPage? _page;
     private string? _error;
@@ -185,8 +172,8 @@
     }
 
     /// <summary>
-    /// The same list under the other tab. Keeps the query and the tag - switching kind should not
-    /// quietly discard what somebody typed.
+    /// The same list under the other kind. Keeps the query and the tag - switching kind should not
+    /// quietly discard what somebody typed. Shared with the rail, which links the same way.
     /// </summary>
     private string TabUrl(string? type)
     {

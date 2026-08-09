@@ -39,7 +39,7 @@ internal sealed record JobStatusRow
 public sealed record CreateModBody(
     string Id, string Name, string Abstract, string License,
     string? Description, string[]? Tags, Dictionary<string, string>? Links,
-    string? BannerUrl = null);
+    string? BannerUrl = null, string? IconUrl = null);
 
 /// <summary>
 /// Every field optional: a caller sending one field changes one field. No id, because the id is
@@ -47,7 +47,7 @@ public sealed record CreateModBody(
 /// </summary>
 public sealed record EditModBody(
     string? Name, string? Abstract, string? Description, string? License,
-    string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl);
+    string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl, string? IconUrl = null);
 
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
@@ -99,6 +99,14 @@ public static class ModEndpoints
             // that a vocabulary can come later; this is that vocabulary). Rejected outright rather
             // than filtered quietly: dropping a tag somebody typed leaves them believing their
             // listing is filed somewhere it is not.
+            if (!string.IsNullOrWhiteSpace(body.IconUrl) && !IsUsableBannerUrl(body.IconUrl))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["iconUrl"] = ["An icon must be an https:// link to an image, under 2048 characters."],
+                });
+            }
+
             var (tags, refused) = await vocabulary.VetAsync(body.Tags ?? [], ct);
 
             if (refused.Count > 0) return UnknownTags(refused);
@@ -123,6 +131,7 @@ public static class ModEndpoints
                 // worth looking at.
                 ListingState = "unlisted",
                 BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
+                IconUrl = string.IsNullOrWhiteSpace(body.IconUrl) ? null : body.IconUrl.Trim(),
                 CreatedBy = user.AccountId,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
@@ -186,6 +195,7 @@ public static class ModEndpoints
                     ? mod.Links
                     : System.Text.Json.JsonSerializer.Serialize(body.Links),
                 BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
+                IconUrl = string.IsNullOrWhiteSpace(body.IconUrl) ? null : body.IconUrl.Trim(),
             }, ct);
 
             return Results.NoContent();
