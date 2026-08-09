@@ -152,6 +152,34 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
             : ApiOutcome.Failed(await ReadProblemAsync(response, ct), response.StatusCode);
     }
 
+    // ── API tokens ──
+    //
+    // Session only, every one of them: a credential that can list or mint its own successors
+    // cannot be revoked, so the browser is the only place tokens are born and die.
+
+    public Task<IReadOnlyList<ApiToken>?> GetTokensAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ApiToken>>("/api/v1/me/tokens", ct);
+
+    public async Task<MintedToken?> CreateTokenAsync(
+        string name, string kind, int? expiresInDays, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/me/tokens", new { name, kind, expiresInDays }, Json, ct);
+
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<MintedToken>(Json, ct)
+            : new MintedToken { Error = await ReadProblemAsync(response, ct) ?? "Could not create that token." };
+    }
+
+    public async Task<bool> RevokeTokenAsync(long id, CancellationToken ct = default)
+    {
+        using var client = CreateClient();
+        using var response = await client.DeleteAsync($"/api/v1/me/tokens/{id}", ct);
+
+        return response.IsSuccessStatusCode;
+    }
+
     // ── tags ──
 
     /// <summary>
@@ -220,6 +248,27 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
 
     public Task<ApiOutcome> ClearReviewAsync(long releaseId, string? notes, CancellationToken ct = default) =>
         PostAsync($"/api/v1/admin/reviews/{releaseId}/clear", new { notes }, ct);
+
+    /// <summary>
+    /// Every finding on one release, with whether a moderator has set it aside. Moderator-only,
+    /// and a separate call from the public release document on purpose: it carries who suppressed
+    /// what and why, which nobody else has any business reading.
+    /// </summary>
+    public Task<ReleaseFindingModeration?> GetFindingModerationAsync(
+        string modId, string version, CancellationToken ct = default) =>
+        GetAsync<ReleaseFindingModeration>(
+            $"/api/v1/admin/mods/{Uri.EscapeDataString(modId)}/releases/{Uri.EscapeDataString(version)}/findings", ct);
+
+    /// <summary>A null <paramref name="code"/> sets aside every warning on the release.</summary>
+    public Task<ApiOutcome> SuppressFindingAsync(
+        string modId, string version, string? code, string reason, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/mods/{Uri.EscapeDataString(modId)}/releases/{Uri.EscapeDataString(version)}/findings/suppress",
+            new { code, reason }, ct);
+
+    public Task<ApiOutcome> RestoreFindingAsync(
+        string modId, string version, string? code, CancellationToken ct = default) =>
+        PostAsync($"/api/v1/admin/mods/{Uri.EscapeDataString(modId)}/releases/{Uri.EscapeDataString(version)}/findings/restore",
+            new { code, reason = (string?)null }, ct);
 
     public Task<IReadOnlyList<AdminListing>?> GetAdminListingsAsync(
         string? q = null, string? state = null, CancellationToken ct = default) =>
@@ -604,8 +653,19 @@ public sealed record ModDetail
     /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
     [JsonPropertyName("your_role")] public string? YourRole { get; init; }
 
-    /// <summary>Whose listing this is. Absent only when the owning account has been anonymised.</summary>
+    /// <summary>
+    /// Whose listing this is. Absent when the owning account has been anonymised, and when the
+    /// author hid themselves and the reader is not one of the people who still sees it.
+    /// </summary>
     [JsonPropertyName("author")] public ModAuthor? Author { get; init; }
+
+    /// <summary>
+    /// The author asked not to be named. Sent to everyone, including readers who get no
+    /// <see cref="Author"/>, so the page can say "author hidden" rather than showing the same
+    /// nothing it shows for a deleted account. Maintainers and moderators get both, which is
+    /// what lets the manage screen show the setting as on.
+    /// </summary>
+    [JsonPropertyName("author_hidden")] public bool AuthorHidden { get; init; }
 
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
@@ -704,6 +764,41 @@ public sealed record FindingInfo
     [JsonPropertyName("code")] public string Code { get; init; } = "";
     [JsonPropertyName("message")] public string Message { get; init; } = "";
     [JsonPropertyName("path")] public string? Path { get; init; }
+
+    /// <summary>
+    /// A moderator has set this one aside. The finding is still here and still shown: it moves
+    /// out of the outstanding list and into a group that says who set it aside and why, rather
+    /// than disappearing.
+    /// </summary>
+    [JsonPropertyName("suppressed")] public bool Suppressed { get; init; }
+
+    [JsonPropertyName("suppressed_reason")] public string? SuppressedReason { get; init; }
+}
+
+/// <summary>What the moderation view of one release's findings looks like.</summary>
+public sealed record ReleaseFindingModeration
+{
+    [JsonPropertyName("mod_id")] public string ModId { get; init; } = "";
+    [JsonPropertyName("version")] public string Version { get; init; } = "";
+    [JsonPropertyName("findings")] public IReadOnlyList<ModeratedFinding> Findings { get; init; } = [];
+
+    /// <summary>Warnings still showing. What the "set aside all warnings" button would act on.</summary>
+    public int OutstandingWarnings => Findings.Count(f => f.Suppressible && !f.Suppressed);
+}
+
+public sealed record ModeratedFinding
+{
+    [JsonPropertyName("severity")] public string Severity { get; init; } = "info";
+    [JsonPropertyName("code")] public string Code { get; init; } = "";
+    [JsonPropertyName("message")] public string Message { get; init; } = "";
+
+    /// <summary>False for errors, which are never suppressible. Decided by the API, not here.</summary>
+    [JsonPropertyName("suppressible")] public bool Suppressible { get; init; }
+
+    [JsonPropertyName("suppressed")] public bool Suppressed { get; init; }
+    [JsonPropertyName("suppressed_reason")] public string? SuppressedReason { get; init; }
+    [JsonPropertyName("suppressed_by")] public string? SuppressedBy { get; init; }
+    [JsonPropertyName("suppressed_at")] public DateTimeOffset? SuppressedAt { get; init; }
 }
 
 public sealed record ModMatch
@@ -961,6 +1056,39 @@ public sealed record GameBuild
     [JsonPropertyName("date")] public DateTime? Date { get; init; }
 }
 
+// ── API tokens ──
+
+public sealed record ApiToken
+{
+    [JsonPropertyName("id")] public long Id { get; init; }
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "personal";
+    [JsonPropertyName("prefix")] public string Prefix { get; init; } = "";
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("expires_at")] public DateTimeOffset? ExpiresAt { get; init; }
+    [JsonPropertyName("last_used_at")] public DateTimeOffset? LastUsedAt { get; init; }
+
+    public bool IsApplication => Kind == "application";
+    public bool NeverUsed => LastUsedAt is null;
+}
+
+/// <summary>
+/// The one time the secret exists outside the holder's hands. Nothing stores it, so a page that
+/// loses this value has lost it for good - which is why the UI shows it until dismissed rather
+/// than in a toast.
+/// </summary>
+public sealed record MintedToken
+{
+    [JsonPropertyName("token")] public string? Token { get; init; }
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "personal";
+    [JsonPropertyName("note")] public string? Note { get; init; }
+
+    public string? Error { get; init; }
+
+    public bool Success => Error is null && !string.IsNullOrWhiteSpace(Token);
+}
+
 // ── tags ──
 
 public sealed record TagListPage
@@ -1124,7 +1252,8 @@ public sealed record CreateModRequest(
 public sealed record EditModRequest(
     string? Name = null, string? Abstract = null, string? Description = null,
     string? License = null, string[]? Tags = null,
-    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null);
+    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null,
+    bool? HideAuthor = null);
 
 /// <summary>
 /// RepoId is no longer asked of the author: the API resolves it from the forge, which is one less

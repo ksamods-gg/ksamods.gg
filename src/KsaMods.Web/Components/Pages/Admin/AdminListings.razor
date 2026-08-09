@@ -102,10 +102,10 @@
                                         <select id="@($"state-{listing.Id}")" value="@_target"
                                                 @onchange='e => _target = e.Value?.ToString() ?? ""'
                                                 class="@InputClass">
-                                            <option value="listed">Listed - in browse and search</option>
-                                            <option value="unlisted">Unlisted - link only</option>
-                                            <option value="delisted">Delisted - withdrawn</option>
-                                            <option value="taken_down">Taken down - legal request</option>
+                                            <option value="listed">Listed (in browse and search)</option>
+                                            <option value="unlisted">Unlisted (link only)</option>
+                                            <option value="delisted">Delisted (withdrawn)</option>
+                                            <option value="taken_down">Taken down (legal request)</option>
                                         </select>
                                     </div>
 
@@ -144,7 +144,7 @@
 
     <p class="mt-6 text-xs leading-relaxed text-muted-foreground">
         None of these delete anything. A delisted mod disappears from browse and search, keeps
-        answering by id, and shows a withdrawal notice in place of its listing - because modlists
+        answering by id, and shows a withdrawal notice in place of its listing, because other things
         pin its releases and other mods depend on it by name.
     </p>
 </AdminFrame>

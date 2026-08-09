@@ -174,6 +174,28 @@ public sealed class ImportHandler(
                     $"Validation of {version} timed out. An archive that takes this long is usually a zip bomb.");
             }
 
+            // Checked before the missing-report case below, which would otherwise describe an
+            // infrastructure fault as though the release were at fault. It is the same symptom
+            // (no report) from the opposite cause, and only one of the two is worth reading a
+            // stranger's archive over.
+            if (outcome.ImageMissing)
+            {
+                throw new InvalidOperationException(
+                    $"The validator image this worker pinned at startup is no longer on the host, so "
+                  + $"{version} was not checked. That happens when the image is rebuilt or pruned "
+                  + $"while the worker is running. Build it again and restart the worker: it resolves "
+                  + $"the tag to an image id on startup and deliberately will not re-resolve mid-run, "
+                  + $"because a pin that follows a moving tag is not a pin. {Trim(outcome.Stderr)}");
+            }
+
+            if (outcome.NeverStarted)
+            {
+                throw new InvalidOperationException(
+                    $"The validator container never started for {version}, so nothing was checked. "
+                  + $"Docker refused the run itself, which is our infrastructure rather than anything "
+                  + $"about this release. {Trim(outcome.Stderr)}");
+            }
+
             if (outcome.ReportJson is null)
             {
                 throw new InvalidOperationException(

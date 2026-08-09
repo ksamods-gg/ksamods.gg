@@ -38,6 +38,16 @@ builder.Services.AddHttpClient(ApiProxy.ClientName, client =>
 
 builder.Services.AddScoped<KsaModsApi>();
 
+// The Discord member count, from the community's own counter. Its own client because it is the
+// one outbound call this app makes to somebody else: a five second ceiling, so a third party
+// having a bad day costs the Discord page a missing number rather than a hung render.
+builder.Services.AddSingleton<DiscordPresenceCache>();
+builder.Services.AddHttpClient(DiscordPresenceCache.ClientName, client =>
+{
+    client.BaseAddress = new Uri(Community.PresenceBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
 // Singleton: the answer comes from the API's configuration, so caching it across requests is the
 // point - the layout would otherwise ask on every page render.
 builder.Services.AddSingleton<AuthAvailability>();

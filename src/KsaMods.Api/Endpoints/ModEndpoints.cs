@@ -47,7 +47,8 @@ public sealed record CreateModBody(
 /// </summary>
 public sealed record EditModBody(
     string? Name, string? Abstract, string? Description, string? License,
-    string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl, string? IconUrl = null);
+    string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl, string? IconUrl = null,
+    bool? HideAuthor = null);
 
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
@@ -199,6 +200,11 @@ public static class ModEndpoints
                     : System.Text.Json.JsonSerializer.Serialize(body.Links),
                 BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
                 IconUrl = string.IsNullOrWhiteSpace(body.IconUrl) ? null : body.IconUrl.Trim(),
+
+                // Nullable on the body so "not sent" and "sent as false" stay different. A plain
+                // bool would default to false, and every edit that never mentioned this field
+                // would quietly un-hide the author.
+                HideAuthor = body.HideAuthor ?? mod.HideAuthor,
             }, ct);
 
             return Results.NoContent();

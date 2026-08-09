@@ -45,10 +45,18 @@ public static class ExportReader
             select m.id, m.type, m.name, m.abstract, m.description, m.license, m.tags,
                    m.links::text as Links, m.status, m.superseded_by as SupersededBy, m.os,
                    m.listing_state as ListingState,
-                   coalesce(
+                   -- hide_author has to be honoured here too, and this is the easiest place in the
+                   -- system to forget it: the static export and the git mirror are public, so a
+                   -- name suppressed on the site and published in the index is suppressed nowhere.
+                   --
+                   -- A placeholder rather than an empty array. RFC 0031 requires at least one
+                   -- author, so emitting none would fail the check in IndexBuilder and drop the
+                   -- listing out of the export entirely, telling its maintainer their mod was
+                   -- rejected for having no author when they are the one who asked for that.
+                   case when m.hide_author then array['Anonymous'] else coalesce(
                      (select array_agg(a.display_name order by mm.role, a.handle)
                       from mod_maintainer mm join account a on a.id = mm.account_id
-                      where mm.mod_id = m.id), '{}') as Authors
+                      where mm.mod_id = m.id), '{}') end as Authors
             from mod m
             where m.listing_state = 'listed'
             order by m.id_lower

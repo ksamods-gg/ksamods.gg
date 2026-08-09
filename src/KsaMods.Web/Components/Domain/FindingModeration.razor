@@ -1,0 +1,227 @@
+@namespace KsaMods.Web.Components.Domain
+@rendermode InteractiveServer
+@using KsaMods.Web.Components.Ui
+@inject KsaModsApi Api
+
+@*
+    The moderator's side of the finding list, on the release page rather than in the admin area.
+
+    Deliberately here: the decision to set a warning aside is made while looking at the warning, on
+    the release it belongs to. An admin screen listing every finding on the site would be a list
+    nobody could act on, because the judgement needs the mod in front of you.
+
+    Renders nothing at all for everybody else. Not disabled, not greyed out: a control that exists
+    but refuses is an invitation to work out how to press it.
+*@
+
+@if (_findings is { Findings.Count: > 0 })
+{
+    <Card Class="@Class"
+          Header="@(b => b.AddContent(0, "Findings, as staff"))"
+          Description="@(b => b.AddContent(0, "Set aside anything the validator got wrong about this release"))">
+
+        @if (_error is not null)
+        {
+            <Alert Variant="error" Class="mb-4">@_error</Alert>
+        }
+
+        <ul class="divide-y divide-border">
+            @foreach (var finding in _findings.Findings)
+            {
+                <li class="py-3 first:pt-0 last:pb-0">
+                    <div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+                        <Badge Variant="@(finding.Suppressed ? "outline" : Presentation.SeverityVariant(finding.Severity))"
+                               Class="mt-0.5 shrink-0 self-start">
+                            @finding.Severity
+                        </Badge>
+
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm @(finding.Suppressed ? "text-muted-foreground" : "")">
+                                @finding.Message
+                            </p>
+                            <code class="mt-1 block font-mono text-xs text-muted-foreground">@finding.Code</code>
+
+                            @if (finding.Suppressed)
+                            {
+                                <p class="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                                    Set aside by @finding.SuppressedBy
+                                    @if (finding.SuppressedAt is { } when)
+                                    {
+                                        <span> @Presentation.Ago(when)</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(finding.SuppressedReason))
+                                    {
+                                        <span class="italic">: @finding.SuppressedReason</span>
+                                    }
+                                </p>
+                            }
+                        </div>
+
+                        <div class="shrink-0">
+                            @if (finding.Suppressed)
+                            {
+                                <Button Size="sm" Variant="ghost" Disabled="_busy is not null"
+                                        @onclick="() => RestoreAsync(finding.Code)">
+                                    Show it again
+                                </Button>
+                            }
+                            else if (!finding.Suppressible)
+                            {
+                                @* Errors. Said rather than left as a missing button, so nobody goes
+                                   looking for the control that would have been here. *@
+                                <span class="text-xs text-muted-foreground">Errors can't be set aside</span>
+                            }
+                            else if (_opened == finding.Code)
+                            {
+                                <Button Size="sm" Variant="ghost" @onclick="() => _opened = null">Cancel</Button>
+                            }
+                            else
+                            {
+                                <Button Size="sm" Variant="outline" Disabled="_busy is not null"
+                                        @onclick="() => Open(finding.Code)">
+                                    Set aside
+                                </Button>
+                            }
+                        </div>
+                    </div>
+
+                    @if (_opened == finding.Code)
+                    {
+                        <div class="mt-3 rounded-md border border-border bg-card/40 p-3">
+                            <Field Context="field" Id="@($"reason-{finding.Code}")" Label="Why"
+                                   Hint="Goes in the moderation log with your name on it. Say what makes this finding wrong here rather than that it is.">
+                                <input @attributes="field" @bind="_reason" class="@InputClass"
+                                       placeholder="False positive: the loader ships this path deliberately." />
+                            </Field>
+
+                            <Button Size="sm" Class="mt-3" Disabled="_busy is not null"
+                                    Pending="@(_busy == finding.Code)" PendingLabel="Saving…"
+                                    @onclick="() => SuppressAsync(finding.Code)">
+                                Set aside
+                            </Button>
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+
+        @if (_findings.OutstandingWarnings > 1)
+        {
+            @* Offered only when it saves real work. With one warning left this is the same button
+               as the one already beside it, wearing a name that sounds broader than it is. *@
+            <div class="mt-4 border-t border-border pt-4">
+                @if (_opened == AllWarnings)
+                {
+                    <Field Context="field" Id="reason-all" Label="@($"Why, for all {_findings.OutstandingWarnings}")"
+                           Hint="Recorded once per finding, so the log still says which codes were set aside.">
+                        <input @attributes="field" @bind="_reason" class="@InputClass" />
+                    </Field>
+
+                    <div class="mt-3 flex items-center gap-2">
+                        <Button Size="sm" Disabled="_busy is not null" Pending="@(_busy == AllWarnings)"
+                                PendingLabel="Saving…" @onclick="() => SuppressAsync(null)">
+                            Set aside all @_findings.OutstandingWarnings
+                        </Button>
+                        <Button Size="sm" Variant="ghost" @onclick="() => _opened = null">Cancel</Button>
+                    </div>
+                }
+                else
+                {
+                    <Button Size="sm" Variant="outline" Disabled="_busy is not null"
+                            @onclick="() => Open(AllWarnings)">
+                        Set aside all @_findings.OutstandingWarnings warnings
+                    </Button>
+                }
+            </div>
+        }
+    </Card>
+}
+
+@code {
+    [Parameter, EditorRequired] public string ModId { get; set; } = "";
+    [Parameter, EditorRequired] public string Version { get; set; } = "";
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Raised after a change, so the page can reload the public view beside this one.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
+    /// <summary>Stands in for a finding code in <c>_opened</c> when the target is every warning.</summary>
+    private const string AllWarnings = "\0all";
+
+    private ReleaseFindingModeration? _findings;
+    private string? _opened;
+    private string? _busy;
+    private string _reason = "";
+    private string? _error;
+
+    private const string InputClass =
+        "w-full rounded-md border border-input bg-background px-3 py-2 text-sm " +
+        "placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 " +
+        "focus-visible:outline-ring";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Asks who is asking first. The endpoint refuses non-moderators anyway, but calling it for
+        // every visitor would put a 403 in the log for each of them and make the real ones dull.
+        if (await Api.GetCurrentUserAsync() is not { IsModerator: true }) return;
+
+        await LoadAsync();
+    }
+
+    private void Open(string code)
+    {
+        _opened = code;
+        _reason = "";
+        _error = null;
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _findings = await Api.GetFindingModerationAsync(ModId, Version);
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "Could not read the findings for this release.";
+        }
+    }
+
+    private Task SuppressAsync(string? code) =>
+        RunAsync(code ?? AllWarnings, () => Api.SuppressFindingAsync(ModId, Version, code, _reason.Trim()));
+
+    private Task RestoreAsync(string code) =>
+        RunAsync(code, () => Api.RestoreFindingAsync(ModId, Version, code));
+
+    private async Task RunAsync(string key, Func<Task<ApiOutcome>> act)
+    {
+        _busy = key;
+        _error = null;
+
+        try
+        {
+            var result = await act();
+
+            if (result.Success)
+            {
+                _opened = null;
+                _reason = "";
+
+                await LoadAsync();
+                await Changed.InvokeAsync();
+            }
+            else
+            {
+                _error = result.Error ?? "The API refused that.";
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            _error = "The API isn't responding. Nothing was changed.";
+        }
+        finally
+        {
+            _busy = null;
+        }
+    }
+}

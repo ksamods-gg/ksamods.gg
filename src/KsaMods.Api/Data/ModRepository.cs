@@ -18,6 +18,14 @@ public sealed record ModRow
     public required string ListingState { get; init; }
     public string? BannerUrl { get; init; }
     public string? IconUrl { get; init; }
+
+    /// <summary>
+    /// Suppresses the author on the public listing and on their public profile. Ownership is
+    /// unchanged: the maintainer rows stay, moderators still see who is answerable, and the
+    /// author keeps their management screen.
+    /// </summary>
+    public bool HideAuthor { get; init; }
+
     public string[]? Os { get; init; }
     public required long CreatedBy { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
@@ -103,7 +111,7 @@ public sealed class ModRepository(Database database)
                    description as Description, license as License, tags as Tags,
                    links::text as Links, status as Status, superseded_by as SupersededBy,
                    listing_state as ListingState, banner_url as BannerUrl,
-                   icon_url as IconUrl,
+                   icon_url as IconUrl, hide_author as HideAuthor,
                    os as Os, created_by as CreatedBy,
                    created_at as CreatedAt, updated_at as UpdatedAt
             from mod
@@ -139,9 +147,11 @@ public sealed class ModRepository(Database database)
 
         await connection.ExecuteAsync("""
             insert into mod (id, id_lower, type, name, abstract, description, license, tags,
-                             links, status, listing_state, banner_url, icon_url, os, created_by)
+                             links, status, listing_state, banner_url, icon_url, hide_author,
+                             os, created_by)
             values (@Id, lower(@Id), @Type, @Name, @Abstract, @Description, @License, @Tags,
-                    @Links::jsonb, @Status, @ListingState, @BannerUrl, @IconUrl, @Os, @CreatedBy)
+                    @Links::jsonb, @Status, @ListingState, @BannerUrl, @IconUrl, @HideAuthor,
+                    @Os, @CreatedBy)
             """,
             mod, transaction);
 
@@ -174,6 +184,7 @@ public sealed class ModRepository(Database database)
                    links       = @Links::jsonb,
                    banner_url  = @BannerUrl,
                    icon_url    = @IconUrl,
+                   hide_author = @HideAuthor,
                    updated_at  = now()
              where id_lower = lower(@Id)
             """,

@@ -7,9 +7,9 @@
 <AdminFrame Current="tags">
     <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground">
         The vocabulary every listing files itself under. Authors pick from it and can suggest
-        additions; approving one is what puts it in front of everybody. RFC 0031 leaves the field
-        free-form on purpose, so this list is this site's curation rather than part of the format -
-        a listing that arrives from another index keeps whatever words it came with.
+        additions, and approving one is what puts it in front of everybody. RFC 0031 leaves the field
+        free-form on purpose, so this list is this site's curation, not part of the format. A
+        listing that arrives from another index keeps whatever words it came with.
     </p>
 
     @if (_error is not null)
@@ -143,8 +143,8 @@
         {
             <Card Class="mt-6" Header="@(b => b.AddContent(0, "In use but not on the list"))">
                 <p class="text-sm leading-relaxed text-muted-foreground">
-                    Tags carried by listings that the vocabulary does not know - from before it
-                    existed, or from a listing ingested elsewhere. Nothing is broken; these are
+                    Tags carried by listings that the vocabulary doesn't know, from before it
+                    existed, or from a listing ingested elsewhere. Nothing is broken. These are
                     simply undecided. Adding one adopts it, and it becomes pickable.
                 </p>
 

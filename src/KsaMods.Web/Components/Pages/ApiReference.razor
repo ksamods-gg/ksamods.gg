@@ -121,7 +121,7 @@
             <p class="mt-2 text-muted-foreground">
                 Responses carry a <code class="font-mono text-xs">next</code> value. Pass it back as
                 <code class="font-mono text-xs">after</code> for the following page, and stop when it
-                comes back null. This is a cursor rather than an offset on purpose: offsets skip and
+                comes back null. It's a cursor and not an offset on purpose. Offsets skip and
                 repeat rows when the catalogue changes mid-scroll, and anything taking a full
                 snapshot would end up with a corrupt one.
             </p>
@@ -160,8 +160,8 @@ Content-Type: application/json
             <h2 class="text-base font-semibold text-foreground">Writing</h2>
             <p class="mt-2 text-muted-foreground">
                 Writes need a signed-in session and, for anything touching a mod, the right role on
-                that mod. The cookie is HttpOnly, so these are for the site itself rather than for a
-                script you're writing.
+                that mod. The cookie is HttpOnly, so these are for the site itself, not for a script
+                you're writing.
             </p>
             <ul class="mt-3 list-disc space-y-1 pl-5 text-muted-foreground">
                 <li><code class="font-mono text-xs">POST /mods</code> creates a listing.</li>

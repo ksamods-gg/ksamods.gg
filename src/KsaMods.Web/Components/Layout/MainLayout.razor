@@ -48,6 +48,20 @@
                     </nav>
 
                     <div class="ml-auto flex items-center gap-1.5">
+                        @* Points at our own page, not at the invite. A header mark that jumps
+                           straight to a join screen asks people to commit before they know what
+                           they are joining, and it is the one control here that would leave the
+                           site without saying so. Sized and shaped like the theme button so the
+                           pair reads as one cluster of chrome. *@
+                        <a href="/discord" title="@($"{Community.DiscordName} on Discord")"
+                           aria-label="@($"{Community.DiscordName} on Discord")"
+                           class="inline-flex size-8 shrink-0 items-center justify-center rounded-md
+                                  text-muted-foreground transition-colors hover:bg-accent
+                                  hover:text-foreground focus-visible:outline-2
+                                  focus-visible:outline-offset-2 focus-visible:outline-ring">
+                            <ProviderMark Provider="discord" Class="size-[1.05rem]" />
+                        </a>
+
                         <ThemeToggle />
                         <span class="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden="true"></span>
 
@@ -131,7 +145,11 @@
     *@
     <footer class="mt-auto border-t border-border bg-card/30">
         <div class="mx-auto max-w-6xl px-4 py-12">
-            <div class="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
+            @* The last column is widest of the three link lists because its one link is a proper
+               name that must not wrap: at an even quarter it broke "KSA Modding Society" across
+               two lines at exactly 768px, where the four-column layout starts. Measured, not
+               guessed - the label wants 157px and an even split gave it 148. *@
+            <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-[1.2fr_1fr_1fr_1.3fr]">
                 <div>
                     <Wordmark Compact="true" />
                     <p class="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
@@ -157,6 +175,28 @@
                         <li><a href="/privacy" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Privacy</a></li>
                         <li><a href="/bug" class="inline-flex min-h-6 min-w-6 items-center text-muted-foreground transition-colors hover:text-foreground">Report a bug</a></li>
                     </ul>
+                </div>
+
+                @*
+                    Goes to /discord rather than to the invite, same as the header mark: a footer
+                    link should stay on the site until the reader has decided otherwise. It also
+                    carries a sentence the other two columns do not need, because a Discord link
+                    in the footer of a KSA site reads as the game's own server.
+                *@
+                <div>
+                    <h2 class="eyebrow text-muted-foreground">Community</h2>
+                    <ul class="mt-4 space-y-2.5 text-sm">
+                        <li>
+                            <a href="/discord"
+                               class="inline-flex min-h-6 min-w-6 items-center gap-2 text-muted-foreground transition-colors hover:text-foreground">
+                                <ProviderMark Provider="discord" Class="size-4 shrink-0" />
+                                @Community.DiscordName
+                            </a>
+                        </li>
+                    </ul>
+                    <p class="mt-3 max-w-[18rem] text-xs leading-relaxed text-muted-foreground">
+                        Our Discord for KSA modding. It isn't the game's official server.
+                    </p>
                 </div>
             </div>
 

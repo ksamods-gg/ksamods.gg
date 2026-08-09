@@ -33,7 +33,7 @@ public static class ReadEndpoints
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
 
-            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            var principal = await http.ReadPrincipalForModAsync(mods, id, ct);
 
             if (mod.ListingState is "delisted" or "taken_down" && principal?.IsModerator != true)
             {
@@ -58,14 +58,21 @@ public static class ReadEndpoints
                 id = mod.Id,
                 type = mod.Type,
 
-                // Who is answerable for this listing. Absent only if the owner's account is gone,
-                // which anonymisation leaves behind rather than deleting the listing with it.
-                author = owner is null ? null : new
+                // Who is answerable for this listing. Absent if the owner's account is gone, which
+                // anonymisation leaves behind rather than deleting the listing with it, and absent
+                // if the author asked not to be named.
+                //
+                // The hidden case still answers for people who already know: anyone holding a role
+                // on the listing, and moderators, who need it to act on a takedown. Everyone else
+                // gets null and the flag beside it, so a client can say "author hidden" instead of
+                // rendering the same blank as a deleted account.
+                author = owner is null || (mod.HideAuthor && !MaySeeHiddenAuthor(principal)) ? null : new
                 {
                     handle = owner.Handle,
                     display_name = owner.DisplayName,
                     avatar_url = owner.AvatarUrl,
                 },
+                author_hidden = mod.HideAuthor,
 
                 name = mod.Name,
                 @abstract = mod.Abstract,
@@ -102,7 +109,7 @@ public static class ReadEndpoints
 
             if (release is null) return Results.NotFound();
 
-            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            var principal = await http.ReadPrincipalForModAsync(mods, id, ct);
             if (!Permissions.CanViewRelease(principal, release.ValidationState, mod.ListingState))
             {
                 return Results.NotFound();
@@ -117,6 +124,17 @@ public static class ReadEndpoints
                 new { id = release.Id });
 
             var findings = await mods.FindingsAsync(release.Id, ct);
+
+            // Findings a moderator has set aside. Read alongside rather than filtered out in SQL,
+            // because they are still served: this site says elsewhere that what the validator found
+            // is shown verbatim and never silently stripped, and a warning that vanishes when
+            // somebody with a role dislikes it would make that untrue. It is marked, with who set
+            // it aside and why, and the client stops treating it as outstanding.
+            var suppressed = (await connection.QueryAsync<(string Code, string Reason)>("""
+                select code, reason from release_finding_suppression where release_id = @id
+                """,
+                new { id = release.Id }))
+                .ToDictionary(r => r.Code, r => r.Reason, StringComparer.Ordinal);
 
             var dependencies = await connection.QueryAsync<(string? DepId, string Kind, string? MinVersion, string? MaxVersion, string Source)>("""
                 select dep_id, kind, min_version, max_version, source
@@ -182,6 +200,12 @@ public static class ReadEndpoints
                     code = f.Code,
                     message = f.Message,
                     path = f.Path,
+
+                    // Both fields, always. A client that knows nothing about suppression keeps
+                    // showing every finding exactly as before, which is the safe default for a
+                    // field that makes a warning quieter.
+                    suppressed = suppressed.ContainsKey(f.Code),
+                    suppressed_reason = suppressed.GetValueOrDefault(f.Code),
                 }),
             });
         });
@@ -322,6 +346,19 @@ public static class ReadEndpoints
             next = list.Count == take ? list[^1].Id : null,
         });
     }
+
+    /// <summary>
+    /// Who still sees the author of a listing that hides one.
+    ///
+    /// <para>Maintainers, because they are looking at their own listing and hiding it from
+    /// themselves would only be confusing. Moderators, because a takedown has to land on somebody
+    /// and a queue of listings with no visible owner is a queue nobody can act on.</para>
+    ///
+    /// <para>Nobody else, including signed-in readers. The point of the flag is that a stranger
+    /// cannot get from the listing back to the person, and "signed in" is not a relationship.</para>
+    /// </summary>
+    private static bool MaySeeHiddenAuthor(Principal? principal) =>
+        principal is not null && (principal.ModRole is not null || principal.IsModerator);
 
     private static object Summarise(ReleaseRow r) => new
     {

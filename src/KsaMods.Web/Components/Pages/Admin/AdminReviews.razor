@@ -8,7 +8,7 @@
     <p class="text-sm leading-relaxed text-muted-foreground">
         Releases nobody has looked at yet, because they ship a managed assembly, run console
         commands at a game hook, or changed after we imported them. Validation says a package is
-        well formed. It cannot say the code inside it is safe, and this queue is the part where a
+        well formed. It can't say the code inside it is safe, and this queue is the part where a
         person does.
     </p>
 
@@ -59,7 +59,7 @@
                             <div class="mt-3 flex flex-wrap items-center gap-1.5">
                                 @if (review.Quarantined)
                                 {
-                                    <Badge Variant="error" Title="The file at the link is not the one we imported.">
+                                    <Badge Variant="error" Title="The file at the link isn't the one we imported.">
                                         quarantined
                                     </Badge>
                                 }
@@ -105,11 +105,11 @@
 
                             <input value="@Notes(review.Id)"
                                    @oninput="e => SetNotes(review.Id, e.Value?.ToString())"
-                                   placeholder="Notes, if there is anything worth saying (optional)"
+                                   placeholder="Notes, if there's anything worth saying (optional)"
                                    class="@InputClass" />
 
                             <p class="mt-2 text-xs text-muted-foreground">
-                                "Looks fine" records that you read it. It does not change anything
+                                "Looks fine" records that you read it. It doesn't change anything
                                 about the release, and it takes it out of this queue for good.
                             </p>
                         </div>
