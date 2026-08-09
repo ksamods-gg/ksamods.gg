@@ -48,6 +48,27 @@ public sealed record ForgeRepository
     /// cost nothing extra to carry. Used to prove ownership without asking for a commit.
     /// </summary>
     public IReadOnlyList<string> Topics { get; init; } = [];
+
+    /// <summary>
+    /// The forge's own id for whoever owns this repository, as a string, or null if the forge did
+    /// not say. On the same response as everything else here.
+    ///
+    /// <para>The id rather than the login, because that is what makes a comparison against a
+    /// connected identity safe. Logins can be changed and a freed-up one can be claimed by
+    /// somebody else, so matching on the name would let a new holder of an old name inherit a
+    /// proof they never earned.</para>
+    /// </summary>
+    public string? OwnerId { get; init; }
+
+    /// <summary>The owner's login, for saying out loud which account matched. Never compared.</summary>
+    public string? OwnerLogin { get; init; }
+
+    /// <summary>
+    /// True when the owner is a person rather than an organisation. Membership of an org is not
+    /// ownership of its repositories, so only a user-owned repository can be settled by the
+    /// connected account alone.
+    /// </summary>
+    public bool OwnerIsUser { get; init; }
 }
 
 public sealed class ForgeException(string message, bool transient = false) : Exception(message)
@@ -153,6 +174,25 @@ public static class RepositoryProof
     /// <para>Compared case-insensitively because forges lowercase topics on the way in, and a
     /// proof that fails on capitalisation the user never typed is a puzzle rather than a check.</para>
     /// </summary>
+    /// <summary>
+    /// The repository is on the connected account, so there is nothing left to prove.
+    ///
+    /// <para>Signing in with a forge proves you control an account, which on its own says nothing
+    /// about a repository: otherwise anybody with an account could claim somebody else's. The one
+    /// case where it does settle the question is a repository sitting under that account's own
+    /// namespace, because that account is its owner.</para>
+    ///
+    /// <para>Three things have to hold, and dropping any of them turns this into a hole. The
+    /// forge must have told us who owns it. The owner must be a user rather than an organisation,
+    /// since belonging to an org is not owning its repositories. And the ids must match exactly:
+    /// comparing logins would hand a proof to whoever claimed a freed-up username.</para>
+    /// </summary>
+    public static bool SatisfiedByOwner(ForgeRepository repository, string? connectedSubject) =>
+        !string.IsNullOrWhiteSpace(connectedSubject)
+        && !string.IsNullOrWhiteSpace(repository.OwnerId)
+        && repository.OwnerIsUser
+        && string.Equals(repository.OwnerId, connectedSubject, StringComparison.Ordinal);
+
     public static bool SatisfiedByTopic(IReadOnlyList<string>? topics, string? challenge) =>
         !string.IsNullOrWhiteSpace(challenge)
         && topics is not null

@@ -22,6 +22,9 @@ internal sealed record PendingLink
     // keeps the one field that is a secret looking like a value rather than a property.
     public string? challenge { get; init; }
 
+    /// <summary>How the claim came to be trusted. Null while unverified.</summary>
+    public string? VerifiedBy { get; init; }
+
     public DateTime? VerifiedAt { get; init; }
 }
 
@@ -467,11 +470,30 @@ public static class ModEndpoints
 
             var challenge = RepositoryProof.NewChallenge();
 
+            // Is this repository simply on the account they signed in with?
+            //
+            // If it is, there is nothing to prove and asking them to prove it is busywork: the
+            // repository sits in that account's namespace, so the account owns it. Checked here
+            // rather than only at the verify step so the usual case never shows a proof screen at
+            // all. Anything that does not match falls through to the challenge below exactly as
+            // before, which is every organisation repository and every repository belonging to
+            // somebody else.
+            var connectedSubject = await connection.ExecuteScalarAsync<string?>("""
+                select subject from oauth_identity
+                where account_id = @accountId and provider = @provider
+                """,
+                new { accountId = principal.AccountId, provider = body.Provider });
+
+            var ownsIt = RepositoryProof.SatisfiedByOwner(repository, connectedSubject);
+
             await connection.ExecuteAsync("""
                 insert into repo_link (mod_id, provider, installation_id, repo_id, repo_full_name,
-                                       linked_by, asset_glob, challenge)
+                                       linked_by, asset_glob, challenge, verified_at, verified_by)
                 values (@modId, @provider, @installationId, @repoId, @repoFullName,
-                        @linkedBy, @assetGlob, @challenge)
+                        @linkedBy, @assetGlob,
+                        case when @ownsIt then null else @challenge end,
+                        case when @ownsIt then now() end,
+                        case when @ownsIt then 'owner' end)
                 on conflict (mod_id) do update set
                     provider = excluded.provider,
                     installation_id = excluded.installation_id,
@@ -482,9 +504,16 @@ public static class ModEndpoints
                     challenge = excluded.challenge,
                     -- Re-pointing at a different repository drops the proof with it. Carrying it
                     -- over would let a verified link be redirected to somebody else's code.
-                    verified_at = case when repo_link.repo_id = excluded.repo_id
+                    --
+                    -- Ownership is the exception, and not a loophole: excluded.verified_by is only
+                    -- 'owner' when this very request established that the caller owns the account
+                    -- the new repository sits under, so it is a fresh proof about the new target
+                    -- rather than a stale one carried across.
+                    verified_at = case when excluded.verified_by = 'owner' then excluded.verified_at
+                                       when repo_link.repo_id = excluded.repo_id
                                        then repo_link.verified_at end,
-                    verified_by = case when repo_link.repo_id = excluded.repo_id
+                    verified_by = case when excluded.verified_by = 'owner' then excluded.verified_by
+                                       when repo_link.repo_id = excluded.repo_id
                                        then repo_link.verified_by end,
                     linked_at = now()
                 """,
@@ -498,6 +527,7 @@ public static class ModEndpoints
                     linkedBy = principal.AccountId,
                     assetGlob = body.AssetGlob,
                     challenge,
+                    ownsIt,
                 });
 
             var verified = await connection.ExecuteScalarAsync<DateTime?>(
@@ -508,7 +538,16 @@ public static class ModEndpoints
                 repo_full_name = repository.FullName,
                 default_branch = repository.DefaultBranch,
                 verified = verified is not null,
-                challenge,
+
+                // Told apart from the other routes so the frontend can say why nothing was asked
+                // of them, rather than silently showing a verified link and leaving somebody to
+                // wonder what they missed.
+                verified_by = ownsIt ? "owner" : null,
+                owner_login = ownsIt ? repository.OwnerLogin : null,
+
+                // Null once ownership settled it: there is no proof outstanding, and printing a
+                // challenge next to a verified link is an instruction to do nothing.
+                challenge = ownsIt ? null : challenge,
                 file_path = RepositoryProof.FilePath,
 
                 // Two routes to the same proof. The topic is listed first because it asks less of
@@ -545,7 +584,8 @@ public static class ModEndpoints
             using var connection = await database.OpenAsync(ct);
 
             var link = await connection.QuerySingleOrDefaultAsync<PendingLink>("""
-                select provider, repo_full_name as RepoFullName, challenge, verified_at as VerifiedAt
+                select provider, repo_full_name as RepoFullName, challenge,
+                       verified_at as VerifiedAt, verified_by as VerifiedBy
                 from repo_link where mod_id = @modId
                 """,
                 new { modId = mod.Id });
@@ -556,6 +596,11 @@ public static class ModEndpoints
             {
                 repo_full_name = link.RepoFullName,
                 verified = link.VerifiedAt is not null,
+
+                // Carried so a reload says the same thing the connect response said. Without it a
+                // link verified by ownership looks, on the next page load, exactly like one whose
+                // proof step went missing.
+                verified_by = link.VerifiedBy,
                 challenge = link.challenge,
                 file_path = RepositoryProof.FilePath,
             });
@@ -616,19 +661,34 @@ public static class ModEndpoints
                 });
             }
 
-            // Two ways to prove the same claim, and the caller does not have to say which they
-            // used. The topic is checked first because it comes back on a request the site makes
-            // anyway, so somebody who took that route is verified without the file being fetched
-            // at all.
+            // Three ways to prove the same claim, and the caller does not have to say which they
+            // used. Ownership is checked first because it needs nothing of them at all, then the
+            // topic, which comes back on a request the site makes anyway - so somebody who took
+            // either route is verified without the file being fetched.
+            //
+            // Ownership is here as well as at connect time because links made before this existed
+            // are sitting unverified with a challenge nobody has done. Pressing Verify now clears
+            // those without anyone having to touch their repository.
             string? method = null;
             string? published = null;
+
+            var connectedSubject = await connection.ExecuteScalarAsync<string?>("""
+                select subject from oauth_identity
+                where account_id = @accountId and provider = @provider
+                """,
+                new { accountId = principal.AccountId, provider = link.Provider });
 
             try
             {
                 var forge = forges.For(link.Provider);
 
                 var repository = await forge.GetRepositoryAsync(link.RepoFullName, ct);
-                if (RepositoryProof.SatisfiedByTopic(repository.Topics, link.challenge))
+
+                if (RepositoryProof.SatisfiedByOwner(repository, connectedSubject))
+                {
+                    method = "owner";
+                }
+                else if (RepositoryProof.SatisfiedByTopic(repository.Topics, link.challenge))
                 {
                     method = "topic";
                 }

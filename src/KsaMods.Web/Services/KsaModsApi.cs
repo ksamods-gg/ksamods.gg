@@ -782,8 +782,13 @@ public sealed record ReleaseFindingModeration
     [JsonPropertyName("version")] public string Version { get; init; } = "";
     [JsonPropertyName("findings")] public IReadOnlyList<ModeratedFinding> Findings { get; init; } = [];
 
-    /// <summary>Warnings still showing. What the "set aside all warnings" button would act on.</summary>
-    public int OutstandingWarnings => Findings.Count(f => f.Suppressible && !f.Suppressed);
+    /// <summary>
+    /// Warnings still showing. What the "set aside all warnings" button would act on, which is
+    /// deliberately not the errors: the blanket action stays warnings-only, so clearing an error
+    /// is always a press somebody aimed at that error.
+    /// </summary>
+    public int OutstandingWarnings =>
+        Findings.Count(f => f.Severity != "error" && !f.Suppressed);
 }
 
 public sealed record ModeratedFinding
@@ -792,8 +797,14 @@ public sealed record ModeratedFinding
     [JsonPropertyName("code")] public string Code { get; init; } = "";
     [JsonPropertyName("message")] public string Message { get; init; } = "";
 
-    /// <summary>False for errors, which are never suppressible. Decided by the API, not here.</summary>
+    /// <summary>Decided by the API, not here.</summary>
     [JsonPropertyName("suppressible")] public bool Suppressible { get; init; }
+
+    /// <summary>
+    /// Setting this one aside changes whether anybody outside staff can see the release at all,
+    /// because an outstanding error is what marks it failed. True for errors.
+    /// </summary>
+    [JsonPropertyName("clears_release")] public bool ClearsRelease { get; init; }
 
     [JsonPropertyName("suppressed")] public bool Suppressed { get; init; }
     [JsonPropertyName("suppressed_reason")] public string? SuppressedReason { get; init; }
@@ -1270,6 +1281,13 @@ public sealed record RepoLinkChallenge
     [JsonPropertyName("repo_full_name")] public string RepoFullName { get; init; } = "";
     [JsonPropertyName("default_branch")] public string DefaultBranch { get; init; } = "main";
     [JsonPropertyName("verified")] public bool Verified { get; init; }
+
+    /// <summary>owner, topic, challenge, staff or app_installation. Null while unverified.</summary>
+    [JsonPropertyName("verified_by")] public string? VerifiedBy { get; init; }
+
+    /// <summary>The account the repository sits under, when ownership is what settled it.</summary>
+    [JsonPropertyName("owner_login")] public string? OwnerLogin { get; init; }
+
     [JsonPropertyName("challenge")] public string Challenge { get; init; } = "";
     [JsonPropertyName("file_path")] public string FilePath { get; init; } = ".ksamods-verify";
     [JsonPropertyName("instructions")] public string Instructions { get; init; } = "";

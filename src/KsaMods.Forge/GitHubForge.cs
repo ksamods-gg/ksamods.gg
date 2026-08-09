@@ -36,6 +36,22 @@ public sealed class GitHubForge(HttpClient client, string? token = null) : IForg
             Archived = root.TryGetProperty("archived", out var archived) && archived.GetBoolean(),
             Private = root.TryGetProperty("private", out var isPrivate) && isPrivate.GetBoolean(),
 
+            // The owner block is on this response too. Read so that somebody connecting a
+            // repository on their own account can be taken at their word without a separate
+            // proof - see RepositoryProof.SatisfiedByOwner for why the id and the type both
+            // matter and the login does not.
+            OwnerId = root.TryGetProperty("owner", out var owner)
+                      && owner.TryGetProperty("id", out var ownerId)
+                ? ownerId.GetRawText()
+                : null,
+            OwnerLogin = root.TryGetProperty("owner", out var ownerForLogin)
+                         && ownerForLogin.TryGetProperty("login", out var login)
+                ? login.GetString()
+                : null,
+            OwnerIsUser = root.TryGetProperty("owner", out var ownerForType)
+                          && ownerForType.TryGetProperty("type", out var ownerType)
+                          && ownerType.GetString() == "User",
+
             // Present on this response already, so proving ownership by topic costs no extra
             // request. Absent on older API versions rather than empty, hence the TryGetProperty.
             Topics = root.TryGetProperty("topics", out var topics) && topics.ValueKind == JsonValueKind.Array

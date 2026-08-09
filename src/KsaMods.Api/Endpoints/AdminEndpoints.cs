@@ -20,8 +20,9 @@ public sealed record ClearReviewBody(string? Notes);
 /// code, so the record afterwards says what was actually set aside rather than "all of them at
 /// the time", which stops being true the moment a re-import adds one.</para>
 ///
-/// <para><c>Reason</c> is required to suppress and optional to restore: putting a warning back
-/// is the safe direction, and demanding a justification for it discourages the correction.</para>
+/// <para><c>Reason</c> is optional in both directions. Requiring one turned a judgement somebody
+/// makes in a second into a form, and the log records who and when either way. The column is
+/// still not-null: the endpoint writes "No reason given." rather than an empty string.</para>
 /// </summary>
 public sealed record SuppressFindingBody(string? Code, string? Reason);
 
@@ -519,9 +520,14 @@ public static class AdminEndpoints
                     code = r.Code,
                     message = r.Message,
 
-                    // Errors are never suppressible, and saying so here means the UI does not have
-                    // to know the rule and cannot get it wrong on its own.
-                    suppressible = r.Severity != "error",
+                    // Everything is suppressible, errors included. The flag stays in the response
+                    // because the client should not be deciding this for itself, and because the
+                    // day some code becomes untouchable this is where that gets said.
+                    suppressible = true,
+
+                    // Setting this one aside changes whether anybody can see the release, not just
+                    // whether a line shows on a page. The UI says so before the press.
+                    clears_release = r.Severity == "error",
                     suppressed = r.SuppressedReason is not null,
                     suppressed_reason = r.SuppressedReason,
                     suppressed_by = r.SuppressedBy,
@@ -562,14 +568,22 @@ public static class AdminEndpoints
                 var releaseId = await ReleaseIdAsync(connection, transaction, modId, version);
                 if (releaseId is null) return Results.NotFound();
 
-                // Which codes are in play: the one named, or every warning on the release. Read
-                // from release_finding either way, so a code that is not on this release, or is an
-                // error, simply is not in the list and nothing is written for it.
+                // Which codes are in play: the one named, or every warning on the release.
+                //
+                // A code named explicitly can be any severity, errors included. That used to be
+                // refused, on the grounds that an error is what marks a release broken. The case
+                // that argument misses is the one this endpoint exists for: a loader's archive
+                // legitimately has several top-level entries, so KSAM-0401 fires on it every time
+                // and is simply wrong about that mod. Refusing to clear a check we got wrong left
+                // the release invisible with no way out.
+                //
+                // The blanket form stays warnings-only. Its label says warnings, and sweeping up
+                // an error nobody looked at individually is not what anybody pressing it means.
                 var codes = (await connection.QueryAsync<string>("""
                     select code from release_finding
                     where release_id = @releaseId
-                      and severity <> 'error'
                       and (@code::text is null or code = @code)
+                      and (@code::text is not null or severity <> 'error')
                     """,
                     new { releaseId, code = body.Code }, transaction)).ToList();
 
@@ -577,12 +591,12 @@ public static class AdminEndpoints
                 {
                     // Told apart from success on purpose. "Nothing matched" and "done" look the
                     // same from the outside, and the difference here is whether a moderator walks
-                    // away believing a warning is handled.
+                    // away believing a finding is handled.
                     return Results.ValidationProblem(new Dictionary<string, string[]>
                     {
                         ["code"] = [body.Code is null
                             ? "This release has no warnings to set aside."
-                            : $"'{body.Code}' is not a suppressible finding on this release. Errors cannot be set aside."],
+                            : $"'{body.Code}' is not a finding on this release."],
                     });
                 }
 
@@ -601,6 +615,8 @@ public static class AdminEndpoints
                     await LogAsync(connection, transaction, actor, "finding_suppressed", "release",
                         $"{modId}@{version}", $"{code}: {reason}");
                 }
+
+                await RecomputeValidationAsync(connection, transaction, releaseId.Value, actor, modId, version);
 
                 await transaction.CommitAsync(ct);
 
@@ -640,6 +656,8 @@ public static class AdminEndpoints
                             ? $"{code}: shown again."
                             : $"{code}: {body.Reason.Trim()}");
                 }
+
+                await RecomputeValidationAsync(connection, transaction, releaseId.Value, actor, modId, version);
 
                 await transaction.CommitAsync(ct);
 
@@ -993,6 +1011,73 @@ public static class AdminEndpoints
         """;
 
     /// <summary>
+    /// Brings a release's validation state back in line with the findings still standing against
+    /// it, after a moderator has set one aside or put one back.
+    ///
+    /// <para>This is the half that matters. An error is what makes a release <c>failed</c>, and a
+    /// failed release is hidden from everyone but its maintainers and staff (see
+    /// <c>Permissions.CanViewRelease</c>). Hiding the finding without touching the state would
+    /// have greyed out a line on a page and left the release exactly as invisible as before,
+    /// which is not what anybody pressing that button is asking for.</para>
+    ///
+    /// <para>Both directions, because the alternative is a one-way door. Putting the error back
+    /// re-fails the release, so a moderator who cleared the wrong thing fixes it with the button
+    /// next to the one they pressed.</para>
+    ///
+    /// <para>Only ever moves between <c>failed</c> and <c>passed_warnings</c>. A release the
+    /// validator passed outright is not something this should be touching, and
+    /// <c>passed_warnings</c> is the honest destination for one that only passes because somebody
+    /// overruled a check.</para>
+    /// </summary>
+    private static async Task RecomputeValidationAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction,
+        long releaseId, long actor, string modId, string version)
+    {
+        var row = await connection.QuerySingleOrDefaultAsync<ValidationRow>("""
+            select r.validation_state as ValidationState,
+                   (select count(*) from release_finding f
+                     where f.release_id = r.id and f.severity = 'error') as ErrorCount,
+                   (select count(*) from release_finding f
+                     where f.release_id = r.id and f.severity = 'error'
+                       and not exists (select 1 from release_finding_suppression s
+                                        where s.release_id = f.release_id and s.code = f.code))
+                     as OutstandingErrors
+            from mod_release r
+            where r.id = @releaseId
+            """,
+            new { releaseId }, transaction);
+
+        if (row is null) return;
+
+        var target = row switch
+        {
+            // Every error accounted for, and the release is still marked broken because of them.
+            { OutstandingErrors: 0, ValidationState: "failed" } => "passed_warnings",
+
+            // An error is standing again on a release we had cleared.
+            { OutstandingErrors: > 0, ValidationState: "passed_warnings" } => "failed",
+
+            _ => null,
+        };
+
+        if (target is null) return;
+
+        await connection.ExecuteAsync(
+            "update mod_release set validation_state = @target where id = @releaseId",
+            new { target, releaseId }, transaction);
+
+        // Its own log entry, separate from the finding_suppressed rows that caused it. The
+        // suppression is a note about a check; this is a release becoming visible or vanishing,
+        // and that is the part somebody will come looking for.
+        await LogAsync(connection, transaction, actor,
+            target == "failed" ? "release_refailed" : "release_cleared", "release",
+            $"{modId}@{version}",
+            target == "failed"
+                ? $"An error finding was restored, so the release is failing validation again ({row.ErrorCount} error(s) on record)."
+                : $"All {row.ErrorCount} error finding(s) were set aside, so the release is no longer marked failed.");
+    }
+
+    /// <summary>
     /// One release, found the way a moderator refers to it: mod id and version, both matched
     /// without regard to case, because neither is case-sensitive anywhere else on the site.
     /// </summary>
@@ -1109,6 +1194,13 @@ public static class AdminEndpoints
     {
         public string SubjectKind { get; init; } = "";
         public string SubjectId { get; init; } = "";
+    }
+
+    private sealed record ValidationRow
+    {
+        public string ValidationState { get; init; } = "";
+        public long ErrorCount { get; init; }
+        public long OutstandingErrors { get; init; }
     }
 
     private sealed record SuppressibleFindingRow

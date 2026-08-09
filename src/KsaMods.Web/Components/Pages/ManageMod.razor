@@ -138,6 +138,31 @@ else
                 </Button>
             </div>
 
+            @if (_challenge is { Verified: true, VerifiedBy: "owner" })
+            {
+                @* Said out loud rather than left as an absence. Somebody who expected a proof step
+                   and did not get one is somebody wondering whether it worked, and a verified link
+                   with no explanation reads as a step that was skipped by accident. *@
+                <Alert Variant="ok" Title="Verified, nothing else needed" Class="mt-5">
+                    @if (_challenge.OwnerLogin is { } login)
+                    {
+                        <span>
+                            <code class="font-mono text-xs">@_challenge.RepoFullName</code>
+                            is on the GitHub account you signed in with
+                            (<code class="font-mono text-xs">@login</code>), so it is already yours
+                            as far as we are concerned. There is nothing to add to the repository.
+                        </span>
+                    }
+                    else
+                    {
+                        <span>
+                            This repository is on the GitHub account you signed in with, so there
+                            is nothing to add to it.
+                        </span>
+                    }
+                </Alert>
+            }
+
             @if (_challenge is { Verified: false })
             {
                 @* The proof. Anyone can type somebody else's repository into the box above; only
@@ -149,6 +174,17 @@ else
                         Prove you control
                         <code class="font-mono text-xs">@_challenge.RepoFullName</code>
                         by putting this string somewhere only you could put it:
+                    </p>
+
+                    @* The most common reason somebody lands here rather than skipping straight
+                       past it. Without this the difference between a personal repository and an
+                       organisation's looks arbitrary, and the reader assumes the site is just
+                       being awkward. *@
+                    <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        Repositories on your own GitHub account skip this. This one belongs to an
+                        organisation, or to a different account from the one you signed in with,
+                        and being a member of an organisation is not the same as owning its
+                        repositories.
                     </p>
 
                     @* This has to be readable character by character to be copied correctly, so

@@ -8,10 +8,17 @@ namespace KsaMods.Tests;
 /// <summary>
 /// Setting a validator finding aside.
 ///
-/// <para>Two rules carry the weight. Errors are never suppressible, because an error is what says
-/// a release is broken and a moderator who could silence one could make a bad release look clean.
-/// And the finding itself is never deleted, so setting one aside stays a visible act with a name
-/// and a reason on it rather than a gap nobody can account for.</para>
+/// <para>Two rules carry the weight. The finding itself is never deleted, so setting one aside
+/// stays a visible act with a name on it rather than a gap nobody can account for. And clearing
+/// an error moves the release's validation state, because an outstanding error is what marks a
+/// release failed and a failed release is invisible to everyone but its maintainers and staff.
+/// Hiding the finding without moving the state would grey out a line on a page and change nothing
+/// anybody cares about.</para>
+
+/// <para>Errors used to be refused outright. What that missed is the case the feature exists for:
+/// a loader's archive legitimately has several top-level entries, so the one-top-level-directory
+/// check fires on it every time and is simply wrong about that mod. The blanket "all warnings"
+/// action still leaves errors alone, so clearing one is always a press somebody aimed at it.</para>
 ///
 /// <para>The selection is exercised as SQL rather than through the endpoint because that is where
 /// the decision actually lives: the handler suppresses exactly the codes this query returns, so a
@@ -107,8 +114,8 @@ public sealed class FindingSuppressionTests : IAsyncLifetime
         var rows = await connection.QueryAsync<string>("""
             select code from release_finding
             where release_id = @releaseId
-              and severity <> 'error'
               and (@code::text is null or code = @code)
+              and (@code::text is not null or severity <> 'error')
             """,
             new { releaseId, code });
 
@@ -116,20 +123,23 @@ public sealed class FindingSuppressionTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task An_error_can_never_be_set_aside()
+    public async Task An_error_can_be_set_aside_when_it_is_named()
     {
-        // The rule the whole feature hangs on. Naming the error code explicitly is the shape an
-        // attempt would take, and it has to come back with nothing to act on.
+        // Errors used to be refused outright. What that missed is the case the feature exists for:
+        // a loader's archive legitimately has several top-level entries, so the
+        // one-top-level-directory check fires on it every time and is simply wrong about that mod.
+        // Refusing to clear a check we got wrong left the release invisible with no way out.
         var (_, releaseId, _) = await SeedAsync();
 
-        Assert.Empty(await SelectableAsync(releaseId, "broken-thing"));
+        Assert.Equal(["broken-thing"], await SelectableAsync(releaseId, "broken-thing"));
     }
 
     [RequiresPostgresFact]
-    public async Task Setting_aside_everything_still_leaves_the_errors()
+    public async Task The_blanket_action_still_leaves_the_errors()
     {
-        // The blanket action, which is the one most likely to be reached for and the one where a
-        // missing severity filter would go unnoticed.
+        // "Set aside all warnings" says warnings, and sweeping up an error nobody looked at
+        // individually is not what anybody pressing it means. Clearing an error stays a press
+        // somebody aimed at that error.
         var (_, releaseId, _) = await SeedAsync();
 
         var selected = await SelectableAsync(releaseId, null);
@@ -215,4 +225,102 @@ public sealed class FindingSuppressionTests : IAsyncLifetime
 
         Assert.Equal(["Actually, this is why."], rows.ToList());
     }
+
+    [RequiresPostgresFact]
+    public async Task Clearing_the_last_error_un_fails_the_release()
+    {
+        // The half that matters. A failed release is hidden from everyone but its maintainers and
+        // staff, so hiding the finding without moving the state would leave it exactly as
+        // invisible as before.
+        var (_, releaseId, actor) = await SeedAsync();
+
+        using var connection = await Db.OpenAsync(default);
+        await SetStateAsync(connection, releaseId, "failed");
+
+        await SuppressAsync(connection, releaseId, "broken-thing", actor);
+        await RecomputeAsync(connection, releaseId);
+
+        Assert.Equal("passed_warnings", await StateAsync(connection, releaseId));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Putting_the_error_back_fails_the_release_again()
+    {
+        // Not a one-way door. A moderator who cleared the wrong thing fixes it with the button
+        // next to the one they pressed.
+        var (_, releaseId, actor) = await SeedAsync();
+
+        using var connection = await Db.OpenAsync(default);
+        await SetStateAsync(connection, releaseId, "failed");
+
+        await SuppressAsync(connection, releaseId, "broken-thing", actor);
+        await RecomputeAsync(connection, releaseId);
+        Assert.Equal("passed_warnings", await StateAsync(connection, releaseId));
+
+        await connection.ExecuteAsync(
+            "delete from release_finding_suppression where release_id = @releaseId and code = 'broken-thing'",
+            new { releaseId });
+        await RecomputeAsync(connection, releaseId);
+
+        Assert.Equal("failed", await StateAsync(connection, releaseId));
+    }
+
+    [RequiresPostgresFact]
+    public async Task Setting_aside_a_warning_does_not_touch_a_passing_release()
+    {
+        // A release the validator passed outright is not something this should be moving. Only the
+        // failed/passed_warnings pair is ever in play.
+        var (_, releaseId, actor) = await SeedAsync();
+
+        using var connection = await Db.OpenAsync(default);
+        await SetStateAsync(connection, releaseId, "passed");
+
+        await SuppressAsync(connection, releaseId, "odd-path", actor);
+        await RecomputeAsync(connection, releaseId);
+
+        Assert.Equal("passed", await StateAsync(connection, releaseId));
+    }
+
+    private static Task SetStateAsync(NpgsqlConnection connection, long releaseId, string state) =>
+        connection.ExecuteAsync(
+            "update mod_release set validation_state = @state where id = @releaseId",
+            new { state, releaseId });
+
+    private static Task SuppressAsync(NpgsqlConnection connection, long releaseId, string code, long actor) =>
+        connection.ExecuteAsync("""
+            insert into release_finding_suppression (release_id, code, reason, suppressed_by)
+            values (@releaseId, @code, 'No reason given.', @actor)
+            on conflict (release_id, code) do nothing
+            """,
+            new { releaseId, code, actor });
+
+    private static Task<string?> StateAsync(NpgsqlConnection connection, long releaseId) =>
+        connection.ExecuteScalarAsync<string?>(
+            "select validation_state from mod_release where id = @releaseId", new { releaseId });
+
+    /// <summary>
+    /// The endpoint's own recompute, kept in step with RecomputeValidationAsync deliberately: the
+    /// point of these tests is the state transition, and asserting it against a rule written just
+    /// for the test would pass while the real one stayed broken.
+    /// </summary>
+    private static Task RecomputeAsync(NpgsqlConnection connection, long releaseId) =>
+        connection.ExecuteAsync("""
+            update mod_release r
+               set validation_state = case
+                     when r.validation_state = 'failed' and not exists (
+                            select 1 from release_finding f
+                            where f.release_id = r.id and f.severity = 'error'
+                              and not exists (select 1 from release_finding_suppression s
+                                               where s.release_id = f.release_id and s.code = f.code))
+                       then 'passed_warnings'
+                     when r.validation_state = 'passed_warnings' and exists (
+                            select 1 from release_finding f
+                            where f.release_id = r.id and f.severity = 'error'
+                              and not exists (select 1 from release_finding_suppression s
+                                               where s.release_id = f.release_id and s.code = f.code))
+                       then 'failed'
+                     else r.validation_state end
+             where r.id = @releaseId
+            """,
+            new { releaseId });
 }
