@@ -74,6 +74,13 @@ public sealed class GitHubForge(HttpClient client, string? token = null) : IForg
                         ContentType = asset.TryGetProperty("content_type", out var type)
                             ? type.GetString() ?? "application/octet-stream"
                             : "application/octet-stream",
+
+                        // GitHub's own count of times it served this file. Arrives on the release
+                        // listing the importer already reads, so it costs no extra request.
+                        DownloadCount = asset.TryGetProperty("download_count", out var downloads)
+                            && downloads.ValueKind == JsonValueKind.Number
+                            ? downloads.GetInt32()
+                            : null,
                     });
                 }
             }

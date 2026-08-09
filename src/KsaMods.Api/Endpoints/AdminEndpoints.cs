@@ -12,6 +12,9 @@ public sealed record SuspendBody(bool Suspended, string Rationale);
 public sealed record SiteRoleBody(string Role, string Rationale);
 public sealed record ClearReviewBody(string? Notes);
 
+/// <summary>What is being reported, why, and anything the reporter wants to add.</summary>
+public sealed record FileReportBody(string SubjectKind, string SubjectId, string Category, string? Body);
+
 /// <summary>
 /// The moderation surface (backend.md §13).
 ///
@@ -34,6 +37,90 @@ public sealed record ClearReviewBody(string? Notes);
 /// </summary>
 public static class AdminEndpoints
 {
+    /// <summary>
+    /// Filing a report. The other half of the moderation queue.
+    ///
+    /// <para>Outside the /admin group on purpose: every other endpoint in this file requires
+    /// Moderate, and this one is the only way anything ever reaches the queue those endpoints
+    /// read. Without it the reports screen is a window onto a table nothing can write to.</para>
+    /// </summary>
+    public static void MapReportEndpoints(this IEndpointRouteBuilder app)
+    {
+        var api = app.MapGroup("/api/v1").RequireRateLimiting("writes");
+
+        api.MapPost("/reports", async (
+            FileReportBody body, HttpContext http, Database database, CancellationToken ct) =>
+        {
+            // Signed in, so a report is attributable and a person who files nonsense repeatedly
+            // can be stopped. The reporter column is nullable for account deletion, not to let
+            // strangers fill the queue anonymously.
+            var user = http.User();
+            if (user is null) return Results.Unauthorized();
+
+            var errors = new Dictionary<string, string[]>();
+
+            if (body.SubjectKind is not ("mod" or "release" or "modlist" or "account"))
+            {
+                errors["subjectKind"] = ["Not something that can be reported."];
+            }
+
+            if (body.Category is not ("malware" or "stolen" or "broken" or "other"))
+            {
+                errors["category"] = ["Pick one of the listed reasons."];
+            }
+
+            if (string.IsNullOrWhiteSpace(body.SubjectId))
+            {
+                errors["subjectId"] = ["Missing what is being reported."];
+            }
+
+            // Long enough to explain, short enough that the queue stays readable.
+            if (body.Body is { Length: > 2000 })
+            {
+                errors["body"] = ["Keep it to 2000 characters or fewer."];
+            }
+
+            if (errors.Count > 0) return Results.ValidationProblem(errors);
+
+            using var connection = await database.OpenAsync(ct);
+
+            // One open report per person per subject. Somebody pressing the button twice should
+            // not put the same complaint in front of a moderator twice, and it stops the queue
+            // being floodable by one account.
+            var already = await connection.ExecuteScalarAsync<bool>("""
+                select exists (
+                    select 1 from report
+                    where reporter = @reporter and subject_kind = @kind and subject_id = @id
+                      and state = 'open')
+                """,
+                new { reporter = user.AccountId, kind = body.SubjectKind, id = body.SubjectId });
+
+            if (already)
+            {
+                return Results.Conflict(new
+                {
+                    error = "already_reported",
+                    detail = "You've already reported this. A moderator will get to it.",
+                });
+            }
+
+            await connection.ExecuteAsync("""
+                insert into report (subject_kind, subject_id, category, reporter, body)
+                values (@kind, @id, @category, @reporter, @body)
+                """,
+                new
+                {
+                    kind = body.SubjectKind,
+                    id = body.SubjectId,
+                    category = body.Category,
+                    reporter = user.AccountId,
+                    body = string.IsNullOrWhiteSpace(body.Body) ? null : body.Body.Trim(),
+                });
+
+            return Results.Accepted();
+        });
+    }
+
     public static void MapAdminEndpoints(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api/v1/admin").RequireRateLimiting("writes");

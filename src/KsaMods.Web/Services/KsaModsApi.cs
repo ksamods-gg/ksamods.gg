@@ -380,6 +380,21 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
     public Task<RepoLinkChallenge?> GetRepoLinkAsync(string modId, CancellationToken ct = default) =>
         GetAsync<RepoLinkChallenge>($"/api/v1/mods/{Uri.EscapeDataString(modId)}/repo-link", ct);
 
+    /// <summary>
+    /// Files a report against a mod, release, modlist or account.
+    ///
+    /// <para>Needs a session: a report is attributable so a person who files nonsense repeatedly
+    /// can be stopped. Filing the same thing twice while the first is still open answers 409.</para>
+    /// </summary>
+    public Task<ApiOutcome> FileReportAsync(
+        string subjectKind, string subjectId, string category, string? body, CancellationToken ct = default) =>
+        PostAsync("/api/v1/reports",
+            new { subjectKind, subjectId, category, body }, ct);
+
+    /// <summary>Somebody's public profile and the mods they publish. Null when there is no such handle.</summary>
+    public Task<PublicProfile?> GetPublicProfileAsync(string handle, CancellationToken ct = default) =>
+        GetAsync<PublicProfile>($"/api/v1/accounts/{Uri.EscapeDataString(handle)}", ct);
+
     /// <summary>Everyone with a role on a listing. Needs permission to manage it.</summary>
     public Task<MaintainerList?> GetMaintainersAsync(string modId, CancellationToken ct = default) =>
         GetAsync<MaintainerList>($"/api/v1/mods/{Uri.EscapeDataString(modId)}/maintainers", ct);
@@ -522,6 +537,17 @@ public sealed record ModDetail
 
     /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
     [JsonPropertyName("your_role")] public string? YourRole { get; init; }
+
+    /// <summary>Whose listing this is. Absent only when the owning account has been anonymised.</summary>
+    [JsonPropertyName("author")] public ModAuthor? Author { get; init; }
+
+    /// <summary>
+    /// Times the forge has served this mod's files, or null when nothing has been counted.
+    ///
+    /// <para>Null and zero are different claims and must render differently: one says we do not
+    /// know, the other says nobody wanted it.</para>
+    /// </summary>
+    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
 
@@ -636,6 +662,38 @@ public sealed record CollisionOwner
 }
 
 /// <summary>Outcome of a write, carrying the API's own explanation rather than a generic one.</summary>
+public sealed record ModAuthor
+{
+    [JsonPropertyName("handle")] public string Handle { get; init; } = "";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
+    [JsonPropertyName("avatar_url")] public string? AvatarUrl { get; init; }
+}
+
+public sealed record PublicProfile
+{
+    [JsonPropertyName("handle")] public string Handle { get; init; } = "";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
+    [JsonPropertyName("avatar_url")] public string? AvatarUrl { get; init; }
+    [JsonPropertyName("bio")] public string? Bio { get; init; }
+    [JsonPropertyName("links")] public Dictionary<string, string> Links { get; init; } = [];
+    [JsonPropertyName("forums_url")] public string? ForumsUrl { get; init; }
+    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
+    [JsonPropertyName("mods")] public IReadOnlyList<ProfileMod> Mods { get; init; } = [];
+}
+
+public sealed record ProfileMod
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("abstract")] public string Abstract { get; init; } = "";
+    [JsonPropertyName("type")] public string Type { get; init; } = "mod";
+    [JsonPropertyName("tags")] public IReadOnlyList<string> Tags { get; init; } = [];
+    [JsonPropertyName("icon_url")] public string? IconUrl { get; init; }
+    [JsonPropertyName("downloads")] public int? Downloads { get; init; }
+    [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
+}
+
 public sealed record MaintainerList
 {
     [JsonPropertyName("maintainers")] public IReadOnlyList<Maintainer> Maintainers { get; init; } = [];
@@ -667,6 +725,8 @@ public sealed record AccountProfile
     [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "";
     [JsonPropertyName("avatar_url")] public string? AvatarUrl { get; init; }
     [JsonPropertyName("forums_url")] public string? ForumsUrl { get; init; }
+    [JsonPropertyName("bio")] public string? Bio { get; init; }
+    [JsonPropertyName("links")] public Dictionary<string, string> Links { get; init; } = [];
     [JsonPropertyName("site_role")] public string SiteRole { get; init; } = "user";
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
     [JsonPropertyName("identities")] public IReadOnlyList<LinkedIdentity> Identities { get; init; } = [];
@@ -769,7 +829,9 @@ public sealed record AccountSession
     [JsonPropertyName("current")] public bool Current { get; init; }
 }
 
-public sealed record UpdateProfileRequest(string? DisplayName, string? Handle, string? ForumsUrl);
+public sealed record UpdateProfileRequest(
+    string? DisplayName, string? Handle, string? ForumsUrl,
+    string? Bio = null, Dictionary<string, string>? Links = null);
 
 internal sealed record RevokedResponse
 {

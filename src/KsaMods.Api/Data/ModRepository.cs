@@ -258,6 +258,50 @@ public sealed class ModRepository(Database database)
             new { modId = modId.ToLowerInvariant(), accountId });
     }
 
+    /// <summary>
+    /// The listing's owner, as a reader should see them: the person whose name goes on it.
+    ///
+    /// <para>Taken from mod_maintainer rather than mod.created_by, so it follows a transfer. The
+    /// person who typed the listing into existence is not necessarily the person answerable for
+    /// it a year later.</para>
+    /// </summary>
+    public async Task<MaintainerRow?> OwnerAsync(string modId, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        return await connection.QuerySingleOrDefaultAsync<MaintainerRow>("""
+            select a.handle as Handle, a.display_name as DisplayName, a.avatar_url as AvatarUrl,
+                   m.role as Role, m.added_at as AddedAt
+            from mod_maintainer m
+            join account a on a.id = m.account_id
+            where m.mod_id = (select id from mod where id_lower = @modId) and m.role = 'owner'
+            """,
+            new { modId = modId.ToLowerInvariant() });
+    }
+
+    /// <summary>
+    /// How many times the forge has served this listing's files, or null when nothing has been
+    /// counted yet.
+    ///
+    /// <para>Summed across releases, and null rather than zero when no release carries a figure:
+    /// "we have not counted" and "nobody downloaded it" are different statements, and showing the
+    /// second when the first is true is a lie about somebody's mod.</para>
+    /// </summary>
+    public async Task<int?> DownloadsAsync(string modId, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+
+        return await connection.ExecuteScalarAsync<int?>("""
+            select sum(a.download_count)::int
+            from release_artifact a
+            join mod_release r on r.id = a.release_id
+            where r.mod_id = (select id from mod where id_lower = @modId)
+              and a.is_mirror = false
+              and a.download_count is not null
+            """,
+            new { modId = modId.ToLowerInvariant() });
+    }
+
     /// <summary>Everyone with a role on this listing, owner first.</summary>
     public async Task<IReadOnlyList<MaintainerRow>> MaintainersAsync(string modId, CancellationToken ct)
     {

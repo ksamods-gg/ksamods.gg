@@ -186,3 +186,32 @@ public class FormattingTests
         }
     }
 }
+
+public class CompactCountTests
+{
+    [Theory]
+    [InlineData(0, "0")]
+    [InlineData(7, "7")]
+    [InlineData(999, "999")]
+    [InlineData(1_000, "1k")]
+    [InlineData(1_500, "1.5k")]
+    [InlineData(9_999, "9.9k")]
+    [InlineData(10_000, "10k")]
+    [InlineData(999_999, "999k")]
+    [InlineData(1_000_000, "1M")]
+    [InlineData(1_250_000, "1.2M")]
+    public void Counts_read_the_way_a_person_would_say_them(int count, string expected)
+    {
+        Assert.Equal(expected, Presentation.Compact(count));
+    }
+
+    [Fact]
+    public void Rounding_never_flatters_the_number()
+    {
+        // Down, never up. This is somebody else's figure about somebody else's work, and the
+        // shortened version must never claim more than the real one. 1999 is not "2k".
+        Assert.Equal("1.9k", Presentation.Compact(1_999));
+        Assert.Equal("9.9k", Presentation.Compact(9_998));
+        Assert.Equal("1.9M", Presentation.Compact(1_999_999));
+    }
+}

@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace KsaMods.Web.Services;
 
 public sealed record Pill(string Label, string Variant, string Explanation);
@@ -142,6 +143,20 @@ public static class Presentation
 
         return unit == 0 ? $"{value:0} {units[unit]}" : $"{value:0.#} {units[unit]}";
     }
+
+    /// <summary>
+    /// A download count, short enough to sit in a row of them.
+    ///
+    /// <para>Rounded down, never up. 1999 shows as 1.9k rather than 2k: this is somebody else's
+    /// number about somebody else's work, and the version we print should never flatter it.</para>
+    /// </summary>
+    public static string Compact(int count) => count switch
+    {
+        < 1_000 => count.ToString("N0", CultureInfo.InvariantCulture),
+        < 10_000 => $"{Math.Floor(count / 100d) / 10:0.#}k".Replace(".0k", "k", StringComparison.Ordinal),
+        < 1_000_000 => $"{count / 1_000}k",
+        _ => $"{Math.Floor(count / 100_000d) / 10:0.#}M".Replace(".0M", "M", StringComparison.Ordinal),
+    };
 
     public static string Ago(DateTimeOffset when, DateTimeOffset? now = null)
     {
