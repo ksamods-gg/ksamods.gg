@@ -81,18 +81,40 @@ else
 
                     @if (_mod.Author is { } author)
                     {
-                        <a href="@($"/u/{author.Handle}")"
-                           class="mt-2 inline-flex items-center gap-2 rounded-sm text-sm
-                                  text-muted-foreground transition-colors hover:text-foreground
-                                  focus-visible:outline-2 focus-visible:outline-offset-2">
-                            @if (!string.IsNullOrWhiteSpace(author.AvatarUrl))
+                        <div class="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                            <a href="@($"/u/{author.Handle}")"
+                               class="inline-flex items-center gap-2 rounded-sm text-sm
+                                      text-muted-foreground transition-colors hover:text-foreground
+                                      focus-visible:outline-2 focus-visible:outline-offset-2">
+                                @if (!string.IsNullOrWhiteSpace(author.AvatarUrl))
+                                {
+                                    <img src="@author.AvatarUrl" alt="" width="20" height="20"
+                                         class="size-5 rounded-full border border-border object-cover"
+                                         loading="lazy" referrerpolicy="no-referrer" />
+                                }
+                                <span>by <span class="font-medium text-foreground">@author.DisplayName</span></span>
+                            </a>
+
+                            @if (_mod.AuthorHidden)
                             {
-                                <img src="@author.AvatarUrl" alt="" width="20" height="20"
-                                     class="size-5 rounded-full border border-border object-cover"
-                                     loading="lazy" referrerpolicy="no-referrer" />
+                                @* Only reachable by maintainers and moderators, who are the only
+                                   people the API sends an author to on a hidden listing. Marked so
+                                   nobody edits a listing believing their name is on it when it is
+                                   not, or the other way round. *@
+                                <Badge Variant="outline" Title="Only you and the moderators see this.">
+                                    hidden from readers
+                                </Badge>
                             }
-                            <span>by <span class="font-medium text-foreground">@author.DisplayName</span></span>
-                        </a>
+                        </div>
+                    }
+                    else if (_mod.AuthorHidden)
+                    {
+                        @* Said rather than left blank. A missing byline reads as an oversight, and
+                           somebody wondering whether the site simply lost the author is somebody
+                           still thinking about who it is. *@
+                        <p class="mt-2 text-sm text-muted-foreground">
+                            The author has chosen not to be named.
+                        </p>
                     }
 
                     <p class="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">

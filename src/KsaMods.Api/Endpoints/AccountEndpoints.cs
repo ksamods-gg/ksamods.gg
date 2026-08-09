@@ -58,12 +58,17 @@ public static class AccountEndpoints
 
             // Listed mods only, and the owner's, not everything they hold a role on. A profile is
             // "what this person publishes", and drafts are unpublished by definition.
+            //
+            // hide_author listings are left out, and this is the half of that feature that does
+            // the work. Suppressing the name on the listing while the same listing sits on the
+            // author's public profile hides nothing at all: the profile is the shorter path
+            // between the two, and it is the one a curious reader would take.
             var mods = await connection.QueryAsync<PublicProfileModRow>("""
                 select m.id as Id, m.name as Name, m.abstract as "Abstract", m.type as Type,
                        m.tags as Tags, m.icon_url as IconUrl, m.updated_at as UpdatedAt
                 from mod m
                 join mod_maintainer mm on mm.mod_id = m.id and mm.role = 'owner'
-                where mm.account_id = @id and m.listing_state = 'listed'
+                where mm.account_id = @id and m.listing_state = 'listed' and not m.hide_author
                 order by m.updated_at desc
                 """,
                 new { id = account.Id });

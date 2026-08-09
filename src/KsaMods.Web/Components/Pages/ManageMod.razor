@@ -223,6 +223,25 @@ else
                     <input @attributes="field" type="url" @bind="_edit.BannerUrl" placeholder="https://…/banner.png"
                            class="@InputClass" />
                 </Field>
+
+                @* Per listing rather than per account, because the same person can want their
+                   name on one mod and not on another. A single account-wide switch would push
+                   anybody in that position into a second account, which is worse for them and
+                   worse for us. *@
+                <div class="rounded-md border border-border bg-card/40 px-4 py-3">
+                    <label class="flex items-start gap-2.5 text-sm">
+                        <input type="checkbox" @bind="_edit.HideAuthor"
+                               class="mt-0.5 size-4 rounded-sm border-input accent-primary" />
+                        <span>
+                            Don't show me as the author
+                            <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                                Takes your name off this listing and leaves it off your public
+                                profile. You still own it, you still manage it here, and
+                                moderators can still see who it belongs to.
+                            </span>
+                        </span>
+                    </label>
+                </div>
             </div>
 
             <Button Size="sm" Class="mt-5" Disabled="Busy" Pending="@(_busy == "save")"
@@ -476,6 +495,7 @@ else
                 _edit.License = _mod.License ?? "";
                 _tags = [.. _mod.Tags];
                 _edit.BannerUrl = _mod.BannerUrl ?? "";
+                _edit.HideAuthor = _mod.AuthorHidden;
 
                 // Only for people the endpoint will answer for. Asking as a stranger would 403
                 // and paint an error over a page that is otherwise fine.
@@ -585,7 +605,8 @@ else
             Description: string.IsNullOrWhiteSpace(_edit.Description) ? null : _edit.Description.Trim(),
             License: _edit.License.Trim(),
             Tags: [.. _tags],
-            BannerUrl: string.IsNullOrWhiteSpace(_edit.BannerUrl) ? null : _edit.BannerUrl.Trim())),
+            BannerUrl: string.IsNullOrWhiteSpace(_edit.BannerUrl) ? null : _edit.BannerUrl.Trim(),
+            HideAuthor: _edit.HideAuthor)),
         "Listing updated.");
 
     private async Task ConnectRepositoryAsync()
@@ -722,6 +743,7 @@ else
         public string Description { get; set; } = "";
         public string License { get; set; } = "";
         public string BannerUrl { get; set; } = "";
+        public bool HideAuthor { get; set; }
     }
 
     private sealed class RepoForm

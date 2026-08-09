@@ -58,14 +58,21 @@ public static class ReadEndpoints
                 id = mod.Id,
                 type = mod.Type,
 
-                // Who is answerable for this listing. Absent only if the owner's account is gone,
-                // which anonymisation leaves behind rather than deleting the listing with it.
-                author = owner is null ? null : new
+                // Who is answerable for this listing. Absent if the owner's account is gone, which
+                // anonymisation leaves behind rather than deleting the listing with it, and absent
+                // if the author asked not to be named.
+                //
+                // The hidden case still answers for people who already know: anyone holding a role
+                // on the listing, and moderators, who need it to act on a takedown. Everyone else
+                // gets null and the flag beside it, so a client can say "author hidden" instead of
+                // rendering the same blank as a deleted account.
+                author = owner is null || (mod.HideAuthor && !MaySeeHiddenAuthor(principal)) ? null : new
                 {
                     handle = owner.Handle,
                     display_name = owner.DisplayName,
                     avatar_url = owner.AvatarUrl,
                 },
+                author_hidden = mod.HideAuthor,
 
                 name = mod.Name,
                 @abstract = mod.Abstract,
@@ -322,6 +329,19 @@ public static class ReadEndpoints
             next = list.Count == take ? list[^1].Id : null,
         });
     }
+
+    /// <summary>
+    /// Who still sees the author of a listing that hides one.
+    ///
+    /// <para>Maintainers, because they are looking at their own listing and hiding it from
+    /// themselves would only be confusing. Moderators, because a takedown has to land on somebody
+    /// and a queue of listings with no visible owner is a queue nobody can act on.</para>
+    ///
+    /// <para>Nobody else, including signed-in readers. The point of the flag is that a stranger
+    /// cannot get from the listing back to the person, and "signed in" is not a relationship.</para>
+    /// </summary>
+    private static bool MaySeeHiddenAuthor(Principal? principal) =>
+        principal is not null && (principal.ModRole is not null || principal.IsModerator);
 
     private static object Summarise(ReleaseRow r) => new
     {

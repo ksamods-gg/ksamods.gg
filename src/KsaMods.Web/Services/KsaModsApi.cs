@@ -632,8 +632,19 @@ public sealed record ModDetail
     /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
     [JsonPropertyName("your_role")] public string? YourRole { get; init; }
 
-    /// <summary>Whose listing this is. Absent only when the owning account has been anonymised.</summary>
+    /// <summary>
+    /// Whose listing this is. Absent when the owning account has been anonymised, and when the
+    /// author hid themselves and the reader is not one of the people who still sees it.
+    /// </summary>
     [JsonPropertyName("author")] public ModAuthor? Author { get; init; }
+
+    /// <summary>
+    /// The author asked not to be named. Sent to everyone, including readers who get no
+    /// <see cref="Author"/>, so the page can say "author hidden" rather than showing the same
+    /// nothing it shows for a deleted account. Maintainers and moderators get both, which is
+    /// what lets the manage screen show the setting as on.
+    /// </summary>
+    [JsonPropertyName("author_hidden")] public bool AuthorHidden { get; init; }
 
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }
     [JsonPropertyName("releases")] public IReadOnlyList<ReleaseSummary> Releases { get; init; } = [];
@@ -1185,7 +1196,8 @@ public sealed record CreateModRequest(
 public sealed record EditModRequest(
     string? Name = null, string? Abstract = null, string? Description = null,
     string? License = null, string[]? Tags = null,
-    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null);
+    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null,
+    bool? HideAuthor = null);
 
 /// <summary>
 /// RepoId is no longer asked of the author: the API resolves it from the forge, which is one less

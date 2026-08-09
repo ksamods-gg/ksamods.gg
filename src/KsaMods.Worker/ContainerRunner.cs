@@ -21,10 +21,30 @@ public sealed record ContainerPolicy
 
 public sealed record ContainerOutcome
 {
+    /// <summary>
+    /// Docker's own code for "the run never started": no such image, a flag it would not take, a
+    /// daemon that said no. The validator cannot return it, because in this case the validator
+    /// never executed.
+    /// </summary>
+    public const int DockerRefused = 125;
+
     public required int ExitCode { get; init; }
     public required bool TimedOut { get; init; }
     public required string? ReportJson { get; init; }
     public required string Stderr { get; init; }
+
+    /// <summary>
+    /// Nothing was checked, and the archive is not the reason.
+    ///
+    /// <para>Worth separating because the two failures read identically from here and mean
+    /// opposite things. "The validator produced no report" invites somebody to go and look at the
+    /// release; this one is ours, and looking at the release will waste their time.</para>
+    /// </summary>
+    public bool NeverStarted => !TimedOut && ExitCode == DockerRefused;
+
+    /// <summary>The pinned image is not on the host. See <see cref="NeverStarted"/>.</summary>
+    public bool ImageMissing =>
+        NeverStarted && Stderr.Contains("No such image", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
