@@ -114,8 +114,10 @@ else
                     </select>
                 </Field>
 
-                <Field Context="field" Id="repoFullName" Label="Repository" Hint="Owner and name, like yourname/YourMod.">
-                    <input @attributes="field" @bind="_repo.RepoFullName" placeholder="yourname/YourMod"
+                <Field Context="field" Id="repoFullName" Label="Repository"
+                       Hint="Paste the repository's address, or write it as yourname/YourMod.">
+                    <input @attributes="field" @bind="_repo.RepoFullName"
+                           placeholder="https://github.com/yourname/YourMod"
                            autocomplete="off" spellcheck="false" class="@InputClass" />
                 </Field>
 
@@ -160,30 +162,27 @@ else
                         history the author keeps tidy.
                     *@
                     <ol class="mt-4 space-y-3 text-sm leading-relaxed">
-                        <li class="flex gap-3">
-                            <span class="mt-px shrink-0 font-mono text-xs text-primary">A</span>
-                            <span>
-                                <span class="font-medium">Add it as a topic.</span>
-                                On the repository page, next to the About heading, click the settings
-                                cog and paste it into Topics. Nothing is committed, and you can take
-                                it off again afterwards.
-                            </span>
+                        <li>
+                            <p class="font-medium">Add it as a topic on the repository.</p>
+                            <p class="mt-1 text-muted-foreground">
+                                Nothing is committed, and you can take it off again once you are verified.
+                            </p>
+                            <TopicProofGuide />
                         </li>
-                        <li class="flex gap-3">
-                            <span class="mt-px shrink-0 font-mono text-xs text-muted-foreground">B</span>
-                            <span class="text-muted-foreground">
-                                <span class="font-medium text-foreground">Or commit a file.</span>
-                                Put it in <code class="font-mono text-xs">@_challenge.FilePath</code>
-                                on the <code class="font-mono text-xs">@_challenge.DefaultBranch</code>
-                                branch, as the whole contents.
-                            </span>
+                        <li class="border-t border-border pt-3 text-muted-foreground">
+                            @* The branch is not named here. It is known right after connecting and
+                               not on a later page load, and "main" written confidently at somebody
+                               whose branch is called master is worse than not saying. *@
+                            <span class="font-medium text-foreground">Or commit a file instead.</span>
+                            Put it in <code class="font-mono text-xs">@_challenge.FilePath</code>
+                            on the default branch, as the whole contents of the file.
                         </li>
                     </ol>
 
                     <div class="mt-4 flex flex-wrap items-center gap-3">
                         <Button Size="sm" Disabled="Busy" Pending="@(_busy == "verify")"
                                 PendingLabel="Verifying…" @onclick="VerifyRepositoryAsync">
-                            Done - verify
+                            I've added it
                         </Button>
                         <span class="text-xs text-muted-foreground">
                             Either one works. We record that the check passed, not what you used.
@@ -483,6 +482,12 @@ else
                 _people = MayManage
                     ? (await Api.GetMaintainersAsync(Id))?.Maintainers
                     : null;
+
+                // Picked up on every load, not just after connecting, so the instructions survive
+                // a reload. Owner-only because the challenge is a secret; a maintainer gets the
+                // rest of the page without it. A listing with nothing connected answers 404, which
+                // GetAsync turns into null, so "not connected yet" needs no separate check.
+                _challenge = _mod.IsOwner ? await Api.GetRepoLinkAsync(Id) : null;
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)

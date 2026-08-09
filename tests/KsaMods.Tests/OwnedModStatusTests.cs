@@ -53,7 +53,10 @@ public class OwnedModStatusTests
         // sending them at a closed door.
         var mod = Mod(repoVerified: false, releases: 0);
 
-        Assert.Contains("Verify", mod.NextStep!, StringComparison.Ordinal);
+        // Asserted as "does not send them to import" rather than on the exact wording, which is
+        // the thing the test is actually about and survives the copy being rewritten.
+        Assert.DoesNotContain("import", mod.NextStep!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Prove", mod.NextStep!, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -395,11 +395,13 @@ public static class ModEndpoints
                 });
             }
 
-            if (!RepoName.IsValid(body.RepoFullName))
+            // Accepts the address bar as readily as owner/repository, and everything downstream
+            // sees the normalised form, so nothing else has to know a URL was ever involved.
+            if (!RepoName.TryNormalise(body.RepoFullName, out var repoFullName))
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
-                    ["repoFullName"] = ["Give this as owner/repository."],
+                    ["repoFullName"] = ["That doesn't look like a repository. Paste its address, or give it as owner/repository."],
                 });
             }
 
@@ -409,7 +411,7 @@ public static class ModEndpoints
 
             try
             {
-                repository = await forges.For(body.Provider).GetRepositoryAsync(body.RepoFullName, ct);
+                repository = await forges.For(body.Provider).GetRepositoryAsync(repoFullName, ct);
             }
             catch (ForgeException e)
             {
@@ -511,6 +513,44 @@ public static class ModEndpoints
                   + $"{RepositoryProof.FilePath} to its {repository.DefaultBranch} branch containing that same line. "
                   + "Either one proves you control the repository, which is the thing being checked, and either "
                   + "can be removed once you are verified.",
+            });
+        });
+
+        // Reads back a link that has been connected but not yet proven.
+        //
+        // Without this the challenge existed only in the response to the POST that created it, so
+        // connecting a repository and then reloading the page lost the instructions: still
+        // unverified, nothing on screen saying what to do, and the only route back was pressing
+        // Connect again on a repository that was already connected.
+        //
+        // Owner-only, because the challenge is a secret. Anybody who could read it could publish
+        // it in a repository they happen to control and claim somebody else's listing.
+        api.MapGet("/mods/{id}/repo-link", async (
+            string id, HttpContext http, ModRepository mods, Database database, CancellationToken ct) =>
+        {
+            var principal = await http.PrincipalForModAsync(mods, id, ct);
+            if (principal is null) return Results.Unauthorized();
+            if (!Permissions.Allows(principal, Capability.ConnectRepository)) return ApiResults.Forbidden();
+
+            var mod = await mods.FindAsync(id, ct);
+            if (mod is null) return Results.NotFound();
+
+            using var connection = await database.OpenAsync(ct);
+
+            var link = await connection.QuerySingleOrDefaultAsync<PendingLink>("""
+                select provider, repo_full_name as RepoFullName, challenge, verified_at as VerifiedAt
+                from repo_link where mod_id = @modId
+                """,
+                new { modId = mod.Id });
+
+            if (link is null) return Results.NotFound();
+
+            return Results.Ok(new
+            {
+                repo_full_name = link.RepoFullName,
+                verified = link.VerifiedAt is not null,
+                challenge = link.challenge,
+                file_path = RepositoryProof.FilePath,
             });
         });
 

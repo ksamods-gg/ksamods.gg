@@ -166,6 +166,80 @@ public static class RepoName
         && Shape.IsMatch(fullName)
         // Rules out ".." as either segment, which is the traversal that would escape the API path.
         && !fullName.Contains("..", StringComparison.Ordinal);
+
+    /// <summary>SSH remotes, which people paste as readily as URLs: <c>git@github.com:owner/repo.git</c>.</summary>
+    private static readonly Regex ScpLike = new(
+        @"^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:(?<path>.+)$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Turns whatever somebody pasted into <c>owner/repository</c>.
+    ///
+    /// <para>Asking for "owner/repository" when the address bar is right there is a small rule to
+    /// remember for no reason. A browse URL, a clone URL, an SSH remote and a deep link into a
+    /// branch all name the same repository, and all of them are things people paste.</para>
+    ///
+    /// <para>This only ever narrows. Whatever comes out is checked by <see cref="IsValid"/>
+    /// exactly as a hand-typed value would be, so accepting a URL cannot smuggle through a path
+    /// segment or a query string. That is the whole risk with being liberal here, and the answer
+    /// is to extract first and validate afterwards rather than to loosen the pattern.</para>
+    /// </summary>
+    public static bool TryNormalise(string? input, out string fullName)
+    {
+        fullName = "";
+
+        if (string.IsNullOrWhiteSpace(input)) return false;
+
+        var candidate = input.Trim();
+
+        // Refused before anything parses it. Uri collapses '..' rather than rejecting it, so
+        // https://github.com/../../admin/secrets arrives here and leaves as 'admin/secrets': a
+        // valid name for a repository nobody asked for. The output would pass every check below,
+        // which is precisely why the check has to happen on the input.
+        if (candidate.Contains("..", StringComparison.Ordinal)) return false;
+
+        if (ScpLike.Match(candidate) is { Success: true } scp)
+        {
+            candidate = scp.Groups["path"].Value;
+        }
+        else if (candidate.Contains("://", StringComparison.Ordinal))
+        {
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out var url)) return false;
+
+            // Only the path. A query string or fragment names a view of the repository, never a
+            // different repository, so dropping them is safe and keeps them out of the result.
+            candidate = url.AbsolutePath;
+        }
+        else if (candidate.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                 || candidate.Split('/')[0].Contains('.'))
+        {
+            // Host with no scheme, as in github.com/owner/repo.
+            var slash = candidate.IndexOf('/');
+            if (slash < 0) return false;
+
+            candidate = candidate[slash..];
+        }
+
+        var segments = candidate
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // Anything past the first two names a branch, a file or a tab, not the repository.
+        if (segments.Length < 2) return false;
+
+        var owner = segments[0];
+        var repository = segments[1];
+
+        if (repository.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+        {
+            repository = repository[..^4];
+        }
+
+        var normalised = $"{owner}/{repository}";
+
+        if (!IsValid(normalised)) return false;
+
+        fullName = normalised;
+        return true;
+    }
 }
 
 /// <summary>

@@ -370,6 +370,16 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>
+    /// The connected repository and, while it is still unproven, the challenge to publish.
+    ///
+    /// <para>Lets the manage page show the verification instructions on load rather than only in
+    /// the response to the request that connected the repository. Null when nothing is connected
+    /// yet, which is the ordinary case for a new listing.</para>
+    /// </summary>
+    public Task<RepoLinkChallenge?> GetRepoLinkAsync(string modId, CancellationToken ct = default) =>
+        GetAsync<RepoLinkChallenge>($"/api/v1/mods/{Uri.EscapeDataString(modId)}/repo-link", ct);
+
     /// <summary>Everyone with a role on a listing. Needs permission to manage it.</summary>
     public Task<MaintainerList?> GetMaintainersAsync(string modId, CancellationToken ct = default) =>
         GetAsync<MaintainerList>($"/api/v1/mods/{Uri.EscapeDataString(modId)}/maintainers", ct);
@@ -725,7 +735,7 @@ public sealed record OwnedModStatus
                 : "Waiting on the owner to connect a repository."
         : !RepoVerified
             ? IsOwner
-                ? "Verify the repository - one file, one commit."
+                ? "Prove the repository is yours."
                 : "Waiting on the owner to verify the repository."
         : Releases == 0 ? "Tag a release and import it."
         : LastImportError is not null ? "The last import failed."

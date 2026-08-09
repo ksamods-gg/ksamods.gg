@@ -1,0 +1,85 @@
+@namespace KsaMods.Web.Components.Domain
+
+@*
+    Where the Topics field actually is.
+
+    "Add it as a topic" is one sentence and still sends people hunting: the field is not on the
+    repository page, it is behind an unlabelled cog next to the About heading, inside a dialog
+    called something else again. Two numbered pictures of the two places to click cost less to
+    read than the paragraph explaining the same route in words.
+
+    Drawn rather than screenshotted. A screenshot of somebody's GitHub goes stale the next time
+    they restyle it, weighs more than this, and cannot follow the page into the other theme. This
+    is schematic on purpose: it has to be recognisable enough to find the cog, not to be mistaken
+    for the real thing.
+*@
+
+<div class="mt-4 grid gap-3 sm:grid-cols-2">
+
+    <figure class="rounded-lg border border-border bg-background p-3">
+        <svg viewBox="0 0 260 118" class="w-full" role="img"
+             aria-label="The About panel on a GitHub repository page, with the settings cog to its right highlighted.">
+            <!-- panel -->
+            <rect x="0.5" y="0.5" width="259" height="117" rx="6"
+                  fill="var(--color-card)" stroke="var(--color-border)" />
+
+            <text x="14" y="24" font-size="13" font-weight="600" fill="currentColor"
+                  font-family="var(--font-display)">About</text>
+
+            <!-- the cog, which is the whole point of this picture -->
+            <circle cx="232" cy="19" r="13" fill="var(--color-primary)" opacity="0.16" />
+            <g transform="translate(232 19)" stroke="var(--color-primary)" stroke-width="1.6" fill="none">
+                <circle r="3.4" />
+                <path d="M0 -7.2V-5M0 5v2.2M-7.2 0H-5M5 0h2.2M-5.1 -5.1l1.6 1.6M3.5 3.5l1.6 1.6M-5.1 5.1l1.6 -1.6M3.5 -3.5l1.6 -1.6" stroke-linecap="round" />
+            </g>
+
+            <!-- description and link, so the panel is recognisable at a glance -->
+            <rect x="14" y="42" width="150" height="6" rx="3" fill="currentColor" opacity="0.22" />
+            <rect x="14" y="56" width="96" height="6" rx="3" fill="currentColor" opacity="0.22" />
+            <rect x="14" y="78" width="60" height="6" rx="3" fill="var(--color-primary)" opacity="0.35" />
+            <rect x="14" y="94" width="44" height="6" rx="3" fill="currentColor" opacity="0.14" />
+        </svg>
+
+        <figcaption class="mt-2.5 flex gap-2 text-xs leading-relaxed text-muted-foreground">
+            <span class="shrink-0 font-mono text-primary">1</span>
+            <span>On the repository page, click the cog beside <span class="text-foreground">About</span>.</span>
+        </figcaption>
+    </figure>
+
+    <figure class="rounded-lg border border-border bg-background p-3">
+        <svg viewBox="0 0 260 118" class="w-full" role="img"
+             aria-label="The Edit repository details dialog, with the Topics field at the bottom highlighted.">
+            <rect x="0.5" y="0.5" width="259" height="117" rx="6"
+                  fill="var(--color-card)" stroke="var(--color-border)" />
+
+            <text x="14" y="21" font-size="10" font-weight="600" fill="currentColor"
+                  font-family="var(--font-display)">Edit repository details</text>
+
+            <!-- The fields above it, drawn quiet so the eye lands on Topics. Same label-above-field
+                 arrangement as the real dialog, so the shape is recognisable rather than merely
+                 similar. -->
+            <text x="14" y="40" font-size="7" fill="currentColor" opacity="0.55"
+                  font-family="var(--font-sans)">Description</text>
+            <rect x="14" y="44" width="232" height="13" rx="3"
+                  fill="var(--color-background)" stroke="var(--color-border)" />
+
+            <text x="14" y="72" font-size="7" fill="currentColor" opacity="0.55"
+                  font-family="var(--font-sans)">Website</text>
+            <rect x="14" y="76" width="232" height="13" rx="3"
+                  fill="var(--color-background)" stroke="var(--color-border)" />
+
+            <!-- Topics: the field they are looking for -->
+            <text x="14" y="100" font-size="7" font-weight="600" fill="var(--color-primary)"
+                  font-family="var(--font-sans)">Topics</text>
+            <rect x="14" y="104" width="232" height="12" rx="3"
+                  fill="var(--color-primary)" opacity="0.12" />
+            <rect x="14.5" y="104.5" width="231" height="11" rx="3"
+                  fill="none" stroke="var(--color-primary)" stroke-width="1.2" />
+        </svg>
+
+        <figcaption class="mt-2.5 flex gap-2 text-xs leading-relaxed text-muted-foreground">
+            <span class="shrink-0 font-mono text-primary">2</span>
+            <span>Paste it into <span class="text-foreground">Topics</span>, then Save changes.</span>
+        </figcaption>
+    </figure>
+</div>

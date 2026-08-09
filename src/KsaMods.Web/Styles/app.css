@@ -376,6 +376,20 @@
   outline-offset: 2px;
 }
 
+/*
+  The listing header's icon overlaps the banner's lower edge, but only while there is a banner to
+  overlap.
+
+  :has() is live, so when the banner's onerror removes the strip the selector stops matching and
+  the icon drops back into normal flow on its own. Deciding this on the server from banner_url
+  cannot work: the URL being set is not the same as the image loading, and an author-hosted image
+  that 404s left the icon hanging above the card with the page grid showing through behind it.
+*/
+header:has(.mod-banner) .mod-icon {
+  margin-top: -3rem;
+  box-shadow: 0 0 0 4px var(--color-card);
+}
+
 /* An eyebrow is a label, not a sentence: condensed, spaced, and small enough to stay quiet. */
 .eyebrow {
   font-family: var(--font-display);

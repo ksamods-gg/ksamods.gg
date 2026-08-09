@@ -77,6 +77,45 @@ public class ForgeTests
         Assert.Equal("ksamods-verify-".Length + 32, first.Length);
     }
 
+    [Theory]
+    // The forms people actually paste, all naming one repository.
+    [InlineData("Maximilian-Nesslauer/KSA-DeltaVMap")]
+    [InlineData("https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap")]
+    [InlineData("https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap/")]
+    [InlineData("https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap.git")]
+    [InlineData("http://github.com/Maximilian-Nesslauer/KSA-DeltaVMap")]
+    [InlineData("github.com/Maximilian-Nesslauer/KSA-DeltaVMap")]
+    [InlineData("www.github.com/Maximilian-Nesslauer/KSA-DeltaVMap")]
+    [InlineData("git@github.com:Maximilian-Nesslauer/KSA-DeltaVMap.git")]
+    // Deep links: somebody copies the address while looking at a branch or a file.
+    [InlineData("https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap/tree/main")]
+    [InlineData("https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap/blob/main/README.md")]
+    [InlineData("https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap?tab=readme-ov-file")]
+    [InlineData("  https://github.com/Maximilian-Nesslauer/KSA-DeltaVMap  ")]
+    public void Anything_that_names_a_repository_normalises_to_owner_and_name(string input)
+    {
+        Assert.True(RepoName.TryNormalise(input, out var fullName), $"'{input}' was refused.");
+        Assert.Equal("Maximilian-Nesslauer/KSA-DeltaVMap", fullName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("KSA-DeltaVMap")]                       // No owner.
+    [InlineData("https://github.com/Maximilian")]       // A person, not a repository.
+    // The reason normalising has to end at IsValid rather than replace it: a traversal or a
+    // separator smuggled through a URL would otherwise escape the API path it gets interpolated into.
+    [InlineData("https://github.com/../../admin/secrets")]
+    [InlineData("owner/../etc")]
+    [InlineData("owner/repo name")]
+    [InlineData("owner/repo?x=1")]
+    public void Anything_that_does_not_is_refused(string? input)
+    {
+        Assert.False(RepoName.TryNormalise(input, out var fullName));
+        Assert.Equal("", fullName);
+    }
+
     [Fact]
     public void A_challenge_is_usable_as_a_repository_topic_without_reshaping()
     {

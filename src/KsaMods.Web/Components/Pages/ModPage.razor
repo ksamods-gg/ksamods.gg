@@ -51,7 +51,7 @@ else
             {
                 @* Author-hosted, so it may 404 at any time: onerror drops the strip instead of
                    leaving a broken image sitting above the title. *@
-                <div class="aspect-[5/1] w-full overflow-hidden border-b border-border bg-secondary">
+                <div class="mod-banner aspect-[5/1] w-full overflow-hidden border-b border-border bg-secondary">
                     <img src="@_mod.BannerUrl" alt="" referrerpolicy="no-referrer"
                          onerror="this.parentElement.remove()"
                          class="h-full w-full object-cover" />
@@ -59,8 +59,11 @@ else
             }
 
             <div class="flex flex-wrap items-start gap-4 p-5">
-                <ModIcon Id="@_mod.Id" IconUrl="@_mod.IconUrl" Size="lg"
-                         Class="@(string.IsNullOrWhiteSpace(_mod.BannerUrl) ? null : "-mt-12 ring-4 ring-card")" />
+                @* The overlap is applied by CSS keyed on the banner still being in the DOM, not by
+                   a class decided here from BannerUrl. An author-hosted banner can 404, onerror
+                   drops the strip, and a server-side guess then leaves the icon pulled 3rem up
+                   into empty space above the card with the page showing through behind it. *@
+                <ModIcon Id="@_mod.Id" IconUrl="@_mod.IconUrl" Size="lg" Class="mod-icon" />
 
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
@@ -259,8 +262,9 @@ else
                            deciding whether to run somebody's assembly deserves that in front of
                            them rather than behind a link. *@
                         <p class="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-                            Downloads come from the author's own repository. We record the link and a
-                            hash of what we checked - we never host the file.
+                            This download comes straight from the author's own repository, not from
+                            us. We never had a copy. All we kept was the link and a hash of the
+                            file we checked.
                         </p>
                     </div>
                 </div>
