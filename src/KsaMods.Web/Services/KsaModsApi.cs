@@ -99,6 +99,14 @@ public sealed class KsaModsApi(IHttpClientFactory factory, IHttpContextAccessor 
     public Task<AccountProfile?> GetProfileAsync(CancellationToken ct = default) =>
         GetAsync<AccountProfile>("/api/v1/me/profile", ct);
 
+    /// <summary>
+    /// Everything the caller maintains, with enough state to decide what to do about each one.
+    /// Richer than the list on the profile, which answers "what do I have" rather than "what
+    /// needs me".
+    /// </summary>
+    public Task<IReadOnlyList<OwnedModStatus>?> GetMyModsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<OwnedModStatus>>("/api/v1/me/mods", ct);
+
     public Task<IReadOnlyList<AccountSession>?> GetSessionsAsync(CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AccountSession>>("/api/v1/me/sessions", ct);
 
@@ -636,6 +644,69 @@ public sealed record OwnedModlist
     [JsonPropertyName("name")] public string Name { get; init; } = "";
     [JsonPropertyName("role")] public string Role { get; init; } = "editor";
     [JsonPropertyName("visibility")] public string Visibility { get; init; } = "private";
+}
+
+public sealed record OwnedModStatus
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = "";
+    [JsonPropertyName("name")] public string Name { get; init; } = "";
+    [JsonPropertyName("type")] public string Type { get; init; } = "mod";
+    [JsonPropertyName("role")] public string Role { get; init; } = "maintainer";
+    [JsonPropertyName("listing_state")] public string ListingState { get; init; } = "listed";
+    [JsonPropertyName("status")] public string Status { get; init; } = "active";
+    [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
+    [JsonPropertyName("releases")] public int Releases { get; init; }
+    [JsonPropertyName("failed_releases")] public int FailedReleases { get; init; }
+    [JsonPropertyName("latest_version")] public string? LatestVersion { get; init; }
+    [JsonPropertyName("latest_released_at")] public DateTimeOffset? LatestReleasedAt { get; init; }
+    [JsonPropertyName("repo_connected")] public bool RepoConnected { get; init; }
+    [JsonPropertyName("repo_verified")] public bool RepoVerified { get; init; }
+    [JsonPropertyName("repo_full_name")] public string? RepoFullName { get; init; }
+    [JsonPropertyName("import_running")] public bool ImportRunning { get; init; }
+    [JsonPropertyName("last_import_error")] public string? LastImportError { get; init; }
+
+    public bool IsDraft => ListingState == "unlisted";
+    public bool IsWithdrawn => ListingState is "delisted" or "taken_down";
+    public bool IsOwner => Role == "owner";
+
+    /// <summary>
+    /// The one thing to do next, or null when the listing is simply fine.
+    ///
+    /// <para>Ordered by what blocks what: an unconnected repository makes importing impossible,
+    /// an unverified one makes it refused, no releases makes publishing pointless. Showing all of
+    /// them at once would be a list of everything that is not yet true rather than a next step.</para>
+    /// </summary>
+    public string? NextStep =>
+        IsWithdrawn ? null
+        : !RepoConnected
+            ? IsOwner
+                ? "Connect the repository you release from."
+                : "Waiting on the owner to connect a repository."
+        : !RepoVerified
+            ? IsOwner
+                ? "Verify the repository - one file, one commit."
+                : "Waiting on the owner to verify the repository."
+        : Releases == 0 ? "Tag a release and import it."
+        : LastImportError is not null ? "The last import failed."
+        : FailedReleases > 0 ? $"{FailedReleases} release(s) failed validation."
+        : IsDraft
+            ? IsOwner
+                ? "Still a draft. Publish it when you are ready."
+                : "Still a draft. Only the owner can publish it."
+        : null;
+
+    /// <summary>
+    /// Whether the next step is one this person can actually take.
+    ///
+    /// <para>Connecting a repository, verifying it and publishing are the owner's alone (§4.2), so
+    /// putting a maintainer's listing under "Waiting on you" with a button the API will refuse
+    /// would be sending them to a locked door. They still see the state - it explains why nothing
+    /// is importing - it just is not their queue.</para>
+    /// </summary>
+    public bool NextStepIsYours =>
+        NextStep is not null && (IsOwner || (RepoConnected && RepoVerified && !IsDraft));
+
+    public bool NeedsAttention => NextStepIsYours;
 }
 
 public sealed record AccountSession

@@ -37,6 +37,13 @@
         </a>
     }
 
+    @* The listings someone maintains are what they come back for; the account settings are not.
+       Given its own item rather than being buried a click inside /account. *@
+    <a href="/my/mods"
+       class="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block">
+        Your mods
+    </a>
+
     @* The identity collapses away on small screens, so the account page needs its own way in. *@
     <a href="/account" class="text-sm text-muted-foreground hover:text-foreground sm:hidden">Account</a>
 

@@ -1,0 +1,229 @@
+@page "/my/mods"
+@rendermode InteractiveServer
+@inject KsaModsApi Api
+@inject NavigationManager Nav
+
+<PageTitle>Your mods | ksamods.gg</PageTitle>
+
+@*
+    Not /mods/mine: that would sit under the same route pattern as /mods/{id} and depend on
+    Blazor preferring the literal segment. Its own prefix leaves no doubt, and leaves room for
+    /my/modlists beside it.
+*@
+
+@if (_loading)
+{
+    <p class="text-sm text-muted-foreground">Loading…</p>
+}
+else if (_mods is null)
+{
+    <div class="mx-auto max-w-md py-8">
+        <h1 class="text-2xl font-semibold tracking-tight">Your mods</h1>
+        <Alert Variant="info" Title="You are not signed in" Class="mt-6">
+            Sign in to see the listings you maintain.
+        </Alert>
+        <Button Href="/signin?returnTo=%2Fmy%2Fmods" Class="mt-6">Sign in</Button>
+    </div>
+}
+else
+{
+    <div class="mx-auto max-w-4xl">
+        <header class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+            <div class="min-w-0">
+                <p class="eyebrow text-muted-foreground">Yours</p>
+                <h1 class="mt-2 text-2xl font-bold tracking-tight">Your mods</h1>
+            </div>
+            <Button Href="/mods/new" Size="sm">Add a mod</Button>
+        </header>
+
+        @if (_mods.Count == 0)
+        {
+            <Card Class="mt-6">
+                <p class="text-sm leading-relaxed text-muted-foreground">
+                    You haven't listed anything yet. Listing a mod takes a name and an id; releases
+                    come from the repository you already publish from, so there is nothing to
+                    upload here.
+                </p>
+                <Button Href="/mods/new" Class="mt-4" Size="sm">List your first mod</Button>
+            </Card>
+        }
+        else
+        {
+            @* The ones with something to do, first and together. An author opening this page is
+               asking what needs them, and a list sorted by date buries that among the listings
+               that are simply fine. *@
+            @if (NeedsAttention.Count > 0)
+            {
+                <section class="mt-6">
+                    <h2 class="eyebrow text-muted-foreground">Waiting on you</h2>
+                    <ul class="mt-3 space-y-3">
+                        @foreach (var mod in NeedsAttention)
+                        {
+                            <li>@Row(mod, urgent: true)</li>
+                        }
+                    </ul>
+                </section>
+            }
+
+            @if (Settled.Count > 0)
+            {
+                <section class="@(NeedsAttention.Count > 0 ? "mt-8" : "mt-6")">
+                    <h2 class="eyebrow text-muted-foreground">
+                        @(NeedsAttention.Count > 0 ? "Everything else" : "Your listings")
+                    </h2>
+                    <ul class="mt-3 space-y-3">
+                        @foreach (var mod in Settled)
+                        {
+                            <li>@Row(mod, urgent: false)</li>
+                        }
+                    </ul>
+                </section>
+            }
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<OwnedModStatus>? _mods;
+    private bool _loading = true;
+
+    private List<OwnedModStatus> NeedsAttention => [.. _mods!.Where(m => m.NeedsAttention)];
+    private List<OwnedModStatus> Settled => [.. _mods!.Where(m => !m.NeedsAttention)];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _mods = await Api.GetMyModsAsync();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            // Null means "signed out or unreachable", and both end at the same place: there is
+            // nothing to show and signing in is the only thing that might change that.
+            _mods = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private RenderFragment Row(OwnedModStatus mod, bool urgent) => @<Card Padded="false">
+        <div class="px-5 py-4">
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="@($"/mods/{mod.Id}")" class="font-medium underline-offset-4 hover:underline">
+                    @mod.Name
+                </a>
+                <code class="font-mono text-xs text-muted-foreground">@mod.Id</code>
+
+                @if (mod.Type == "mod-loader")
+                {
+                    <Badge Variant="info">loader</Badge>
+                }
+
+                @if (mod.IsWithdrawn)
+                {
+                    <Badge Variant="error" Title="Withdrawn by moderators. It stays resolvable by id.">
+                        @mod.ListingState
+                    </Badge>
+                }
+                else if (mod.IsDraft)
+                {
+                    <Badge Variant="warning" Title="Not in browse or search. Anyone with the link can see it.">
+                        draft
+                    </Badge>
+                }
+                else
+                {
+                    <Badge Variant="ok">listed</Badge>
+                }
+
+                @if (mod.Status == "deprecated")
+                {
+                    <Badge Variant="outline">deprecated</Badge>
+                }
+
+                @if (!mod.IsOwner)
+                {
+                    @* Worth saying: a maintainer cannot connect the repository or publish, so
+                       half the actions below will not be theirs to take. *@
+                    <Badge Variant="outline" Title="You help run this listing; you do not own it.">
+                        maintainer
+                    </Badge>
+                }
+
+                <span class="ml-auto font-mono text-[0.6875rem] text-muted-foreground">
+                    @Presentation.Ago(mod.UpdatedAt)
+                </span>
+            </div>
+
+            <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                @if (mod.Releases == 0)
+                {
+                    <span>No releases yet</span>
+                }
+                else
+                {
+                    <span>
+                        @mod.Releases release@(mod.Releases == 1 ? "" : "s")
+                        @if (mod.LatestVersion is { Length: > 0 })
+                        {
+                            <text>, latest @mod.LatestVersion</text>
+                        }
+                    </span>
+                }
+
+                @if (mod.RepoFullName is { Length: > 0 })
+                {
+                    <span class="font-mono">@mod.RepoFullName</span>
+
+                    @if (!mod.RepoVerified)
+                    {
+                        <Badge Variant="warning">unverified</Badge>
+                    }
+                }
+
+                @if (mod.ImportRunning)
+                {
+                    <Badge Variant="info">importing…</Badge>
+                }
+            </p>
+        </div>
+
+        @if (mod.NextStep is { } step)
+        {
+            <div class="@Cx.Of("flex flex-wrap items-center gap-3 border-t px-5 py-3",
+                               urgent ? "border-severity-warning/30 bg-severity-warning/5" : "border-border bg-card/50")">
+                <p class="min-w-0 flex-1 text-sm">@step</p>
+
+                @if (mod.NextStepIsYours)
+                {
+                    <Button Href="@($"/mods/{mod.Id}/manage")" Size="sm"
+                            Variant="@(urgent ? "default" : "outline")">
+                        @ActionLabel(mod)
+                    </Button>
+                }
+            </div>
+
+            @if (mod.LastImportError is { Length: > 0 })
+            {
+                @* The forge's own words. Only the author can act on "no .zip asset attached", and
+                   they cannot act on it without being told. *@
+                <p class="border-t border-border px-5 py-3 font-mono text-xs leading-relaxed text-severity-error">
+                    @mod.LastImportError
+                </p>
+            }
+        }
+    </Card>;
+
+    /// <summary>
+    /// Names the button after the step rather than the page it opens. Only reached when the step
+    /// is the reader's to take, so every label here is something they can actually do.
+    /// </summary>
+    private static string ActionLabel(OwnedModStatus mod) =>
+        !mod.RepoConnected ? "Connect a repository"
+        : !mod.RepoVerified ? "Verify it"
+        : mod.Releases == 0 ? "Import releases"
+        : mod.IsDraft ? "Publish"
+        : "Open manage";
+}

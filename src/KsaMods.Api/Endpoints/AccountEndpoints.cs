@@ -145,6 +145,69 @@ public static class AccountEndpoints
             }
         });
 
+        // Everything the caller maintains, with the state that decides what to do about it.
+        //
+        // Deliberately richer than the list on the profile: that one answers "what do I have", and
+        // an author opening a page called Your mods is asking "what needs me". A row that cannot
+        // say whether a listing is published, connected, or failing validation makes them click
+        // into each one to find out.
+        api.MapGet("/mods", async (HttpContext http, Database database, CancellationToken ct) =>
+        {
+            var user = http.User();
+            if (user is null) return Results.Unauthorized();
+
+            using var connection = await database.OpenAsync(ct);
+
+            var rows = await connection.QueryAsync<OwnedModRow>("""
+                select m.id, m.name, m.listing_state as ListingState, m.status,
+                       m.type, m.updated_at as UpdatedAt, mm.role,
+                       (select count(*) from mod_release r where r.mod_id = m.id) as Releases,
+                       (select count(*) from mod_release r
+                        where r.mod_id = m.id and r.validation_state = 'failed')   as FailedReleases,
+                       (select r.version from mod_release r
+                        where r.mod_id = m.id order by r.version_sort desc limit 1) as LatestVersion,
+                       (select r.released_at from mod_release r
+                        where r.mod_id = m.id order by r.version_sort desc limit 1) as LatestReleasedAt,
+                       (l.mod_id is not null)                                       as RepoConnected,
+                       (l.verified_at is not null)                                  as RepoVerified,
+                       l.repo_full_name                                             as RepoFullName,
+                       exists (select 1 from job j
+                               where j.state in ('queued', 'running')
+                                 and j.payload ->> 'modId' = m.id)                  as ImportRunning,
+                       (select j.last_error from job j
+                        where j.state = 'dead' and j.payload ->> 'modId' = m.id
+                        order by j.id desc limit 1)                                 as LastImportError
+                from mod_maintainer mm
+                join mod m on m.id = mm.mod_id
+                left join repo_link l on l.mod_id = m.id
+                where mm.account_id = @id
+                order by m.updated_at desc
+                """,
+                new { id = user.AccountId });
+
+            return Results.Ok(rows.Select(r => new
+            {
+                id = r.Id,
+                name = r.Name,
+                type = r.Type,
+                role = r.Role,
+                listing_state = r.ListingState,
+                status = r.Status,
+                updated_at = r.UpdatedAt,
+                releases = r.Releases,
+                failed_releases = r.FailedReleases,
+                latest_version = r.LatestVersion,
+                latest_released_at = r.LatestReleasedAt,
+                repo_connected = r.RepoConnected,
+                repo_verified = r.RepoVerified,
+                repo_full_name = r.RepoFullName,
+                import_running = r.ImportRunning,
+                // Shown to the author on purpose: "the release has no .zip asset" is something
+                // only they can fix, and hiding it behind a support request helps nobody.
+                last_import_error = r.LastImportError,
+            }));
+        });
+
         api.MapGet("/sessions", async (HttpContext http, Database database, CancellationToken ct) =>
         {
             var user = http.User();
@@ -322,6 +385,26 @@ public static class AccountEndpoints
         if (ContentId.IsReserved(handle)) return "That name is reserved.";
 
         return null;
+    }
+
+    private sealed record OwnedModRow
+    {
+        public string Id { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string Type { get; init; } = "mod";
+        public string Role { get; init; } = "maintainer";
+        public string ListingState { get; init; } = "listed";
+        public string Status { get; init; } = "active";
+        public DateTime UpdatedAt { get; init; }
+        public int Releases { get; init; }
+        public int FailedReleases { get; init; }
+        public string? LatestVersion { get; init; }
+        public DateTime? LatestReleasedAt { get; init; }
+        public bool RepoConnected { get; init; }
+        public bool RepoVerified { get; init; }
+        public string? RepoFullName { get; init; }
+        public bool ImportRunning { get; init; }
+        public string? LastImportError { get; init; }
     }
 
     private sealed record AccountProfileRow

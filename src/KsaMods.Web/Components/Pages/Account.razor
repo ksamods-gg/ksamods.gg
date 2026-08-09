@@ -168,7 +168,14 @@ else
             <Card Class="mt-6" Header="@(b => b.AddContent(0, "Your content"))">
                 @if (_profile.Mods.Count > 0)
                 {
-                    <h3 class="eyebrow text-muted-foreground">Mods</h3>
+                    <div class="flex items-baseline justify-between gap-3">
+                        <h3 class="eyebrow text-muted-foreground">Mods</h3>
+                        @* This list says what you have; the other says what needs you. *@
+                        <a href="/my/mods"
+                           class="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                            Manage your mods
+                        </a>
+                    </div>
                     <ul class="mt-2 divide-y divide-border">
                         @foreach (var mod in _profile.Mods)
                         {
