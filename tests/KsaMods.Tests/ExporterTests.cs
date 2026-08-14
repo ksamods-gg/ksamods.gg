@@ -18,7 +18,9 @@ public class IndexBuilderTests
         string type = ContentType.Mod,
         string? gameMin = "2026.8.3.5117",
         int? gameMinRevision = 5117,
-        Metadata.ReleasesBlock? releases = null) => new()
+        Metadata.ReleasesBlock? releases = null,
+        InstallBlock? install = null,
+        ProvidesBlock? provides = null) => new()
         {
             Id = id,
             Type = type,
@@ -36,6 +38,8 @@ public class IndexBuilderTests
             GameMin = gameMin,
             GameMinRevision = gameMinRevision,
             Releases = releases,
+            Install = install,
+            Provides = provides,
             ListingState = state,
             Dependencies = dependencies ?? [],
         };
@@ -449,6 +453,60 @@ public class IndexBuilderTests
 
         Assert.DoesNotContain("NoBound", index.Content, StringComparison.Ordinal);
         Assert.Contains("\"listings\": 1", index.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_loader_publishes_where_it_goes_and_what_it_offers()
+    {
+        var result = IndexBuilder.Build(Input([Listing(
+            id: "StarMap",
+            type: ContentType.ModLoader,
+            install: new InstallBlock
+            {
+                Target = InstallAnchor.Standalone,
+                Uninstall = ["Delete the StarMap directory."],
+            },
+            provides: new ProvidesBlock
+            {
+                Launch = "StarMap.exe",
+                ContentDir = InstallAnchor.Mods,
+                Configure = new ConfigureBlock
+                {
+                    File = "StarMapConfig.json",
+                    Format = InstallDescriptor.FormatJson,
+                    GamePath = "GameLocation",
+                },
+            })], releases: []));
+
+        var listing = result.Files.Single(f => f.Path.StartsWith("listings/", StringComparison.Ordinal));
+
+        Assert.Contains("\"target\": \"standalone\"", listing.Content, StringComparison.Ordinal);
+        Assert.Contains("\"launch\": \"StarMap.exe\"", listing.Content, StringComparison.Ordinal);
+        Assert.Contains("\"game-path\": \"GameLocation\"", listing.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_descriptor_that_would_write_outside_the_install_is_not_published()
+    {
+        // The last place we can decline. Past here a manager executes it holding write access to
+        // a game directory, so storage being trusted is not a reason to skip the check.
+        var result = IndexBuilder.Build(Input([Listing(
+            install: new InstallBlock { Root = "../../elsewhere" })]));
+
+        Assert.DoesNotContain(result.Files, f => f.Path.StartsWith("listings/", StringComparison.Ordinal));
+        Assert.Contains(result.Skipped, s => s.Reason.Contains("escapes", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_loader_without_a_target_is_not_published()
+    {
+        // There is no convention for a loader, so an incomplete descriptor must not reach a
+        // manager that would then have to guess.
+        var result = IndexBuilder.Build(Input(
+            [Listing(id: "StarMap", type: ContentType.ModLoader, install: new InstallBlock { Root = "StarMap" })],
+            releases: []));
+
+        Assert.Contains(result.Skipped, s => s.Reason.Contains("install.target", StringComparison.Ordinal));
     }
 }
 

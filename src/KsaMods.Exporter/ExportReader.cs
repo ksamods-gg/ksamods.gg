@@ -49,6 +49,7 @@ public static class ExportReader
                    m.listing_state as ListingState,
                    m.game_min_display as GameMin, m.game_min_revision as GameMinRevision,
                    m.game_max_display as GameMax, m.game_max_revision as GameMaxRevision,
+                   m.install::text as Install, m.provides::text as Provides,
                    -- [releases] is what tells a consumer where new releases will appear, and an
                    -- unverified link is a claim rather than a fact, so only a verified one is
                    -- published. RFC 0033 binds ownership to this host: publishing a repository
@@ -92,6 +93,8 @@ public static class ExportReader
             GameMax = r.GameMax,
             GameMaxRevision = r.GameMaxRevision,
             Releases = ReleasesOf(r.ReleaseProvider, r.ReleaseRepo),
+            Install = Read<Metadata.InstallBlock>(r.Install),
+            Provides = Read<Metadata.ProvidesBlock>(r.Provides),
             ListingState = r.ListingState,
         }).ToList();
     }
@@ -130,6 +133,28 @@ public static class ExportReader
     /// rather than a key nothing reads - which is also the honest answer, since RFC 0033's watcher
     /// could not stamp those releases either.</para>
     /// </summary>
+    /// <summary>
+    /// Reads a jsonb column into its record.
+    ///
+    /// <para>Null on anything malformed rather than throwing: one unreadable blob is not a reason
+    /// for the whole export run to fail, and the listing goes out without the section. It cannot
+    /// go out with a <i>wrong</i> one - IndexBuilder re-checks the descriptor before publishing,
+    /// so a section that survives this is still checked against RFC 0035 on the way out.</para>
+    /// </summary>
+    private static T? Read<T>(string? json) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static Metadata.ReleasesBlock? ReleasesOf(string? provider, string? repo) =>
         provider == "github" && !string.IsNullOrWhiteSpace(repo)
             ? new Metadata.ReleasesBlock { GitHub = repo }
@@ -360,6 +385,8 @@ public static class ExportReader
         public int? GameMaxRevision { get; init; }
         public string? ReleaseProvider { get; init; }
         public string? ReleaseRepo { get; init; }
+        public string? Install { get; init; }
+        public string? Provides { get; init; }
         public string ListingState { get; init; } = "listed";
         public string[] Authors { get; init; } = [];
     }

@@ -37,6 +37,14 @@ public sealed record ModRow
     public string? GameMaxDisplay { get; init; }
     public int? GameMaxRevision { get; init; }
 
+    /// <summary>
+    /// The RFC 0035 sections, as stored: serialised JSON, or null for absent. Kept as text through
+    /// this layer because nothing here reads inside them - the shape is guarded by
+    /// <c>InstallDescriptor.Check</c> at the endpoint and again at export.
+    /// </summary>
+    public string? Install { get; init; }
+    public string? Provides { get; init; }
+
     public required long CreatedBy { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -125,6 +133,7 @@ public sealed class ModRepository(Database database)
                    os as Os, created_by as CreatedBy,
                    game_min_display as GameMinDisplay, game_min_revision as GameMinRevision,
                    game_max_display as GameMaxDisplay, game_max_revision as GameMaxRevision,
+                   install::text as Install, provides::text as Provides,
                    created_at as CreatedAt, updated_at as UpdatedAt
             from mod
             where id_lower = @id
@@ -161,11 +170,13 @@ public sealed class ModRepository(Database database)
             insert into mod (id, id_lower, type, name, abstract, description, license, tags,
                              links, status, listing_state, banner_url, icon_url, hide_author,
                              os, game_min_display, game_min_revision,
-                             game_max_display, game_max_revision, created_by)
+                             game_max_display, game_max_revision,
+                             install, provides, created_by)
             values (@Id, lower(@Id), @Type, @Name, @Abstract, @Description, @License, @Tags,
                     @Links::jsonb, @Status, @ListingState, @BannerUrl, @IconUrl, @HideAuthor,
                     @Os, @GameMinDisplay, @GameMinRevision,
-                    @GameMaxDisplay, @GameMaxRevision, @CreatedBy)
+                    @GameMaxDisplay, @GameMaxRevision,
+                    @Install::jsonb, @Provides::jsonb, @CreatedBy)
             """,
             mod, transaction);
 
@@ -203,6 +214,8 @@ public sealed class ModRepository(Database database)
                    game_min_revision = @GameMinRevision,
                    game_max_display  = @GameMaxDisplay,
                    game_max_revision = @GameMaxRevision,
+                   install     = @Install::jsonb,
+                   provides    = @Provides::jsonb,
                    updated_at  = now()
              where id_lower = lower(@Id)
             """,

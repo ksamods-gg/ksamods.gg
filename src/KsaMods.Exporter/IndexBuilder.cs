@@ -208,6 +208,8 @@ public static class IndexBuilder
         Compatibility = listing.GameMin is null && listing.GameMax is null && listing.Os is null
             ? null
             : new CompatibilityBlock { GameMin = listing.GameMin, GameMax = listing.GameMax, Os = listing.Os },
+        Install = listing.Install,
+        Provides = listing.Provides,
         Loader = listing.Loader,
         Dependencies = [.. listing.Dependencies.OrderBy(d => d.Id ?? "", StringComparer.OrdinalIgnoreCase)],
     };
@@ -326,6 +328,14 @@ public static class Conformance
         if (listing.SupersededBy is not null && listing.Status != "deprecated")
         {
             return "superseded_by is only meaningful with status = deprecated";
+        }
+
+        // RFC 0035. Checked again here, on the way out, rather than trusted from storage: a
+        // descriptor is executed by a manager holding write access to a game directory, and this
+        // is the last place we can decline to publish one that would send it somewhere else.
+        if (InstallDescriptor.Check(listing.Type, listing.Install, listing.Provides) is { } install)
+        {
+            return install;
         }
 
         foreach (var dependency in listing.Dependencies)

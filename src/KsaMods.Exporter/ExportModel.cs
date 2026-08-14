@@ -22,6 +22,8 @@ public sealed record ExportListing
     public string? GameMax { get; init; }
     public int? GameMaxRevision { get; init; }
     public ReleasesBlock? Releases { get; init; }
+    public InstallBlock? Install { get; init; }
+    public ProvidesBlock? Provides { get; init; }
     public LoaderBlock? Loader { get; init; }
     public IReadOnlyList<DependencyEntry> Dependencies { get; init; } = [];
 

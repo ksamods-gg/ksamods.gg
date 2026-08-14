@@ -88,6 +88,17 @@ public sealed record AuthoredDocument
     [JsonPropertyName("releases")] public ReleasesBlock? Releases { get; init; }
 
     [JsonPropertyName("compatibility")] public CompatibilityBlock? Compatibility { get; init; }
+
+    /// <summary>Where the content is written, and what a person still has to do (RFC 0035).</summary>
+    [JsonPropertyName("install")] public InstallBlock? Install { get; init; }
+
+    /// <summary>
+    /// What a loader offers the content installed under it. Authored-only: deliberately never
+    /// stamped into a release file, because a manager acting on a stale copy would write mods into
+    /// a directory the installed loader no longer reads.
+    /// </summary>
+    [JsonPropertyName("provides")] public ProvidesBlock? Provides { get; init; }
+
     [JsonPropertyName("loader")] public LoaderBlock? Loader { get; init; }
     [JsonPropertyName("dependencies")] public IReadOnlyList<DependencyEntry> Dependencies { get; init; } = [];
 }
@@ -209,11 +220,41 @@ public sealed record DownloadBlock
 
 public sealed record InstallBlock
 {
-    /// <summary>The directory inside the archive whose contents become the installed folder.</summary>
-    [JsonPropertyName("root")] public required string Root { get; init; }
+    /// <summary>
+    /// The directory inside the archive whose contents become the installed content. Optional:
+    /// absent means derived, and RFC 0035 rule 9 makes the derivation per type - for a mod, the
+    /// single top-level directory containing <c>mod.toml</c>; for everything else, the archive root.
+    /// </summary>
+    [JsonPropertyName("root")] public string? Root { get; init; }
 
     /// <summary>True when the standard layout was found rather than authored.</summary>
     [JsonPropertyName("derived")] public bool Derived { get; init; }
+
+    /// <summary>
+    /// The anchor the content is written to (RFC 0035). Absent falls back to the type's default,
+    /// which for a <c>mod-loader</c> is no default at all: a manager installs nothing and shows the
+    /// listing's links, because there is no convention to guess from.
+    /// </summary>
+    [JsonPropertyName("target")] public string? Target { get; init; }
+
+    /// <summary>Path below the anchor. Absent means the anchor itself.</summary>
+    [JsonPropertyName("path")] public string? Path { get; init; }
+
+    /// <summary>
+    /// Paths, relative to the install location, that this content owns and rewrites. A manager must
+    /// not edit them.
+    /// </summary>
+    [JsonPropertyName("manages")] public IReadOnlyList<string>? Manages { get; init; }
+
+    /// <summary>
+    /// Ordered actions a person must take that a manager cannot perform, in the author's own words.
+    ///
+    /// <para>Prose, and RFC 0035 rule 7 forbids parsing it for actions. Absent and empty differ:
+    /// absent means the author said nothing, <c>[]</c> means they state there are none.</para>
+    /// </summary>
+    [JsonPropertyName("steps")] public IReadOnlyList<string>? Steps { get; init; }
+
+    [JsonPropertyName("uninstall")] public IReadOnlyList<string>? Uninstall { get; init; }
 }
 
 public sealed record ListingSnapshot

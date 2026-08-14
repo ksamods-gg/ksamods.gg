@@ -55,7 +55,8 @@ public sealed record CreateModBody(
 public sealed record EditModBody(
     string? Name, string? Abstract, string? Description, string? License,
     string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl, string? IconUrl = null,
-    bool? HideAuthor = null, string? GameMin = null, string? GameMax = null);
+    bool? HideAuthor = null, string? GameMin = null, string? GameMax = null,
+    InstallBlock? Install = null, ProvidesBlock? Provides = null);
 
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
@@ -241,6 +242,21 @@ public static class ModEndpoints
 
             if (Inverted(gameMin, gameMax)) return BadBound("gameMax", InvertedMessage);
 
+            // The install descriptor, checked before it is stored rather than only before it is
+            // exported. Both matter: a manager executes this holding write access to a game
+            // directory, and an author who typed a path that escapes should be told now, not by
+            // their listing quietly vanishing from the next export.
+            var install = body.Install ?? Deserialise<InstallBlock>(mod.Install);
+            var provides = body.Provides ?? Deserialise<ProvidesBlock>(mod.Provides);
+
+            if (InstallDescriptor.Check(mod.Type, install, provides) is { } descriptorError)
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["install"] = [descriptorError],
+                });
+            }
+
             // Absent fields keep their current value, so a caller sending only one field does not
             // silently blank the rest.
             await mods.UpdateAsync(mod with
@@ -260,6 +276,8 @@ public static class ModEndpoints
                 GameMinRevision = gameMin?.Revision,
                 GameMaxDisplay = gameMax?.Display,
                 GameMaxRevision = gameMax?.Revision,
+                Install = Serialise(install),
+                Provides = Serialise(provides),
 
                 // Nullable on the body so "not sent" and "sent as false" stay different. A plain
                 // bool would default to false, and every edit that never mentioned this field
@@ -1084,6 +1102,28 @@ public static class ModEndpoints
 
     private const string InvertedMessage =
         "The newest tested build cannot be older than the oldest one that works.";
+
+    /// <summary>
+    /// Reads a stored section back so an edit that does not mention it is still checked against
+    /// the one that is there. Null on anything malformed, which then fails the check rather than
+    /// being silently preserved.
+    /// </summary>
+    private static T? Deserialise<T>(string? json) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<T>(json);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? Serialise<T>(T? value) where T : class =>
+        value is null ? null : System.Text.Json.JsonSerializer.Serialize(value);
 
     private static IResult BadBound(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
