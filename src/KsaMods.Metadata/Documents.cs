@@ -79,9 +79,36 @@ public sealed record AuthoredDocument
     public IReadOnlyDictionary<string, string> Links { get; init; } =
         new Dictionary<string, string>();
 
+    /// <summary>
+    /// Where releases appear. Its presence is what tells RFC 0033's watcher it may stamp releases
+    /// for this listing unattended; a listing without one takes the pull request path instead.
+    /// It is also what ownership binds to, so omitting it moves the proof onto
+    /// <c>links.repository</c>.
+    /// </summary>
+    [JsonPropertyName("releases")] public ReleasesBlock? Releases { get; init; }
+
     [JsonPropertyName("compatibility")] public CompatibilityBlock? Compatibility { get; init; }
     [JsonPropertyName("loader")] public LoaderBlock? Loader { get; init; }
     [JsonPropertyName("dependencies")] public IReadOnlyList<DependencyEntry> Dependencies { get; init; } = [];
+}
+
+/// <summary>
+/// The hosts a listing's releases appear on (RFC 0031 §<c>[releases]</c>).
+///
+/// <para><c>authority</c> names which one is canonical and is only meaningful with more than one
+/// host, so it stays absent in the single-host case rather than restating the obvious.</para>
+/// </summary>
+public sealed record ReleasesBlock
+{
+    /// <summary><c>owner/repo</c>. Not a URL: the watcher calls the API, not the web page.</summary>
+    [JsonPropertyName("github")] public string? GitHub { get; init; }
+
+    /// <summary>The numeric SpaceDock mod id.</summary>
+    [JsonPropertyName("spacedock")] public long? SpaceDock { get; init; }
+
+    [JsonPropertyName("authority")] public string? Authority { get; init; }
+
+    public bool IsEmpty => GitHub is null && SpaceDock is null;
 }
 
 public sealed record CompatibilityBlock

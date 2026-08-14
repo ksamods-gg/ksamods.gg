@@ -86,6 +86,16 @@
                         <input @attributes="field" type="url" @bind="_form.Forums"
                                placeholder="https://forums.ahwoo.com/threads/…" class="@InputClass" />
                     </Field>
+
+                    @* Asked here rather than left to the manage screen, because a listing without
+                       it never reaches the exported index, and an author who finds that out later
+                       finds it out from their mod being missing. *@
+                    <Field Context="field" Id="game-min" Label="Oldest game build it works on" Required="false"
+                           Error="@_gameMinError"
+                           Hint="The build you tested on, written the way the game shows it — 2026.8.3.5117 — or a whole month, 2026.8. Without it every client has to ask before installing your mod, because we can't tell them it fits.">
+                        <input @attributes="field" @bind="_form.GameMin"
+                               placeholder="2026.8.3.5117" class="@InputClass" />
+                    </Field>
                 </div>
             </Card>
 
@@ -103,6 +113,7 @@
 @code {
     private readonly Form _form = new();
     private string? _idError;
+    private string? _gameMinError;
     private string? _idPreview;
     private string? _serverError;
     private bool _submitting;
@@ -169,6 +180,11 @@
         ValidateId();
         if (_idError is not null) return;
 
+        // Checked here as well as by the API so a typo comes back beside the field instead of as
+        // a rejected submission. The API is still the authority: a month only resolves there.
+        _gameMinError = ValidateBound(_form.GameMin);
+        if (_gameMinError is not null) return;
+
         _submitting = true;
         _serverError = null;
 
@@ -180,7 +196,8 @@
             var result = await Api.CreateModAsync(new CreateModRequest(
                 _form.Id.Trim(), _form.Name.Trim(), _form.Abstract.Trim(), _form.License.Trim(),
                 Links: links.Count > 0 ? links : null,
-                BannerUrl: string.IsNullOrWhiteSpace(_form.BannerUrl) ? null : _form.BannerUrl.Trim()));
+                BannerUrl: string.IsNullOrWhiteSpace(_form.BannerUrl) ? null : _form.BannerUrl.Trim(),
+                GameMin: string.IsNullOrWhiteSpace(_form.GameMin) ? null : _form.GameMin.Trim()));
 
             if (result.Success && result.Id is not null)
             {
@@ -210,6 +227,17 @@
         }
     }
 
+    /// <summary>
+    /// Accepts a full game version or a whole month, the two granularities RFC 0031 offers.
+    /// Empty is fine here - the bound is not required to create the listing, only to export it.
+    /// </summary>
+    private static string? ValidateBound(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || KsaVersion.TryParse(value, out _)
+        || KsaVersion.TryParseMonth(value, out _)
+            ? null
+            : "Write it the way the game shows it, such as 2026.8.3.5117, or a whole month, such as 2026.8.";
+
     private sealed class Form
     {
         public string Id { get; set; } = "";
@@ -218,5 +246,6 @@
         public string License { get; set; } = "MIT";
         public string BannerUrl { get; set; } = "";
         public string Forums { get; set; } = "";
+        public string GameMin { get; set; } = "";
     }
 }

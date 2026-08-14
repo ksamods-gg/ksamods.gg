@@ -27,6 +27,16 @@ public sealed record ModRow
     public bool HideAuthor { get; init; }
 
     public string[]? Os { get; init; }
+
+    /// <summary>
+    /// The authored compatibility bound (RFC 0031). Display is what the author wrote; the revision
+    /// is what orders. A release inherits both unless it carries its own.
+    /// </summary>
+    public string? GameMinDisplay { get; init; }
+    public int? GameMinRevision { get; init; }
+    public string? GameMaxDisplay { get; init; }
+    public int? GameMaxRevision { get; init; }
+
     public required long CreatedBy { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
@@ -113,6 +123,8 @@ public sealed class ModRepository(Database database)
                    listing_state as ListingState, banner_url as BannerUrl,
                    icon_url as IconUrl, hide_author as HideAuthor,
                    os as Os, created_by as CreatedBy,
+                   game_min_display as GameMinDisplay, game_min_revision as GameMinRevision,
+                   game_max_display as GameMaxDisplay, game_max_revision as GameMaxRevision,
                    created_at as CreatedAt, updated_at as UpdatedAt
             from mod
             where id_lower = @id
@@ -148,10 +160,12 @@ public sealed class ModRepository(Database database)
         await connection.ExecuteAsync("""
             insert into mod (id, id_lower, type, name, abstract, description, license, tags,
                              links, status, listing_state, banner_url, icon_url, hide_author,
-                             os, created_by)
+                             os, game_min_display, game_min_revision,
+                             game_max_display, game_max_revision, created_by)
             values (@Id, lower(@Id), @Type, @Name, @Abstract, @Description, @License, @Tags,
                     @Links::jsonb, @Status, @ListingState, @BannerUrl, @IconUrl, @HideAuthor,
-                    @Os, @CreatedBy)
+                    @Os, @GameMinDisplay, @GameMinRevision,
+                    @GameMaxDisplay, @GameMaxRevision, @CreatedBy)
             """,
             mod, transaction);
 
@@ -185,6 +199,10 @@ public sealed class ModRepository(Database database)
                    banner_url  = @BannerUrl,
                    icon_url    = @IconUrl,
                    hide_author = @HideAuthor,
+                   game_min_display  = @GameMinDisplay,
+                   game_min_revision = @GameMinRevision,
+                   game_max_display  = @GameMaxDisplay,
+                   game_max_revision = @GameMaxRevision,
                    updated_at  = now()
              where id_lower = lower(@Id)
             """,

@@ -20,6 +20,13 @@ public static class IndexBuilder
 {
     public const int SpecVersion = 1;
 
+    /// <summary>
+    /// The snapshot envelope's version, bumped when its shape changes. Separate from
+    /// <see cref="SpecVersion"/>: the documents inside it and the wrapper around them are two
+    /// formats that move for different reasons.
+    /// </summary>
+    public const int SnapshotVersion = 1;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true,
@@ -60,18 +67,16 @@ public static class IndexBuilder
                 Serialise(ToAuthored(listing))));
         }
 
-        var exportableIds = exportable
-            .Select(l => l.Id)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var byId = exportable.ToDictionary(l => l.Id, StringComparer.OrdinalIgnoreCase);
 
         foreach (var release in input.Releases
-                     .Where(r => exportableIds.Contains(r.ModId))
+                     .Where(r => byId.ContainsKey(r.ModId))
                      .OrderBy(r => r.ModId, StringComparer.OrdinalIgnoreCase)
                      .ThenBy(r => SemVer.Parse(r.Version)))
         {
             files.Add(new ExportFile(
                 $"releases/{release.ModId.ToLowerInvariant()}/{release.Version}.json",
-                Serialise(ToRelease(release))));
+                Serialise(ToRelease(release, byId[release.ModId]))));
         }
 
         foreach (var modlist in input.Modlists
@@ -118,13 +123,59 @@ public static class IndexBuilder
                     .ToList())));
         }
 
+        // The client contract (RFC 0033): one artifact carrying the whole index, so search,
+        // dependency resolution and compatibility all work from a single fetch and then offline.
+        //
+        // It used to be a counts manifest - three numbers and a timestamp - which told a client
+        // how much it was about to have to fetch and nothing it could act on. The per-file paths
+        // above stay as the secondary path the RFC allows for tooling, but they are explicitly not
+        // the contract, so the layout can be reorganised without breaking anyone.
+        var releaseDocuments = input.Releases
+            .Where(r => byId.ContainsKey(r.ModId))
+            .OrderBy(r => r.ModId, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => SemVer.Parse(r.Version))
+            .Select(r => ToRelease(r, byId[r.ModId]))
+            .ToList();
+
         files.Add(new ExportFile("index.json", Serialise(new
         {
+            // Its own version, separate from the document spec version, because the shape of the
+            // envelope and the shape of the documents inside it change for different reasons.
+            snapshot_version = SnapshotVersion,
             spec_version = SpecVersion,
             generated_at = input.GeneratedAt,
-            listings = exportable.Count,
-            releases = files.Count(f => f.Path.StartsWith("releases/", StringComparison.Ordinal)),
-            modlists = files.Count(f => f.Path.StartsWith("modlists/", StringComparison.Ordinal)),
+
+            counts = new
+            {
+                listings = exportable.Count,
+                releases = releaseDocuments.Count,
+                modlists = files.Count(f => f.Path.StartsWith("modlists/", StringComparison.Ordinal)),
+            },
+
+            listings = exportable.Select(ToAuthored).ToList(),
+            releases = releaseDocuments,
+
+            modlists = input.Modlists
+                .Where(m => m.Visibility == "public")
+                .OrderBy(m => m.ModlistId, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(m => SemVer.Parse(m.Version))
+                .Select(ToModlist)
+                .ToList(),
+
+            // The index's own voice about a listing, which RFC 0031 requires be distinct from the
+            // author's status field and which the author cannot write. A withdrawn listing is here
+            // and nowhere else in the snapshot.
+            status = input.Tombstones
+                .OrderBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(t => new { id = t.Id, status = t.Status })
+                .ToList(),
+
+            // Shipped inside the snapshot so a client needs no second request to resolve a month
+            // bound for a period its own install does not cover (RFC 0017, RFC 0033).
+            builds = input.Builds
+                .OrderBy(b => b.Revision)
+                .Select(b => new { revision = b.Revision, build = b.VersionString, date = b.Released })
+                .ToList(),
         })));
 
         return new ExportResult
@@ -153,6 +204,7 @@ public static class IndexBuilder
         Links = listing.Links
             .OrderBy(kv => kv.Key, StringComparer.Ordinal)
             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal),
+        Releases = listing.Releases is { IsEmpty: false } ? listing.Releases : null,
         Compatibility = listing.GameMin is null && listing.GameMax is null && listing.Os is null
             ? null
             : new CompatibilityBlock { GameMin = listing.GameMin, GameMax = listing.GameMax, Os = listing.Os },
@@ -160,19 +212,29 @@ public static class IndexBuilder
         Dependencies = [.. listing.Dependencies.OrderBy(d => d.Id ?? "", StringComparer.OrdinalIgnoreCase)],
     };
 
-    private static ReleaseDocument ToRelease(ExportRelease release) => new()
+    /// <summary>
+    /// Stamps a release document.
+    ///
+    /// <para>The listing is a parameter rather than a lookup because two of the release's fields
+    /// are not the release's to decide. <c>type</c> is the listing's - it used to be hardcoded to
+    /// <c>mod</c>, which typed every StarMap release as a mod and told clients the loader was
+    /// something that needed one. And the compatibility bound is authored once on the listing and
+    /// inherited here, per RFC 0031's merge, with an explicit release bound winning because that
+    /// is what an amendment writes.</para>
+    /// </summary>
+    private static ReleaseDocument ToRelease(ExportRelease release, ExportListing listing) => new()
     {
         SpecVersion = SpecVersion,
         Id = release.ModId,
-        Type = ContentType.Mod,
+        Type = listing.Type,
         Version = release.Version,
         Status = release.Status,
         ReleaseDate = release.ReleasedAt,
-        GameMin = release.GameMin,
-        GameMinRevision = release.GameMinRevision,
-        GameMax = release.GameMax,
-        GameMaxRevision = release.GameMaxRevision,
-        Os = release.Os,
+        GameMin = release.GameMin ?? listing.GameMin,
+        GameMinRevision = release.GameMin is null ? listing.GameMinRevision : release.GameMinRevision,
+        GameMax = release.GameMax ?? listing.GameMax,
+        GameMaxRevision = release.GameMax is null ? listing.GameMaxRevision : release.GameMaxRevision,
+        Os = release.Os ?? listing.Os,
         Download = new DownloadBlock
         {
             Url = release.DownloadUrl,
@@ -239,6 +301,26 @@ public static class Conformance
         if (!listing.Links.TryGetValue("forums", out var forums) || string.IsNullOrWhiteSpace(forums))
         {
             return "links.forums is required by RFC 0031 and is missing";
+        }
+
+        // RFC 0031 makes game_min required, and RFC 0017 explains why it cannot simply be omitted:
+        // a missing lower bound is Unknown, not "any", so a listing without one asks every client
+        // to confirm every install by hand. Skipping the listing is the louder failure, and the
+        // reason reaches its maintainers, where "silently evaluates as Unknown forever" would not.
+        if (string.IsNullOrWhiteSpace(listing.GameMin))
+        {
+            return "compatibility.game_min is required by RFC 0031 and is missing";
+        }
+
+        if (!KsaVersion.TryParse(listing.GameMin, out _) && !KsaVersion.TryParseMonth(listing.GameMin, out _))
+        {
+            return $"compatibility.game_min '{listing.GameMin}' is neither a game version nor a month";
+        }
+
+        if (listing.GameMax is { Length: > 0 } max &&
+            !KsaVersion.TryParse(max, out _) && !KsaVersion.TryParseMonth(max, out _))
+        {
+            return $"compatibility.game_max '{max}' is neither a game version nor a month";
         }
 
         if (listing.SupersededBy is not null && listing.Status != "deprecated")

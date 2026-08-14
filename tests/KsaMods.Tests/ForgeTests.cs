@@ -161,6 +161,50 @@ public class ForgeTests
     }
 
     [Fact]
+    public void The_index_topic_names_the_account_in_lower_case()
+    {
+        // RFC 0038. GitHub normalises topics to lower case while a login keeps whatever case its
+        // owner chose, so building the topic from the login as typed would produce one nobody can
+        // set and every check would fail on capitalisation the user never entered.
+        Assert.Equal("ksa-index-maximilian-nesslauer",
+            RepositoryProof.IndexTopic("Maximilian-Nesslauer"));
+
+        Assert.True(RepositoryProof.SatisfiedByIndexTopic(
+            ["ksa", "ksa-index-safeshows"], "SafeShows"));
+
+        Assert.True(RepositoryProof.SatisfiedByIndexTopic(
+            ["KSA-INDEX-SAFESHOWS"], "safeshows"));
+    }
+
+    [Fact]
+    public void The_index_topic_proves_nothing_for_another_account()
+    {
+        // The whole point of the topic naming the claimant: one on the repository verifies that
+        // person and nobody else, so a second admin has to set their own.
+        Assert.False(RepositoryProof.SatisfiedByIndexTopic(["ksa-index-someoneelse"], "safeshows"));
+        Assert.False(RepositoryProof.SatisfiedByIndexTopic(["ksa-index-"], "safeshows"));
+        Assert.False(RepositoryProof.SatisfiedByIndexTopic(["ksa-index-safeshows"], null));
+        Assert.False(RepositoryProof.SatisfiedByIndexTopic(null, "safeshows"));
+
+        // A login that is a prefix of another's must not match it, which is what would happen if
+        // the comparison were a contains rather than an equals.
+        Assert.False(RepositoryProof.SatisfiedByIndexTopic(["ksa-index-safeshowsxyz"], "safeshows"));
+    }
+
+    [Fact]
+    public void The_index_marker_has_to_name_the_claiming_account()
+    {
+        Assert.True(RepositoryProof.SatisfiedByIndexMarker(
+            "id = \"StarMap\"\nowner = \"SafeShows\"\n", "safeshows"));
+
+        Assert.False(RepositoryProof.SatisfiedByIndexMarker(
+            "id = \"StarMap\"\nowner = \"SomeoneElse\"\n", "safeshows"));
+
+        Assert.False(RepositoryProof.SatisfiedByIndexMarker(null, "safeshows"));
+        Assert.False(RepositoryProof.SatisfiedByIndexMarker("owner = \"safeshows\"", null));
+    }
+
+    [Fact]
     public void A_published_challenge_satisfies_the_proof_despite_a_trailing_newline()
     {
         // Every editor adds one. Refusing over it would be a puzzle rather than a safeguard.

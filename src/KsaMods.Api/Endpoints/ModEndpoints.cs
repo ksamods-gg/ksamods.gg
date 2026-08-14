@@ -45,7 +45,8 @@ internal sealed record JobStatusRow
 public sealed record CreateModBody(
     string Id, string Name, string Abstract, string License,
     string? Description, string[]? Tags, Dictionary<string, string>? Links,
-    string? BannerUrl = null, string? IconUrl = null);
+    string? BannerUrl = null, string? IconUrl = null,
+    string? GameMin = null, string? GameMax = null);
 
 /// <summary>
 /// Every field optional: a caller sending one field changes one field. No id, because the id is
@@ -54,7 +55,7 @@ public sealed record CreateModBody(
 public sealed record EditModBody(
     string? Name, string? Abstract, string? Description, string? License,
     string[]? Tags, Dictionary<string, string>? Links, string? BannerUrl, string? IconUrl = null,
-    bool? HideAuthor = null);
+    bool? HideAuthor = null, string? GameMin = null, string? GameMax = null);
 
 public sealed record ConnectRepoBody(string Provider, string RepoId, string RepoFullName, string? InstallationId, string? AssetGlob);
 
@@ -71,7 +72,7 @@ public static class ModEndpoints
 
         api.MapPost("/mods", async (
             CreateModBody body, HttpContext http, ModRepository mods,
-            TagVocabulary vocabulary, CancellationToken ct) =>
+            TagVocabulary vocabulary, GameBounds bounds, CancellationToken ct) =>
         {
             var user = http.User();
             if (user is null) return Results.Unauthorized();
@@ -121,6 +122,16 @@ public static class ModEndpoints
 
             if (refused.Count > 0) return UnknownTags(refused);
 
+            // Not required to create - a listing exists before its author knows which build they
+            // tested on - but required to export, and the same conformance note below says so.
+            var (minOk, gameMin, minError) = await bounds.ResolveAsync(body.GameMin, isUpperBound: false, ct);
+            if (!minOk) return BadBound("gameMin", minError!);
+
+            var (maxOk, gameMax, maxError) = await bounds.ResolveAsync(body.GameMax, isUpperBound: true, ct);
+            if (!maxOk) return BadBound("gameMax", maxError!);
+
+            if (Inverted(gameMin, gameMax)) return BadBound("gameMax", InvertedMessage);
+
             var links = body.Links ?? [];
 
             await mods.CreateAsync(new ModRow
@@ -142,19 +153,29 @@ public static class ModEndpoints
                 ListingState = "unlisted",
                 BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
                 IconUrl = string.IsNullOrWhiteSpace(body.IconUrl) ? null : body.IconUrl.Trim(),
+                GameMinDisplay = gameMin?.Display,
+                GameMinRevision = gameMin?.Revision,
+                GameMaxDisplay = gameMax?.Display,
+                GameMaxRevision = gameMax?.Revision,
                 CreatedBy = user.AccountId,
                 CreatedAt = DateTimeOffset.UtcNow,
                 UpdatedAt = DateTimeOffset.UtcNow,
             }, user.AccountId, ct);
 
+            // Neither is required to create - a listing exists before its author has a forums
+            // thread or knows which build they tested on - but both are required by RFC 0031 for
+            // the listing to appear in the exported index, and an author who is not told that
+            // finds out by their mod never showing up anywhere.
+            var missing = new List<string>();
+            if (!links.ContainsKey("forums")) missing.Add("a KSA forums thread under links.forums");
+            if (gameMin is null) missing.Add("the oldest game build it works on, as gameMin");
+
             return Results.Created($"/api/v1/mods/{id.Value.Value}", new
             {
                 id = id.Value.Value,
-                // The forums link is not required to create - app installation is the stronger
-                // ownership proof - but it is required to appear in the exported index.
-                note = links.ContainsKey("forums")
+                note = missing.Count == 0
                     ? null
-                    : "Add a KSA forums thread under links.forums; it is required for this listing to appear in the exported index.",
+                    : $"Add {string.Join(" and ", missing)}; RFC 0031 requires {(missing.Count == 1 ? "it" : "them")} for this listing to appear in the exported index.",
             });
         });
 
@@ -162,7 +183,7 @@ public static class ModEndpoints
         // the mod under, so it cannot change without breaking every install of it.
         api.MapPatch("/mods/{id}", async (
             string id, EditModBody body, HttpContext http, ModRepository mods,
-            TagVocabulary vocabulary, CancellationToken ct) =>
+            TagVocabulary vocabulary, GameBounds bounds, CancellationToken ct) =>
         {
             var principal = await http.PrincipalForModAsync(mods, id, ct);
             if (principal is null) return Results.Unauthorized();
@@ -192,6 +213,34 @@ public static class ModEndpoints
                 tags = accepted;
             }
 
+            // Absent keeps, empty string clears. Without the second case an author who wrote the
+            // wrong bound could correct it but never withdraw it.
+            GameBound? gameMin = mod.GameMinDisplay is null
+                ? null
+                : new GameBound(mod.GameMinDisplay, mod.GameMinRevision);
+
+            GameBound? gameMax = mod.GameMaxDisplay is null
+                ? null
+                : new GameBound(mod.GameMaxDisplay, mod.GameMaxRevision);
+
+            if (body.GameMin is not null)
+            {
+                var (ok, resolved, error) = await bounds.ResolveAsync(body.GameMin, isUpperBound: false, ct);
+                if (!ok) return BadBound("gameMin", error!);
+
+                gameMin = resolved;
+            }
+
+            if (body.GameMax is not null)
+            {
+                var (ok, resolved, error) = await bounds.ResolveAsync(body.GameMax, isUpperBound: true, ct);
+                if (!ok) return BadBound("gameMax", error!);
+
+                gameMax = resolved;
+            }
+
+            if (Inverted(gameMin, gameMax)) return BadBound("gameMax", InvertedMessage);
+
             // Absent fields keep their current value, so a caller sending only one field does not
             // silently blank the rest.
             await mods.UpdateAsync(mod with
@@ -206,6 +255,11 @@ public static class ModEndpoints
                     : System.Text.Json.JsonSerializer.Serialize(body.Links),
                 BannerUrl = string.IsNullOrWhiteSpace(body.BannerUrl) ? null : body.BannerUrl.Trim(),
                 IconUrl = string.IsNullOrWhiteSpace(body.IconUrl) ? null : body.IconUrl.Trim(),
+
+                GameMinDisplay = gameMin?.Display,
+                GameMinRevision = gameMin?.Revision,
+                GameMaxDisplay = gameMax?.Display,
+                GameMaxRevision = gameMax?.Revision,
 
                 // Nullable on the body so "not sent" and "sent as false" stay different. A plain
                 // bool would default to false, and every edit that never mentioned this field
@@ -614,6 +668,15 @@ public static class ModEndpoints
                 verified_by = link.VerifiedBy,
                 challenge = link.challenge,
                 file_path = RepositoryProof.FilePath,
+
+                // Named on every load, not only after a failed verify, because it is the proof
+                // worth setting first: it names the account rather than the listing, so it
+                // verifies every repository they connect, here and on the community index both.
+                index_topic = await connection.ExecuteScalarAsync<string?>(
+                    "select github_login from account where id = @accountId",
+                    new { accountId = principal.AccountId }) is { Length: > 0 } githubLogin
+                    ? RepositoryProof.IndexTopic(githubLogin)
+                    : null,
             });
         });
 
@@ -689,6 +752,13 @@ public static class ModEndpoints
                 """,
                 new { accountId = principal.AccountId, provider = link.Provider });
 
+            // Kept in step at every sign-in, so it is the login GitHub knows them by today rather
+            // than the one they had when they registered. A rename therefore fails closed - the
+            // topic stops matching until they set the new one - which is the safe direction.
+            var login = await connection.ExecuteScalarAsync<string?>(
+                "select github_login from account where id = @accountId",
+                new { accountId = principal.AccountId });
+
             try
             {
                 var forge = forges.For(link.Provider);
@@ -699,6 +769,14 @@ public static class ModEndpoints
                 {
                     method = "owner";
                 }
+                else if (RepositoryProof.SatisfiedByIndexTopic(repository.Topics, login))
+                {
+                    // The community index's own topic (RFC 0038). Checked before ours because it
+                    // is the one an author is likeliest to have already set: it names them rather
+                    // than a listing, so one topic covers every repository they will ever claim,
+                    // here and on the index both.
+                    method = "index-topic";
+                }
                 else if (RepositoryProof.SatisfiedByTopic(repository.Topics, link.challenge))
                 {
                     method = "topic";
@@ -708,7 +786,21 @@ public static class ModEndpoints
                     published = await forge.ReadVerificationFileAsync(
                         link.RepoFullName, RepositoryProof.FilePath, ct);
 
-                    if (RepositoryProof.Satisfies(published, link.challenge)) method = "challenge";
+                    if (RepositoryProof.Satisfies(published, link.challenge))
+                    {
+                        method = "challenge";
+                    }
+                    else if (RepositoryProof.SatisfiedByIndexMarker(
+                                 await forge.ReadVerificationFileAsync(
+                                     link.RepoFullName, RepositoryProof.IndexMarkerPath, ct),
+                                 login))
+                    {
+                        // Last, because it is the only proof that costs a second request, and by
+                        // RFC 0033's own reckoning the one an author is least likely to have:
+                        // placing it means a commit, which under branch protection is a pull
+                        // request in front of a pull request.
+                        method = "index-marker";
+                    }
                 }
             }
             catch (ForgeException e)
@@ -724,11 +816,17 @@ public static class ModEndpoints
                     error = "not_verified",
                     detail = published is null
                         ? "No matching topic, and no "
-                          + $"{RepositoryProof.FilePath} on the default branch. Either proof works, and a change "
+                          + $"{RepositoryProof.FilePath} on the default branch. Any of the proofs works, and a change "
                           + "can take a moment to show up in the forge's API."
                         : $"Neither the topics nor {RepositoryProof.FilePath} carry the challenge for this listing.",
                     challenge = link.challenge,
                     file_path = RepositoryProof.FilePath,
+
+                    // Offered as an alternative to the challenge, not a replacement for it. It is
+                    // the community index's proof (RFC 0038), so somebody who sets it here is
+                    // setting it once for both, and it stays valid for every future listing they
+                    // point at this repository.
+                    index_topic = login is null ? null : RepositoryProof.IndexTopic(login),
                 });
             }
 
@@ -983,6 +1081,19 @@ public static class ModEndpoints
                 ["tags"] = [.. refused.Select(r => $"{r.Key}: {r.Value}")],
             },
             detail: "Tags come from the site's list. You can suggest a new one, and an admin decides.");
+
+    private const string InvertedMessage =
+        "The newest tested build cannot be older than the oldest one that works.";
+
+    private static IResult BadBound(string field, string message) =>
+        Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });
+
+    /// <summary>
+    /// Only compares where both ends resolved. A month still in progress leaves the upper bound
+    /// open, and an open bound has no revision to be inverted against.
+    /// </summary>
+    private static bool Inverted(GameBound? min, GameBound? max) =>
+        min?.Revision is { } lower && max?.Revision is { } upper && upper < lower;
 
     private static bool IsUsableBannerUrl(string candidate) =>
         candidate.Trim() is { Length: > 0 and <= 2048 } url

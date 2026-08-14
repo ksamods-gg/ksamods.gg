@@ -104,6 +104,17 @@ builder.Services.AddSingleton(new PollPolicy
     Interval = TimeSpan.FromMinutes(builder.Configuration.GetValue("Poll:IntervalMinutes", 20)),
     BatchSize = builder.Configuration.GetValue("Poll:BatchSize", 50),
 });
+// The game build list. Without it a month bound never resolves to a revision, and every release
+// carrying one evaluates as Unknown (RFC 0017).
+builder.Services.AddSingleton(new BuildPolicy
+{
+    MasterUrl = builder.Configuration["Builds:MasterUrl"] ?? new BuildPolicy().MasterUrl,
+    BackfillUrl = builder.Configuration["Builds:BackfillUrl"] ?? new BuildPolicy().BackfillUrl,
+    Interval = TimeSpan.FromMinutes(builder.Configuration.GetValue("Builds:IntervalMinutes", 60)),
+    Backfill = builder.Configuration.GetValue("Builds:Backfill", true),
+});
+builder.Services.AddHostedService<BuildPoller>();
+
 builder.Services.AddHostedService<ReleasePoller>();
 builder.Services.AddHostedService<ReverifySweeper>();
 builder.Services.AddHostedService<JobPump>();

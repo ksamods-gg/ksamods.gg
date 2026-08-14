@@ -650,6 +650,13 @@ public sealed record ModDetail
     [JsonPropertyName("banner_url")] public string? BannerUrl { get; init; }
     [JsonPropertyName("icon_url")] public string? IconUrl { get; init; }
 
+    /// <summary>
+    /// The authored compatibility bound, as the author wrote it. Required by RFC 0031 for the
+    /// listing to export, so the manage screen has to be able to show it back.
+    /// </summary>
+    [JsonPropertyName("game_min")] public string? GameMin { get; init; }
+    [JsonPropertyName("game_max")] public string? GameMax { get; init; }
+
     /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
     [JsonPropertyName("your_role")] public string? YourRole { get; init; }
 
@@ -1270,14 +1277,15 @@ public sealed record AdminJob
 public sealed record CreateModRequest(
     string Id, string Name, string Abstract, string License,
     string? Description = null, string[]? Tags = null,
-    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null);
+    Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null,
+    string? GameMin = null, string? GameMax = null);
 
 /// <summary>Null means "leave this one alone", so a partial edit stays partial.</summary>
 public sealed record EditModRequest(
     string? Name = null, string? Abstract = null, string? Description = null,
     string? License = null, string[]? Tags = null,
     Dictionary<string, string>? Links = null, string? BannerUrl = null, string? IconUrl = null,
-    bool? HideAuthor = null);
+    bool? HideAuthor = null, string? GameMin = null, string? GameMax = null);
 
 /// <summary>
 /// RepoId is no longer asked of the author: the API resolves it from the forge, which is one less
@@ -1300,8 +1308,18 @@ public sealed record RepoLinkChallenge
     [JsonPropertyName("default_branch")] public string DefaultBranch { get; init; } = "main";
     [JsonPropertyName("verified")] public bool Verified { get; init; }
 
-    /// <summary>owner, topic, challenge, staff or app_installation. Null while unverified.</summary>
+    /// <summary>
+    /// owner, index-topic, topic, challenge, index-marker, staff or app_installation. Null while
+    /// unverified.
+    /// </summary>
     [JsonPropertyName("verified_by")] public string? VerifiedBy { get; init; }
+
+    /// <summary>
+    /// The community index's ownership topic for this account (RFC 0038), <c>ksa-index-{login}</c>.
+    /// Null when the account has no GitHub login on file, which is the one case where we cannot
+    /// name the topic they would have to set.
+    /// </summary>
+    [JsonPropertyName("index_topic")] public string? IndexTopic { get; init; }
 
     /// <summary>The account the repository sits under, when ownership is what settled it.</summary>
     [JsonPropertyName("owner_login")] public string? OwnerLogin { get; init; }

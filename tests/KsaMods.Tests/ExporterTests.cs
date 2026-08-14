@@ -14,10 +14,14 @@ public class IndexBuilderTests
         IReadOnlyDictionary<string, string>? links = null,
         string status = "active",
         string? supersededBy = null,
-        IReadOnlyList<DependencyEntry>? dependencies = null) => new()
+        IReadOnlyList<DependencyEntry>? dependencies = null,
+        string type = ContentType.Mod,
+        string? gameMin = "2026.8.3.5117",
+        int? gameMinRevision = 5117,
+        Metadata.ReleasesBlock? releases = null) => new()
         {
             Id = id,
-            Type = ContentType.Mod,
+            Type = type,
             Name = "Advanced Flight Computer",
             Authors = ["Maxi"],
             Abstract = "Extra maneuver planning tools.",
@@ -29,6 +33,9 @@ public class IndexBuilderTests
             },
             Status = status,
             SupersededBy = supersededBy,
+            GameMin = gameMin,
+            GameMinRevision = gameMinRevision,
+            Releases = releases,
             ListingState = state,
             Dependencies = dependencies ?? [],
         };
@@ -49,11 +56,13 @@ public class IndexBuilderTests
     private static ExportInput Input(
         IReadOnlyList<ExportListing>? listings = null,
         IReadOnlyList<ExportRelease>? releases = null,
-        IReadOnlyList<ExportModlistVersion>? modlists = null) => new()
+        IReadOnlyList<ExportModlistVersion>? modlists = null,
+        IReadOnlyList<ExportTombstone>? tombstones = null) => new()
         {
             Listings = listings ?? [Listing()],
             Releases = releases ?? [Release()],
             Modlists = modlists ?? [],
+            Tombstones = tombstones ?? [],
             GeneratedAt = Stamp,
         };
 
@@ -289,6 +298,157 @@ public class IndexBuilderTests
         {
             Assert.Contains("\"spec_version\": 1", file.Content, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void A_listing_without_game_min_is_skipped_with_a_reason()
+    {
+        // Required by RFC 0031, and not decoration: RFC 0017 reads a missing lower bound as
+        // Unknown rather than "any", so a listing exported without one asks every client to
+        // confirm every install by hand.
+        var result = IndexBuilder.Build(Input([Listing(gameMin: null, gameMinRevision: null)]));
+
+        Assert.DoesNotContain(result.Files, f => f.Path.StartsWith("listings/", StringComparison.Ordinal));
+        Assert.Contains(result.Skipped, s => s.Reason.Contains("game_min", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_game_min_that_is_not_a_version_is_skipped()
+    {
+        var result = IndexBuilder.Build(Input([Listing(gameMin: "latest", gameMinRevision: null)]));
+
+        Assert.Contains(result.Skipped, s => s.Reason.Contains("game_min", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_month_bound_exports_without_a_revision()
+    {
+        // A month that has not finished has no last revision yet (RFC 0033), and an open bound is
+        // a legitimate state rather than a broken document.
+        var result = IndexBuilder.Build(Input([Listing(gameMin: "2026.8", gameMinRevision: null)]));
+        var listing = result.Files.Single(f => f.Path.StartsWith("listings/", StringComparison.Ordinal));
+
+        Assert.Empty(result.Skipped);
+        Assert.Contains("\"game_min\": \"2026.8\"", listing.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_release_takes_its_type_from_its_listing()
+    {
+        // It used to be hardcoded to "mod", which typed every StarMap release as a mod and told
+        // clients the loader was something that needed one.
+        var result = IndexBuilder.Build(Input(
+            [Listing(id: "StarMap", type: ContentType.ModLoader)],
+            [Release(modId: "StarMap")]));
+
+        var release = result.Files.Single(f => f.Path.StartsWith("releases/", StringComparison.Ordinal));
+
+        Assert.Contains("\"type\": \"mod-loader\"", release.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_release_inherits_the_listing_bound_when_it_has_none()
+    {
+        var result = IndexBuilder.Build(Input(
+            [Listing(gameMin: "2026.7.1.4000", gameMinRevision: 4000)],
+            [Release() with { GameMin = null, GameMinRevision = null }]));
+
+        var release = result.Files.Single(f => f.Path.StartsWith("releases/", StringComparison.Ordinal));
+
+        Assert.Contains("\"game_min\": \"2026.7.1.4000\"", release.Content, StringComparison.Ordinal);
+        Assert.Contains("\"game_min_revision\": 4000", release.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_release_bound_wins_over_the_listing_bound()
+    {
+        // An amendment narrows one release. Inheriting over the top of it would undo the
+        // amendment on the next export, which is the one thing an amendment must survive.
+        var result = IndexBuilder.Build(Input(
+            [Listing(gameMin: "2026.7.1.4000", gameMinRevision: 4000)],
+            [Release()]));
+
+        var release = result.Files.Single(f => f.Path.StartsWith("releases/", StringComparison.Ordinal));
+
+        Assert.Contains("\"game_min_revision\": 5117", release.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_verified_repository_is_published_as_the_releases_block()
+    {
+        // What tells a consumer where new releases appear, and what RFC 0033 binds ownership to.
+        var result = IndexBuilder.Build(Input(
+            [Listing(releases: new Metadata.ReleasesBlock { GitHub = "Maxi/KSA-AFC" })]));
+
+        var listing = result.Files.Single(f => f.Path.StartsWith("listings/", StringComparison.Ordinal));
+
+        Assert.Contains("\"github\": \"Maxi/KSA-AFC\"", listing.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_release_carries_the_listing_as_it_read_at_stamp_time()
+    {
+        var snapshot = new ListingSnapshot
+        {
+            Name = "Advanced Flight Computer",
+            Authors = ["Maxi"],
+            Abstract = "What it said back then.",
+            License = "MIT",
+        };
+
+        var result = IndexBuilder.Build(Input(releases: [Release() with { Listing = snapshot }]));
+        var release = result.Files.Single(f => f.Path.StartsWith("releases/", StringComparison.Ordinal));
+
+        Assert.Contains("\"listing\"", release.Content, StringComparison.Ordinal);
+        Assert.Contains("What it said back then.", release.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_snapshot_carries_the_whole_index_not_a_count_of_it()
+    {
+        // RFC 0033's client contract: one fetch, and everything downstream - search, resolution,
+        // compatibility - happens locally. It used to be three numbers and a timestamp, which told
+        // a client how much it was about to fetch and nothing it could act on.
+        var index = IndexBuilder.Build(Input()).Files.Single(f => f.Path == "index.json");
+
+        Assert.Contains("\"snapshot_version\": 1", index.Content, StringComparison.Ordinal);
+        Assert.Contains("Advanced Flight Computer", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"sha256\"", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"builds\"", index.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_withdrawn_listing_is_a_tombstone_and_nothing_more()
+    {
+        var result = IndexBuilder.Build(Input(
+            tombstones: [new ExportTombstone { Id = "AbandonedThing", Status = "delisted" }]));
+
+        var index = result.Files.Single(f => f.Path == "index.json");
+
+        // Present, so a client can tell "removed" from "never listed" and stop offering an install
+        // it has no other way to learn is gone.
+        Assert.Contains("AbandonedThing", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"status\": \"delisted\"", index.Content, StringComparison.Ordinal);
+
+        // And nothing of it anywhere else: a withdrawal that reaches a public mirror whole is a
+        // withdrawal that did not happen.
+        Assert.DoesNotContain(result.Files, f =>
+            f.Path.StartsWith("listings/", StringComparison.Ordinal)
+            && f.Path.Contains("abandonedthing", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_snapshot_omits_a_listing_that_failed_conformance()
+    {
+        // The per-file half already skips it. The snapshot is built from the same filtered set
+        // rather than from the input, so the two halves cannot disagree about what is listed.
+        var result = IndexBuilder.Build(Input(
+            [Listing(), Listing(id: "NoBound", gameMin: null, gameMinRevision: null)]));
+
+        var index = result.Files.Single(f => f.Path == "index.json");
+
+        Assert.DoesNotContain("NoBound", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"listings\": 1", index.Content, StringComparison.Ordinal);
     }
 }
 

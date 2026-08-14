@@ -85,6 +85,12 @@ public static class ReadEndpoints
                 banner_url = mod.BannerUrl,
                 icon_url = mod.IconUrl,
 
+                // The display string, not the revision. The revision is what orders, but it is
+                // an implementation fact of RFC 0017; what a reader recognises is the version the
+                // game shows them, and what an author needs back is what they typed.
+                game_min = mod.GameMinDisplay,
+                game_max = mod.GameMaxDisplay,
+
                 // The caller's own role on this listing, so the frontend can offer management
                 // controls only to people they will work for. The principal is already loaded
                 // above for the visibility check, so this costs nothing extra.

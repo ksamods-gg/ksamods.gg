@@ -298,7 +298,7 @@ public sealed class ImportHandler(
                 assetId = asset.Id,
                 sha256 = fetched.Sha256,
                 size = fetched.Size,
-                contentType = fetched.ContentType,
+                contentType = ArchiveContentType(fetched.ContentType),
 
                 // Stamped with when it was read, because it is a figure that keeps moving and a
                 // count with no date on it invites being read as current when it is months old.
@@ -424,6 +424,29 @@ public sealed class ImportHandler(
         var escaped = Regex.Escape(glob).Replace("\\*", ".*").Replace("\\?", ".");
         return new Regex($"^{escaped}$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
+
+    /// <summary>
+    /// What the archive is, rather than what the host called it.
+    ///
+    /// <para>RFC 0031 defines <c>download.content_type</c> as the archive format, and a client
+    /// reads it to decide how to open the file. The forge's own header answers a different
+    /// question - GitHub reports whatever was set at upload, most often
+    /// <c>application/octet-stream</c>, which tells a client nothing it can act on.</para>
+    ///
+    /// <para>We can answer the real question because we opened the file: nothing reaches this
+    /// point without the validator having read it as a zip. Anything the forge labelled as a
+    /// recognised zip alias, or did not label at all, is therefore a zip. A label we do not
+    /// recognise is passed through untouched rather than overwritten, since the one case where
+    /// the host knows something we do not is the one where it named a format we have not met.</para>
+    /// </summary>
+    private static string ArchiveContentType(string? reported) =>
+        reported?.Trim().ToLowerInvariant() switch
+        {
+            null or "" or "application/octet-stream" or "binary/octet-stream"
+                or "application/zip" or "application/x-zip-compressed"
+                or "application/x-zip" or "multipart/x-zip" => "application/zip",
+            var other => other,
+        };
 
     private static string Trim(string? text) =>
         string.IsNullOrWhiteSpace(text) ? "" : text.Trim()[..Math.Min(text.Trim().Length, 500)];

@@ -1,6 +1,7 @@
 using KsaMods.Api;
 using KsaMods.Api.Auth;
 using KsaMods.Api.Data;
+using KsaMods.Api.Domain;
 using KsaMods.Api.Endpoints;
 using Microsoft.AspNetCore.HttpOverrides;
 
@@ -29,6 +30,7 @@ builder.Services.AddScoped<ModRepository>();
 builder.Services.AddScoped<ModlistRepository>();
 builder.Services.AddScoped<AccountStore>();
 builder.Services.AddScoped<TagVocabulary>();
+builder.Services.AddScoped<GameBounds>();
 builder.Services.AddScoped<SessionStore>();
 builder.Services.AddScoped<TokenStore>();
 

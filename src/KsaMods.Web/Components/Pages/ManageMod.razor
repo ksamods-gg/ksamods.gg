@@ -1,5 +1,6 @@
 @page "/mods/{Id}/manage"
 @rendermode InteractiveServer
+@using KsaMods.Metadata
 @inject KsaModsApi Api
 @inject NavigationManager Nav
 
@@ -205,6 +206,24 @@ else
                             </p>
                             <TopicProofGuide />
                         </li>
+                        @* Worth its own step, and worth being second rather than buried: it is the
+                           community index's own proof (RFC 0038), so an author who sets it is done
+                           here and done there, for this repository and every listing they ever
+                           point at it. Not first, because somebody who has already copied the
+                           string above should not be made to read an alternative to it. *@
+                        @if (_challenge.IndexTopic is { Length: > 0 } indexTopic)
+                        {
+                            <li class="border-t border-border pt-3">
+                                <p class="font-medium">Or use the index topic, which works everywhere.</p>
+                                <p class="mt-1 text-muted-foreground">
+                                    Add <code class="font-mono text-xs">@indexTopic</code> as a topic
+                                    instead. It names you rather than this listing, so it verifies
+                                    every repository you connect here, and it is the same proof the
+                                    community index reads. Set it once and you're done with this step.
+                                </p>
+                            </li>
+                        }
+
                         <li class="border-t border-border pt-3 text-muted-foreground">
                             @* The branch is not named here. It is known right after connecting and
                                not on a later page load, and "main" written confidently at somebody
@@ -259,6 +278,26 @@ else
                     <input @attributes="field" type="url" @bind="_edit.BannerUrl" placeholder="https://…/banner.png"
                            class="@InputClass" />
                 </Field>
+
+                @* Two fields, one row, because they are one fact with two ends and reading them
+                   apart invites setting only the second. The lower bound is the one RFC 0031
+                   requires; the upper one is left empty by anybody who has not found a build that
+                   breaks their mod, which is most people. *@
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <Field Context="field" Id="game-min" Label="Oldest game build" Required="false"
+                           Error="@_gameMinError"
+                           Hint="What you tested on: 2026.8.3.5117, or a whole month, 2026.8. Without it we can't tell anyone your mod fits their game.">
+                        <input @attributes="field" @bind="_edit.GameMin" placeholder="2026.8.3.5117"
+                               class="@InputClass" />
+                    </Field>
+
+                    <Field Context="field" Id="game-max" Label="Newest tested build" Required="false"
+                           Error="@_gameMaxError"
+                           Hint="Only if you know of a build that breaks it. Leave empty otherwise — above this, clients warn instead of installing quietly.">
+                        <input @attributes="field" @bind="_edit.GameMax" placeholder="none"
+                               class="@InputClass" />
+                    </Field>
+                </div>
 
                 @* Per listing rather than per account, because the same person can want their
                    name on one mod and not on another. A single account-wide switch would push
@@ -464,6 +503,8 @@ else
     private string? _loadError;
     private string? _error;
     private string? _message;
+    private string? _gameMinError;
+    private string? _gameMaxError;
 
     private readonly EditForm _edit = new();
 
@@ -531,6 +572,8 @@ else
                 _edit.License = _mod.License ?? "";
                 _tags = [.. _mod.Tags];
                 _edit.BannerUrl = _mod.BannerUrl ?? "";
+                _edit.GameMin = _mod.GameMin ?? "";
+                _edit.GameMax = _mod.GameMax ?? "";
                 _edit.HideAuthor = _mod.AuthorHidden;
 
                 // Only for people the endpoint will answer for. Asking as a stranger would 403
@@ -646,17 +689,42 @@ else
         () => Api.SetModVisibilityAsync(Id, listed: _mod!.IsDraft),
         _mod!.IsDraft ? "Published. It's in browse and search now." : "Back to a draft. It's out of browse and search.");
 
-    private Task SaveAsync() => RunAsync(
-        "save",
-        () => Api.EditModAsync(Id, new EditModRequest(
-            Name: _edit.Name.Trim(),
-            Abstract: _edit.Abstract.Trim(),
-            Description: string.IsNullOrWhiteSpace(_edit.Description) ? null : _edit.Description.Trim(),
-            License: _edit.License.Trim(),
-            Tags: [.. _tags],
-            BannerUrl: string.IsNullOrWhiteSpace(_edit.BannerUrl) ? null : _edit.BannerUrl.Trim(),
-            HideAuthor: _edit.HideAuthor)),
-        "Listing updated.");
+    private Task SaveAsync()
+    {
+        _gameMinError = ValidateBound(_edit.GameMin);
+        _gameMaxError = ValidateBound(_edit.GameMax);
+
+        if (_gameMinError is not null || _gameMaxError is not null) return Task.CompletedTask;
+
+        return RunAsync(
+            "save",
+            () => Api.EditModAsync(Id, new EditModRequest(
+                Name: _edit.Name.Trim(),
+                Abstract: _edit.Abstract.Trim(),
+                Description: string.IsNullOrWhiteSpace(_edit.Description) ? null : _edit.Description.Trim(),
+                License: _edit.License.Trim(),
+                Tags: [.. _tags],
+                BannerUrl: string.IsNullOrWhiteSpace(_edit.BannerUrl) ? null : _edit.BannerUrl.Trim(),
+                HideAuthor: _edit.HideAuthor,
+
+                // Empty string rather than null: the API reads absent as "leave it alone" and
+                // empty as "clear it", so an author who deletes the field has to send something.
+                GameMin: _edit.GameMin.Trim(),
+                GameMax: _edit.GameMax.Trim())),
+            "Listing updated.");
+    }
+
+    /// <summary>
+    /// Accepts a full game version or a whole month, the two granularities RFC 0031 offers.
+    /// The API is still the authority - a month only resolves to a revision there - but a typo
+    /// belongs beside the field, not in a rejected save.
+    /// </summary>
+    private static string? ValidateBound(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || KsaVersion.TryParse(value, out _)
+        || KsaVersion.TryParseMonth(value, out _)
+            ? null
+            : "Write it the way the game shows it, such as 2026.8.3.5117, or a whole month, such as 2026.8.";
 
     private async Task ConnectRepositoryAsync()
     {
@@ -797,6 +865,8 @@ else
         public string Description { get; set; } = "";
         public string License { get; set; } = "";
         public string BannerUrl { get; set; } = "";
+        public string GameMin { get; set; } = "";
+        public string GameMax { get; set; } = "";
         public bool HideAuthor { get; set; }
     }
 

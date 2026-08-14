@@ -197,6 +197,51 @@ public static class RepositoryProof
         !string.IsNullOrWhiteSpace(challenge)
         && topics is not null
         && topics.Any(t => string.Equals(t?.Trim(), challenge.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The community index's own topic (RFC 0038): <c>ksa-index-</c> followed by the claimant's
+    /// GitHub login, lowercased.
+    ///
+    /// <para>Lowercased because GitHub normalises topics on the way in while a login keeps the
+    /// display case its owner chose, so comparing them as typed fails for anybody whose login has
+    /// a capital in it.</para>
+    /// </summary>
+    public static string IndexTopic(string login) =>
+        "ksa-index-" + login.Trim().ToLowerInvariant();
+
+    /// <summary>
+    /// Whether the repository carries the community index's ownership topic for this account.
+    ///
+    /// <para>Accepted alongside our own per-listing challenge rather than instead of it, and it is
+    /// the one worth asking people for. RFC 0038 made this the index's proof, so an author who set
+    /// it once - it names them, not a listing, so one topic covers every repository claim they
+    /// will ever make - is verified here without touching anything. Our challenge is a secret and
+    /// this is not, which changes nothing: both rest on the same fact, that only a repository
+    /// administrator can set a topic, and neither is any stronger for being unguessable.</para>
+    ///
+    /// <para>The weakness RFC 0038 names is ours too: removing the topic revokes the proof
+    /// silently, and nobody finds out until something re-checks.</para>
+    /// </summary>
+    public static bool SatisfiedByIndexTopic(IReadOnlyList<string>? topics, string? login) =>
+        !string.IsNullOrWhiteSpace(login)
+        && topics is not null
+        && topics.Any(t => string.Equals(t?.Trim(), IndexTopic(login), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The community index's marker file (RFC 0033). Read as a fallback beside our own dotfile so
+    /// a repository already prepared for the index does not need a second file for us.
+    /// </summary>
+    public const string IndexMarkerPath = ".github/ksa-content-index.toml";
+
+    /// <summary>
+    /// Whether the index marker names this account. Deliberately a substring test rather than a
+    /// TOML parse: the file's business is the index's, its shape is theirs to change, and the only
+    /// thing we need from it is that somebody with write access wrote this login into it.
+    /// </summary>
+    public static bool SatisfiedByIndexMarker(string? fileContent, string? login) =>
+        !string.IsNullOrWhiteSpace(login)
+        && fileContent is not null
+        && fileContent.Contains(login.Trim(), StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

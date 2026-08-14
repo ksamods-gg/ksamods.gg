@@ -18,7 +18,10 @@ public sealed record ExportListing
     public string? SupersededBy { get; init; }
     public IReadOnlyList<string>? Os { get; init; }
     public string? GameMin { get; init; }
+    public int? GameMinRevision { get; init; }
     public string? GameMax { get; init; }
+    public int? GameMaxRevision { get; init; }
+    public ReleasesBlock? Releases { get; init; }
     public LoaderBlock? Loader { get; init; }
     public IReadOnlyList<DependencyEntry> Dependencies { get; init; } = [];
 
@@ -83,9 +86,20 @@ public sealed record ExportModerationEntry
     public long? Supersedes { get; init; }
 }
 
+/// <summary>
+/// A listing that was published and has since been withdrawn. Its id and its status, and nothing
+/// else: it exists so a client can tell "removed" from "never listed" (RFC 0033).
+/// </summary>
+public sealed record ExportTombstone
+{
+    public required string Id { get; init; }
+    public required string Status { get; init; }
+}
+
 public sealed record ExportInput
 {
     public IReadOnlyList<ExportListing> Listings { get; init; } = [];
+    public IReadOnlyList<ExportTombstone> Tombstones { get; init; } = [];
     public IReadOnlyList<ExportRelease> Releases { get; init; } = [];
     public IReadOnlyList<ExportModlistVersion> Modlists { get; init; } = [];
 

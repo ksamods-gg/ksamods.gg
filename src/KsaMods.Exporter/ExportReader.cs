@@ -21,6 +21,7 @@ public static class ExportReader
         NpgsqlConnection connection, DateTimeOffset generatedAt, CancellationToken ct)
     {
         var listings = await ReadListingsAsync(connection);
+        var tombstones = await ReadTombstonesAsync(connection);
         var releases = await ReadReleasesAsync(connection);
         var modlists = await ReadModlistsAsync(connection);
         var aliases = await ReadAliasesAsync(connection);
@@ -30,6 +31,7 @@ public static class ExportReader
         return new ExportInput
         {
             Listings = listings,
+            Tombstones = tombstones,
             Releases = releases,
             Modlists = modlists,
             ModlistAliases = aliases,
@@ -45,6 +47,14 @@ public static class ExportReader
             select m.id, m.type, m.name, m.abstract, m.description, m.license, m.tags,
                    m.links::text as Links, m.status, m.superseded_by as SupersededBy, m.os,
                    m.listing_state as ListingState,
+                   m.game_min_display as GameMin, m.game_min_revision as GameMinRevision,
+                   m.game_max_display as GameMax, m.game_max_revision as GameMaxRevision,
+                   -- [releases] is what tells a consumer where new releases will appear, and an
+                   -- unverified link is a claim rather than a fact, so only a verified one is
+                   -- published. RFC 0033 binds ownership to this host: publishing a repository
+                   -- nobody proved control of would hand the ownership check a forged basis.
+                   case when l.verified_at is not null then l.provider end as ReleaseProvider,
+                   case when l.verified_at is not null then l.repo_full_name end as ReleaseRepo,
                    -- hide_author has to be honoured here too, and this is the easiest place in the
                    -- system to forget it: the static export and the git mirror are public, so a
                    -- name suppressed on the site and published in the index is suppressed nowhere.
@@ -58,6 +68,7 @@ public static class ExportReader
                       from mod_maintainer mm join account a on a.id = mm.account_id
                       where mm.mod_id = m.id), '{}') end as Authors
             from mod m
+            left join repo_link l on l.mod_id = m.id
             where m.listing_state = 'listed'
             order by m.id_lower
             """);
@@ -76,9 +87,53 @@ public static class ExportReader
             Status = r.Status,
             SupersededBy = r.SupersededBy,
             Os = r.Os,
+            GameMin = r.GameMin,
+            GameMinRevision = r.GameMinRevision,
+            GameMax = r.GameMax,
+            GameMaxRevision = r.GameMaxRevision,
+            Releases = ReleasesOf(r.ReleaseProvider, r.ReleaseRepo),
             ListingState = r.ListingState,
         }).ToList();
     }
+
+    /// <summary>
+    /// Withdrawn listings, as ids and states and nothing else.
+    ///
+    /// <para>A separate query on purpose, rather than widening the one above. RFC 0033 wants a
+    /// tombstone in the snapshot so a client can tell "removed" from "never listed" and stop
+    /// offering an install it has no other way to learn is gone. But the query above is the one
+    /// that reads names, descriptions and links, and its promise is that a withdrawn listing never
+    /// enters it - a withdrawal that reaches a public mirror is a withdrawal that did not happen.
+    /// Widening it would move that guarantee into whatever the builder does next. This projection
+    /// cannot leak a description because it never selects one.</para>
+    ///
+    /// <para><c>unlisted</c> is deliberately absent: a draft was never published, so "never listed"
+    /// is the truth about it and a tombstone would announce something that never existed.</para>
+    /// </summary>
+    private static async Task<IReadOnlyList<ExportTombstone>> ReadTombstonesAsync(NpgsqlConnection connection)
+    {
+        var rows = await connection.QueryAsync<(string Id, string State)>("""
+            select id as Id, listing_state as State
+            from mod
+            where listing_state in ('delisted', 'taken_down')
+            order by id_lower
+            """);
+
+        return rows.Select(r => new ExportTombstone { Id = r.Id, Status = r.State }).ToList();
+    }
+
+    /// <summary>
+    /// Maps a verified repository link onto RFC 0031's <c>[releases]</c>.
+    ///
+    /// <para>Only GitHub maps today. The block names hosts a watcher can poll, and there is no key
+    /// for GitLab or Codeberg in the format, so a listing released from one of those gets no block
+    /// rather than a key nothing reads - which is also the honest answer, since RFC 0033's watcher
+    /// could not stamp those releases either.</para>
+    /// </summary>
+    private static Metadata.ReleasesBlock? ReleasesOf(string? provider, string? repo) =>
+        provider == "github" && !string.IsNullOrWhiteSpace(repo)
+            ? new Metadata.ReleasesBlock { GitHub = repo }
+            : null;
 
     private static async Task<IReadOnlyList<ExportRelease>> ReadReleasesAsync(NpgsqlConnection connection)
     {
@@ -94,6 +149,7 @@ public static class ExportReader
                    r.loader_id as LoaderId, r.loader_min as LoaderMin, r.loader_max as LoaderMax,
                    r.changelog_url as ChangelogUrl,
                    r.yanked_at is not null as Yanked, r.yanked_reason as YankedReason,
+                   r.listing_snapshot::text as ListingSnapshot,
                    a.url, encode(a.sha256, 'hex') as Sha256, a.size, a.content_type as ContentType
             from mod_release r
             join mod m on m.id = r.mod_id
@@ -142,9 +198,36 @@ public static class ExportReader
                 }).ToList()
                 : [],
             ChangelogUrl = r.ChangelogUrl,
+            Listing = ReadSnapshot(r.ListingSnapshot),
             Yanked = r.Yanked,
             YankedReason = r.YankedReason,
         }).ToList();
+    }
+
+    /// <summary>
+    /// The listing as it read at stamp time, recorded on every release since the schema's first
+    /// migration and, until now, never read back out. Without it a client browsing an old release
+    /// shows today's description of a mod that has changed since, which is the display accuracy
+    /// RFC 0031 puts the snapshot there for.
+    /// </summary>
+    private static Metadata.ListingSnapshot? ReadSnapshot(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+
+        try
+        {
+            var snapshot = JsonSerializer.Deserialize<Metadata.ListingSnapshot>(json);
+
+            // Name, authors, abstract and license are required on the record, so a snapshot
+            // written before one of them existed deserialises into something the format would
+            // reject. Dropping it costs display accuracy on one release; emitting it costs
+            // conformance on the whole document.
+            return snapshot is null || string.IsNullOrWhiteSpace(snapshot.Name) ? null : snapshot;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static async Task<IReadOnlyList<ExportModlistVersion>> ReadModlistsAsync(NpgsqlConnection connection)
@@ -271,6 +354,12 @@ public static class ExportReader
         public string Status { get; init; } = "active";
         public string? SupersededBy { get; init; }
         public string[]? Os { get; init; }
+        public string? GameMin { get; init; }
+        public int? GameMinRevision { get; init; }
+        public string? GameMax { get; init; }
+        public int? GameMaxRevision { get; init; }
+        public string? ReleaseProvider { get; init; }
+        public string? ReleaseRepo { get; init; }
         public string ListingState { get; init; } = "listed";
         public string[] Authors { get; init; } = [];
     }
@@ -297,6 +386,7 @@ public static class ExportReader
         public string? LoaderMin { get; init; }
         public string? LoaderMax { get; init; }
         public string? ChangelogUrl { get; init; }
+        public string? ListingSnapshot { get; init; }
         public bool Yanked { get; init; }
         public string? YankedReason { get; init; }
     }
