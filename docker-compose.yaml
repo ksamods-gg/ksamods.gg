@@ -112,6 +112,12 @@ services:
       #
       # Set Validator__ImageDigest instead to pin an exact digest across hosts; it is used as
       # given and never resolved.
+      #
+      # On startup the worker also tags whichever id it resolved as ksamods-validator:in-use.
+      # Rebuilding the validator moves this tag to a new image and leaves the running worker's id
+      # untagged, where docker image prune collects it and the worker can no longer validate
+      # anything. The extra tag keeps that id out of prune's reach. Do not delete it by hand while
+      # a worker is running.
       - Validator__Image=${VALIDATOR_IMAGE:-ksamods/validator:local}
       # Raises GitHub's limit from 60 requests an hour to 5000. Optional: the site reads public
       # repositories only, so this buys rate limit and no access.

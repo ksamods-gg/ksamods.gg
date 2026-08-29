@@ -31,6 +31,7 @@ public sealed class JobPump(
     JobQueue queue,
     Database database,
     IEnumerable<IJobHandler> handlers,
+    IHostApplicationLifetime lifetime,
     ILogger<JobPump> log) : BackgroundService
 {
     /// <summary>How long to wait when there was nothing to do. Long enough not to spin.</summary>
@@ -119,6 +120,27 @@ public sealed class JobPump(
             // would spend one of its attempts on a deployment.
             log.LogInformation("Job {JobId} interrupted by shutdown.", job.Id);
             throw;
+        }
+        catch (ValidatorUnavailableException e)
+        {
+            // We cannot validate anything, and this release did nothing wrong. Failing the job
+            // would spend one of its five attempts on our own broken plumbing and write our
+            // infrastructure fault into last_error, where its author reads it - and the next job
+            // would do the same, so a missing image quietly empties the queue while the worker
+            // sits there looking healthy.
+            //
+            // Startup already refuses to run without a validator image. This is the same rule held
+            // for the rest of the process's life: put the job back untouched and stop, so the
+            // restart re-resolves the tag the one way that is legitimate, at startup.
+            log.LogCritical(e, "Job {JobId} could not run and no release is at fault. Stopping.", job.Id);
+
+            await queue.ReleaseAsync(job.Id, CancellationToken.None);
+            lifetime.StopApplication();
+
+            // Shutdown is asynchronous, so returning "there was work" would have the loop claim
+            // another job and fail it the same way before the stop lands. False sends it through
+            // the idle delay instead, which shutdown comfortably wins.
+            return false;
         }
         catch (Exception e)
         {

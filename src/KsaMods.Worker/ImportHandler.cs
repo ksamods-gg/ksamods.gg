@@ -180,7 +180,7 @@ public sealed class ImportHandler(
             // stranger's archive over.
             if (outcome.ImageMissing)
             {
-                throw new InvalidOperationException(
+                throw new ValidatorUnavailableException(
                     $"The validator image this worker pinned at startup is no longer on the host, so "
                   + $"{version} was not checked. That happens when the image is rebuilt or pruned "
                   + $"while the worker is running. Build it again and restart the worker: it resolves "

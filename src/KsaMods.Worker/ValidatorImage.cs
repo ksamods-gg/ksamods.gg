@@ -17,6 +17,20 @@ namespace KsaMods.Worker;
 public static class ValidatorImage
 {
     /// <summary>
+    /// A tag put on whichever image id this worker pinned, so that image stops being dangling.
+    ///
+    /// <para>This is what keeps the pin from evaporating. Rebuilding the validator moves the
+    /// build tag to a new id and leaves the old one - the one a running worker is still pinned to -
+    /// untagged, and the next <c>docker image prune</c> deletes it. The worker then cannot validate
+    /// anything until it restarts. A tag makes the image not dangling, and prune leaves it alone.</para>
+    ///
+    /// <para>One fixed name rather than one per process: every worker on a host resolves the same
+    /// configured tag to the same id, so they all point this at the same place, and a restart moves
+    /// it rather than accumulating tags nobody removes.</para>
+    /// </summary>
+    public const string InUseTag = "ksamods-validator:in-use";
+
+    /// <summary>
     /// Returns the reference to run, or null with a reason written to <paramref name="error"/>.
     ///
     /// <para>An explicit digest is used verbatim and never resolved: somebody who pinned one meant
@@ -74,6 +88,19 @@ public static class ValidatorImage
         log($"Validator image {tag} resolved to {Short(resolved)}. Every run uses that id, so a "
           + "later push to the same tag cannot change what this worker executes.");
 
+        // Best effort. Failing to tag costs the prune protection, not the run, and refusing to
+        // start over it would trade a rare fault for a certain one.
+        if (await TagAsync(resolved, InUseTag, ct))
+        {
+            log($"Tagged it {InUseTag} so rebuilding {tag} cannot leave this id dangling for "
+              + "docker image prune to collect while it is still in use.");
+        }
+        else
+        {
+            log($"Could not tag {Short(resolved)} as {InUseTag}. It still runs; it is just prunable "
+              + "if the validator is rebuilt before this worker restarts.");
+        }
+
         return resolved;
     }
 
@@ -90,6 +117,12 @@ public static class ValidatorImage
 
         // A daemon that answers something other than an id is a daemon to distrust, not to guess at.
         return id.StartsWith("sha256:", StringComparison.Ordinal) ? id : null;
+    }
+
+    private static async Task<bool> TagAsync(string id, string tag, CancellationToken ct)
+    {
+        var (exitCode, _, _) = await DockerAsync(ct, "tag", id, tag);
+        return exitCode == 0;
     }
 
     private static async Task<bool> PullAsync(string reference, CancellationToken ct)

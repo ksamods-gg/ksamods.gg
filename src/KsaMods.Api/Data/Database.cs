@@ -115,6 +115,21 @@ public sealed class JobQueue(Database database)
     }
 
     /// <summary>
+    /// Puts a job back untouched: no attempt spent, no error recorded, available immediately.
+    ///
+    /// <para>For the case where the job never got a fair run - our own infrastructure failed, not
+    /// the work. Spending an attempt there means five infrastructure faults kill a job that was
+    /// always fine, and writing <c>last_error</c> shows an author our plumbing on their listing.</para>
+    /// </summary>
+    public async Task ReleaseAsync(long id, CancellationToken ct)
+    {
+        using var connection = await database.OpenAsync(ct);
+        await Dapper.SqlMapper.ExecuteAsync(connection,
+            "update job set state = 'queued', locked_by = null, locked_at = null where id = @id",
+            new { id });
+    }
+
+    /// <summary>
     /// Exponential backoff, then <c>dead</c> with an alert. A dead job is an operational signal,
     /// not a silent drop - §16.3 alerts on it.
     /// </summary>
