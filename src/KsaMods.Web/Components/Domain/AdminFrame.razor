@@ -40,47 +40,44 @@ else if (_overview is null)
 }
 else
 {
-    <div class="mx-auto max-w-5xl">
-        <header class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 class="text-2xl font-semibold tracking-tight">Moderation</h1>
-            <p class="text-sm text-muted-foreground">
-                @_overview.Mods mods · @_overview.Releases releases · @_overview.Accounts accounts
-            </p>
-        </header>
-
-        @* Every action taken through these pages is written to the log, publicly by default. Said
-           once, at the top, rather than repeated on each button. *@
-        <p class="mt-2 text-xs text-muted-foreground">
-            Everything you do here is recorded in the
-            <a href="/admin/log" class="underline underline-offset-4">moderation log</a>
-            with your name and your reason.
+    <header class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 class="text-2xl font-semibold tracking-tight">Moderation</h1>
+        <p class="text-sm text-muted-foreground">
+            @_overview.Mods mods · @_overview.Releases releases · @_overview.Accounts accounts
         </p>
+    </header>
 
-        <nav class="mt-6 flex flex-wrap gap-1 border-b border-border" aria-label="Moderation">
-            @foreach (var tab in Tabs)
-            {
-                var count = Count(tab.Key);
-                var active = tab.Key == Current;
+    @* Every action taken through these pages is written to the log, publicly by default. Said
+           once, at the top, rather than repeated on each button. *@
+    <p class="mt-2 text-xs text-muted-foreground">
+        Everything you do here is recorded in the
+        <a href="/admin/log" class="underline underline-offset-4">moderation log</a>
+        with your name and your reason.
+    </p>
 
-                <a href="@tab.Href" aria-current="@(active ? "page" : null)"
-                   class="@Cx.Of(TabBase, active ? TabActive : TabIdle)">
-                    @tab.Label
-                    @if (count > 0)
-                    {
-                        <span class="@Cx.Of(CountBase, tab.Urgent ? CountUrgent : CountQuiet)">@count</span>
-                    }
-                </a>
-            }
-        </nav>
+    <nav class="mt-6 flex flex-wrap gap-1 border-b border-border" aria-label="Moderation">
+        @foreach (var tab in Tabs)
+        {
+            var count = Count(tab.Key);
+            var active = tab.Key == Current;
 
-        @* Cascaded so the overview page can draw its tiles from the counts already fetched here,
+            <a href="@tab.Href" aria-current="@(active ? "page" : null)" class="@Cx.Of(TabBase, active ? TabActive : TabIdle)">
+                @tab.Label
+                @if (count > 0)
+                {
+                    <span class="@Cx.Of(CountBase, tab.Urgent ? CountUrgent : CountQuiet)">@count</span>
+                }
+            </a>
+        }
+    </nav>
+
+    @* Cascaded so the overview page can draw its tiles from the counts already fetched here,
            rather than asking for the same nine numbers a second time. *@
-        <CascadingValue Value="_overview">
-            <div class="mt-6">
-                @ChildContent
-            </div>
-        </CascadingValue>
-    </div>
+    <CascadingValue Value="_overview">
+        <div class="mt-6">
+            @ChildContent
+        </div>
+    </CascadingValue>
 }
 
 @code {
