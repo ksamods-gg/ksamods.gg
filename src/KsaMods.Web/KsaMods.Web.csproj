@@ -21,6 +21,10 @@
     <ProjectReference Include="..\KsaMods.Metadata\KsaMods.Metadata.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.3.2" />
+  </ItemGroup>
+
   <!--
     Tailwind is built before compile so wwwroot/app.css is never stale in a fresh clone.
 
@@ -36,13 +40,11 @@
     for them.
   -->
   <Target Name="BuildTailwind" BeforeTargets="BeforeBuild" Condition="'$(SkipTailwind)' != 'true'">
-    <Error Condition="!Exists('$(MSBuildProjectDirectory)/node_modules')"
-           Text="Tailwind cannot run: node_modules is missing. Run 'npm install' in $(MSBuildProjectDirectory), or build with -p:SkipTailwind=true to serve the committed wwwroot/app.css as-is." />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/node_modules')" Text="Tailwind cannot run: node_modules is missing. Run 'npm install' in $(MSBuildProjectDirectory), or build with -p:SkipTailwind=true to serve the committed wwwroot/app.css as-is." />
 
     <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)" />
 
-    <Error Condition="!Exists('$(MSBuildProjectDirectory)/wwwroot/app.css')"
-           Text="Tailwind reported success but wwwroot/app.css does not exist." />
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/wwwroot/app.css')" Text="Tailwind reported success but wwwroot/app.css does not exist." />
   </Target>
 
 </Project>

@@ -438,3 +438,83 @@ header:has(.mod-banner) .mod-icon {
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
+
+/*
+  Rendered mod descriptions.
+
+  Tailwind's reset strips headings, lists and quotes back to plain text, which is right everywhere
+  the markup is ours and wrong here: this is the one place on the site where the HTML was written
+  by somebody else and has to carry its own meaning. Scoped to .markdown so it cannot leak into the
+  rest of the page.
+
+  Written by hand rather than pulling in the typography plugin. Six selectors is less than a
+  dependency and a build-config change, and mod descriptions use a small, known set of markup.
+*/
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown pre { margin-block: 0.75em; }
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  /* Asymmetric on purpose: a heading belongs to what follows it, not to what came before. */
+  margin-block: 1.5em 0.5em;
+}
+
+.markdown h1 { font-size: 1.25rem; }
+.markdown h2 { font-size: 1.125rem; }
+.markdown h3 { font-size: 1rem; }
+.markdown h4 { font-size: 0.9375rem; }
+
+.markdown ul { list-style: disc; padding-inline-start: 1.5em; }
+.markdown ol { list-style: decimal; padding-inline-start: 1.5em; }
+.markdown li { margin-block: 0.25em; }
+
+.markdown a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--color-muted);
+  padding: 0.125em 0.375em;
+  border-radius: var(--radius-sm);
+}
+
+.markdown pre {
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
+  /* A long code line scrolls its own block rather than widening the page. */
+  overflow-x: auto;
+}
+
+.markdown pre code { background: none; padding: 0; font-size: 0.8125rem; }
+
+.markdown blockquote {
+  border-inline-start: 2px solid var(--color-border);
+  padding-inline-start: 1em;
+  color: var(--color-muted-foreground);
+}
+
+.markdown hr { border: 0; border-top: 1px solid var(--color-border); margin-block: 1.5em; }
+
+/* Author-supplied, so it cannot be trusted to be a sensible size. */
+.markdown img { max-width: 100%; height: auto; border-radius: var(--radius-md); }
+
+.markdown table { width: 100%; border-collapse: collapse; margin-block: 0.75em; }
+.markdown th,
+.markdown td { border: 1px solid var(--color-border); padding: 0.375rem 0.625rem; text-align: start; }

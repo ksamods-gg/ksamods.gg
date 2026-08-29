@@ -205,10 +205,12 @@ else
         @if (!string.IsNullOrWhiteSpace(_mod.Description))
         {
             <Card Header="@(b => b.AddContent(0, "About"))">
-                @* Rendered as plain text, not HTML. This is user input shown to other users, which
-                   makes it the most likely XSS vector on the site; Markdown rendering needs a
-                   sanitiser before it is worth it. *@
-                <p class="whitespace-pre-wrap text-sm leading-relaxed">@_mod.Description</p>
+                @* CommonMark, which is what the field has always held - it was rendered as plain
+                   text only because rendering it needs a sanitiser first. SafeMarkdown is that
+                   sanitiser: raw HTML never survives the parse, and every link and image URL is
+                   checked against a scheme allowlist. Nothing else on this site may pass author
+                   input to MarkupString. *@
+                <div class="markdown text-sm leading-relaxed">@SafeMarkdown.ToHtml(_mod.Description)</div>
             </Card>
         }
 
