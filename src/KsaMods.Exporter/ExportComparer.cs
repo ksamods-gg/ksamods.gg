@@ -1,23 +1,21 @@
-using System.Text.RegularExpressions;
-
 namespace KsaMods.Exporter;
 
 /// <summary>
 /// Decides whether an export run is worth committing.
 ///
-/// <para><c>index.json</c> carries a <c>generated_at</c> timestamp, so a naive comparison says
-/// "changed" on every run: the exporter would commit every fifteen minutes forever, the mirror
-/// would grow without bound, and its history - the thing that makes a git mirror worth having over
-/// a tarball - would be noise with the real changes buried in it.</para>
+/// <para>This is the second half of spec/snapshot.md's determinism rule: the builder writes the
+/// same bytes for the same input, and an index whose bytes are already published is not published
+/// again. Both are needed, because publishing is a deployment and a deployment issues a new ETag
+/// either way. Without it the exporter would commit every fifteen minutes forever and the mirror's
+/// history - the thing that makes a git mirror worth having over a tarball - would be noise with
+/// the real changes buried in it.</para>
 ///
-/// <para>So the timestamp is ignored when asking whether anything happened, and kept when
-/// something did. "Nothing changed" then means what it says.</para>
+/// <para>It used to blank a <c>generated_at</c> field before comparing, because the snapshot
+/// carried one. The spec now forbids that field outright, for exactly the reason the workaround
+/// existed, so there is nothing left to blank.</para>
 /// </summary>
-public static partial class ExportComparer
+public static class ExportComparer
 {
-    [GeneratedRegex("\"generated_at\"\\s*:\\s*\"[^\"]*\"")]
-    private static partial Regex GeneratedAt { get; }
-
     /// <summary>
     /// Whether the built export differs from what is already on disk, in any way that matters.
     ///
@@ -63,15 +61,7 @@ public static partial class ExportComparer
     }
 
     private static bool Matches(string existing, string built) =>
-        string.Equals(Blank(existing), Blank(built), StringComparison.Ordinal);
-
-    /// <summary>
-    /// Blanks the one field that moves on its own. Applied to every file rather than only
-    /// index.json, so a timestamp added to another document later does not quietly reintroduce
-    /// the commit-every-run behaviour.
-    /// </summary>
-    private static string Blank(string content) =>
-        GeneratedAt.Replace(content, "\"generated_at\":\"\"");
+        string.Equals(existing, built, StringComparison.Ordinal);
 
     private static string Normalise(string path) => path.Replace('\\', '/');
 

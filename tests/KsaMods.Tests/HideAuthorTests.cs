@@ -170,7 +170,7 @@ public sealed class HideAuthorTests : IAsyncLifetime
         var hidden = await NewModAsync(owner, hidden: true);
 
         using var connection = await Db.OpenAsync(default);
-        var input = await KsaMods.Exporter.ExportReader.ReadAsync(connection, DateTimeOffset.UtcNow, default);
+        var input = await KsaMods.Exporter.ExportReader.ReadAsync(connection, default);
 
         var exportedOpen = input.Listings.Single(l => l.Id == open);
         var exportedHidden = input.Listings.Single(l => l.Id == hidden);

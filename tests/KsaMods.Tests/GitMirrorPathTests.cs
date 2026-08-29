@@ -109,31 +109,33 @@ public sealed class GitMirrorPathTests : IDisposable
         Assert.Equal(1, outcome.FilesDeleted);
         Assert.False(File.Exists(Path.Combine(_root, "listings", "gone.json")));
     }
-
     [Fact]
-    public void A_run_that_changes_only_the_timestamp_is_not_a_change()
+    public void An_index_already_published_is_not_published_again()
     {
-        // Otherwise the exporter commits every fifteen minutes forever and the history - the thing
-        // that makes a git mirror worth more than a tarball - becomes noise.
+        // The second half of the determinism rule: the builder writes the same bytes for the same
+        // input, and bytes already published are not published again. Publishing is a deployment
+        // and a deployment issues a new ETag either way, so without this the exporter commits
+        // every fifteen minutes forever and the history - the thing that makes a git mirror worth
+        // more than a tarball - becomes noise.
         Directory.CreateDirectory(_root);
         File.WriteAllText(Path.Combine(_root, "index.json"),
-            "{\"generated_at\": \"2026-01-01T00:00:00Z\", \"listings\": 1}");
+            "{\"snapshot_version\": 1, \"listings\": []}");
 
-        var later = new ExportResult
+        var unchanged = new ExportResult
         {
-            Files = [new ExportFile("index.json", "{\"generated_at\": \"2026-06-01T12:00:00Z\", \"listings\": 1}")],
+            Files = [new ExportFile("index.json", "{\"snapshot_version\": 1, \"listings\": []}")],
             Skipped = [],
         };
 
-        Assert.False(ExportComparer.DiffersFrom(later, _root));
+        Assert.False(ExportComparer.DiffersFrom(unchanged, _root));
 
-        var actuallyDifferent = new ExportResult
+        var moved = new ExportResult
         {
-            Files = [new ExportFile("index.json", "{\"generated_at\": \"2026-06-01T12:00:00Z\", \"listings\": 2}")],
+            Files = [new ExportFile("index.json", "{\"snapshot_version\": 1, \"listings\": [1]}")],
             Skipped = [],
         };
 
-        Assert.True(ExportComparer.DiffersFrom(actuallyDifferent, _root));
+        Assert.True(ExportComparer.DiffersFrom(moved, _root));
     }
 
     [Fact]

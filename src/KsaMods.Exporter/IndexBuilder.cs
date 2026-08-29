@@ -27,6 +27,13 @@ public static class IndexBuilder
     /// </summary>
     public const int SnapshotVersion = 1;
 
+    /// <summary>
+    /// Where the game release list comes from, recorded in the snapshot so a reader can tell what
+    /// the list is a list of. The master server reports the current public production build, which
+    /// is why the list holds those and nothing else (RFC 0017).
+    /// </summary>
+    public const string GameVersionSource = "http://ksa-master1.rocketwerkz.com:8082/version";
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true,
@@ -123,59 +130,84 @@ public static class IndexBuilder
                     .ToList())));
         }
 
-        // The client contract (RFC 0033): one artifact carrying the whole index, so search,
-        // dependency resolution and compatibility all work from a single fetch and then offline.
+        // The client contract (spec/snapshot.md): one document a client fetches, joining each
+        // listing to its releases so nothing has to know about the two-repository split.
         //
-        // It used to be a counts manifest - three numbers and a timestamp - which told a client
-        // how much it was about to have to fetch and nothing it could act on. The per-file paths
-        // above stay as the secondary path the RFC allows for tooling, but they are explicitly not
-        // the contract, so the layout can be reorganised without breaking anyone.
-        var releaseDocuments = input.Releases
+        // The builder joins, filters and attaches. It never rewrites the content of a document:
+        // every authored document and every release file appears verbatim, which is what lets any
+        // entry be checked against the repositories without first reproducing what we computed.
+        //
+        // No generated_at, and this is a rule rather than an omission. A wall-clock field changes
+        // the bytes on every scheduled rebuild and invalidates every cached copy for no change in
+        // content. How stale a copy is comes from HTTP.
+        var releasesByListing = input.Releases
             .Where(r => byId.ContainsKey(r.ModId))
-            .OrderBy(r => r.ModId, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(r => SemVer.Parse(r.Version))
-            .Select(r => ToRelease(r, byId[r.ModId]))
+            .GroupBy(r => r.ModId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var entries = exportable
+            .Select(listing => new SnapshotEntry
+            {
+                Id = listing.Id,
+
+                // Three voices side by side, never mixed: the author writes authored, tooling
+                // writes releases, the index writes index_status.
+                Authored = ToAuthored(listing),
+
+                // Descending, so the newest release of a listing is the first one a client reads.
+                // An empty array is a listing whose host has no release yet, which RFC 0033 admits
+                // and which a client lists with nothing to install - distinct from a tombstone,
+                // where the key is absent entirely.
+                Releases = releasesByListing.TryGetValue(listing.Id, out var found)
+                    ? [.. found.OrderByDescending(r => SemVer.Parse(r.Version))
+                              .Select(r => ToRelease(r, listing))]
+                    : [],
+            })
+            .Concat(input.Tombstones.Select(t => new SnapshotEntry
+            {
+                Id = t.Id,
+
+                // A tombstone keeps its id and its state and carries nothing else, so a client can
+                // tell "removed" from "never listed" and knows the id is taken. taken_down and
+                // delisted are one thing to a client: the content is gone, and nothing is deleted
+                // from anyone's machine either way.
+                IndexStatus = new SnapshotStatus { State = "delisted" },
+            }))
+            .OrderBy(e => e.Id, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         files.Add(new ExportFile("index.json", Serialise(new
         {
-            // Its own version, separate from the document spec version, because the shape of the
-            // envelope and the shape of the documents inside it change for different reasons.
             snapshot_version = SnapshotVersion,
-            spec_version = SpecVersion,
-            generated_at = input.GeneratedAt,
 
-            counts = new
-            {
-                listings = exportable.Count,
-                releases = releaseDocuments.Count,
-                modlists = files.Count(f => f.Path.StartsWith("modlists/", StringComparison.Ordinal)),
-            },
+            listings = entries,
 
-            listings = exportable.Select(ToAuthored).ToList(),
-            releases = releaseDocuments,
-
-            modlists = input.Modlists
+            // Empty arrays, never absent fields, so a client never has to tell "no packs" from
+            // "this builder does not do packs".
+            packs = input.Modlists
                 .Where(m => m.Visibility == "public")
-                .OrderBy(m => m.ModlistId, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(m => SemVer.Parse(m.Version))
-                .Select(ToModlist)
+                .GroupBy(m => m.ModlistId, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new
+                {
+                    id = g.First().ModlistId,
+                    versions = g.OrderByDescending(m => SemVer.Parse(m.Version))
+                                .Select(m => new { authored = ToModlist(m) })
+                                .ToList(),
+                })
                 .ToList(),
 
-            // The index's own voice about a listing, which RFC 0031 requires be distinct from the
-            // author's status field and which the author cannot write. A withdrawn listing is here
-            // and nowhere else in the snapshot.
-            status = input.Tombstones
-                .OrderBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
-                .Select(t => new { id = t.Id, status = t.Status })
-                .ToList(),
-
-            // Shipped inside the snapshot so a client needs no second request to resolve a month
-            // bound for a period its own install does not cover (RFC 0017, RFC 0033).
-            builds = input.Builds
-                .OrderBy(b => b.Revision)
-                .Select(b => new { revision = b.Revision, build = b.VersionString, date = b.Released })
-                .ToList(),
+            // Embedded so a client needs no second request to render a revision as the version
+            // string a user recognises. Ascending by revision, the only component that orders.
+            game_versions = new
+            {
+                spec_version = SpecVersion,
+                source = GameVersionSource,
+                versions = input.Builds
+                    .OrderBy(b => b.Revision)
+                    .Select(b => b.VersionString)
+                    .ToList(),
+            },
         })));
 
         return new ExportResult

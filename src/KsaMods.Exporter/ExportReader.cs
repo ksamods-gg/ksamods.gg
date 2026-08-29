@@ -17,8 +17,7 @@ namespace KsaMods.Exporter;
 /// </summary>
 public static class ExportReader
 {
-    public static async Task<ExportInput> ReadAsync(
-        NpgsqlConnection connection, DateTimeOffset generatedAt, CancellationToken ct)
+    public static async Task<ExportInput> ReadAsync(NpgsqlConnection connection, CancellationToken ct)
     {
         var listings = await ReadListingsAsync(connection);
         var tombstones = await ReadTombstonesAsync(connection);
@@ -37,7 +36,6 @@ public static class ExportReader
             ModlistAliases = aliases,
             Moderation = moderation,
             Builds = builds,
-            GeneratedAt = generatedAt,
         };
     }
 
@@ -126,14 +124,6 @@ public static class ExportReader
     }
 
     /// <summary>
-    /// Maps a verified repository link onto RFC 0031's <c>[releases]</c>.
-    ///
-    /// <para>Only GitHub maps today. The block names hosts a watcher can poll, and there is no key
-    /// for GitLab or Codeberg in the format, so a listing released from one of those gets no block
-    /// rather than a key nothing reads - which is also the honest answer, since RFC 0033's watcher
-    /// could not stamp those releases either.</para>
-    /// </summary>
-    /// <summary>
     /// Reads a jsonb column into its record.
     ///
     /// <para>Null on anything malformed rather than throwing: one unreadable blob is not a reason
@@ -155,6 +145,14 @@ public static class ExportReader
         }
     }
 
+    /// <summary>
+    /// Maps a verified repository link onto RFC 0031's <c>[releases]</c>.
+    ///
+    /// <para>Only GitHub maps today. The block names hosts a watcher can poll, and there is no key
+    /// for GitLab or Codeberg in the format, so a listing released from one of those gets no block
+    /// rather than a key nothing reads - which is also the honest answer, since RFC 0033's watcher
+    /// could not stamp those releases either.</para>
+    /// </summary>
     private static Metadata.ReleasesBlock? ReleasesOf(string? provider, string? repo) =>
         provider == "github" && !string.IsNullOrWhiteSpace(repo)
             ? new Metadata.ReleasesBlock { GitHub = repo }

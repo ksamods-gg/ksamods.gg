@@ -110,12 +110,10 @@ static async Task<bool> RunAsync(
 {
     await using var connection = await source.OpenConnectionAsync(ct);
 
-    // Passed in rather than read from the clock inside the builder, so a run is reproducible and
-    // two runs over unchanged data produce byte-identical files - which is what makes "nothing
-    // changed" mean anything.
-    var generatedAt = DateTimeOffset.UtcNow;
-
-    var input = await ExportReader.ReadAsync(connection, generatedAt, ct);
+    // No clock anywhere in the build. spec/snapshot.md forbids a wall-clock field outright: it
+    // would change the bytes on every scheduled rebuild and invalidate every cached copy for no
+    // change in content.
+    var input = await ExportReader.ReadAsync(connection, ct);
     var export = IndexBuilder.Build(input);
 
     Log($"export: {input.Listings.Count} listing(s), {input.Releases.Count} release(s), "
@@ -149,8 +147,10 @@ static async Task<bool> RunAsync(
         Push = push,
     });
 
+    // A clock in the commit message is fine - git stamps every commit anyway, and this is the
+    // mirror's metadata rather than the snapshot's bytes. Only the artifact has to stay timeless.
     var outcome = await mirror.SyncAsync(
-        export, $"Index as of {generatedAt:yyyy-MM-dd HH:mm} UTC", ct);
+        export, $"Index as of {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm} UTC", ct);
 
     if (outcome.Changed)
     {

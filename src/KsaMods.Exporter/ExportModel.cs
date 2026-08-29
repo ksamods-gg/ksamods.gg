@@ -110,9 +110,6 @@ public sealed record ExportInput
 
     public IReadOnlyList<ExportModerationEntry> Moderation { get; init; } = [];
     public IReadOnlyList<(int Revision, string VersionString, DateOnly? Released)> Builds { get; init; } = [];
-
-    /// <summary>Passed in rather than read from the clock, so an export run is reproducible.</summary>
-    public required DateTimeOffset GeneratedAt { get; init; }
 }
 
 /// <summary>A file in the exported tree. Content is already serialised.</summary>

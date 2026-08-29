@@ -67,7 +67,6 @@ public class IndexBuilderTests
             Releases = releases ?? [Release()],
             Modlists = modlists ?? [],
             Tombstones = tombstones ?? [],
-            GeneratedAt = Stamp,
         };
 
     [Fact]
@@ -408,6 +407,47 @@ public class IndexBuilderTests
     }
 
     [Fact]
+    public void The_snapshot_carries_no_wall_clock_field()
+    {
+        // spec/snapshot.md forbids it: a generated_at changes the bytes on every scheduled rebuild
+        // and invalidates every cached copy for no change in content. How stale a copy is comes
+        // from HTTP instead.
+        foreach (var file in IndexBuilder.Build(Input()).Files)
+        {
+            Assert.DoesNotContain("generated_at", file.Content, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Releases_are_newest_first_inside_a_listing()
+    {
+        var index = IndexBuilder.Build(Input(
+            releases: [Release(version: "1.0.0"), Release(version: "1.2.0"), Release(version: "1.1.0")]))
+            .Files.Single(f => f.Path == "index.json");
+
+        // Descending by SemVer precedence, so the newest is the first one a client reads. String
+        // order would put 1.1.0 above 1.2.0 once a version reaches double digits.
+        Assert.True(
+            index.Content.IndexOf("1.2.0", StringComparison.Ordinal)
+            < index.Content.IndexOf("1.1.0", StringComparison.Ordinal));
+
+        Assert.True(
+            index.Content.IndexOf("1.1.0", StringComparison.Ordinal)
+            < index.Content.IndexOf("1.0.0", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_listing_with_no_releases_gets_an_empty_array_not_a_missing_key()
+    {
+        // Absent releases means tombstone. Empty means a listing whose host has no release yet,
+        // which a client lists with nothing to install - a different thing entirely.
+        var index = IndexBuilder.Build(Input(releases: []))
+            .Files.Single(f => f.Path == "index.json");
+
+        Assert.Contains("\"releases\": []", index.Content, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_snapshot_carries_the_whole_index_not_a_count_of_it()
     {
         // RFC 0033's client contract: one fetch, and everything downstream - search, resolution,
@@ -418,7 +458,13 @@ public class IndexBuilderTests
         Assert.Contains("\"snapshot_version\": 1", index.Content, StringComparison.Ordinal);
         Assert.Contains("Advanced Flight Computer", index.Content, StringComparison.Ordinal);
         Assert.Contains("\"sha256\"", index.Content, StringComparison.Ordinal);
-        Assert.Contains("\"builds\"", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"game_versions\"", index.Content, StringComparison.Ordinal);
+
+        // The three voices sit in named keys, joined per listing rather than as parallel arrays a
+        // client would have to zip back together.
+        Assert.Contains("\"authored\"", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"releases\"", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"packs\"", index.Content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -432,7 +478,7 @@ public class IndexBuilderTests
         // Present, so a client can tell "removed" from "never listed" and stop offering an install
         // it has no other way to learn is gone.
         Assert.Contains("AbandonedThing", index.Content, StringComparison.Ordinal);
-        Assert.Contains("\"status\": \"delisted\"", index.Content, StringComparison.Ordinal);
+        Assert.Contains("\"state\": \"delisted\"", index.Content, StringComparison.Ordinal);
 
         // And nothing of it anywhere else: a withdrawal that reaches a public mirror whole is a
         // withdrawal that did not happen.
@@ -452,7 +498,7 @@ public class IndexBuilderTests
         var index = result.Files.Single(f => f.Path == "index.json");
 
         Assert.DoesNotContain("NoBound", index.Content, StringComparison.Ordinal);
-        Assert.Contains("\"listings\": 1", index.Content, StringComparison.Ordinal);
+        Assert.Contains("AdvancedFlightComputer", index.Content, StringComparison.Ordinal);
     }
 
     [Fact]
