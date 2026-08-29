@@ -24,9 +24,8 @@
             @foreach (var (id, label) in Contents)
             {
                 <li>
-                    <a href="@($"#{id}")"
-                       class="-ml-px block border-l border-transparent py-1 pl-3 text-[0.8125rem] text-muted-foreground
-                              transition-colors hover:border-primary hover:text-foreground">
+                    <a href="@($"/api-reference#{id}")" class="-ml-px block border-l border-transparent py-1 pl-3 text-[0.8125rem] text-muted-foreground
+                        transition-colors hover:border-primary hover:text-foreground">
                         @label
                     </a>
                 </li>
@@ -149,11 +148,15 @@
 
                 @* The min-width forces this to overflow on a phone, which is what makes the
                    keyboard affordance below load-bearing rather than decorative. *@
-                <div class="mt-4 overflow-x-auto"
-                     tabindex="0" role="region" aria-label="@(group.Title + " endpoints, scrollable")">
+                <div class="mt-4 overflow-x-auto" tabindex="0" role="region"
+                     aria-label="@(group.Title + " endpoints, scrollable")">
                     <table class="w-full min-w-[36rem] border-collapse text-left">
                         <thead class="sr-only">
-                            <tr><th>Method</th><th>Path</th><th>What it does</th></tr>
+                            <tr>
+                                <th>Method</th>
+                                <th>Path</th>
+                                <th>What it does</th>
+                            </tr>
                         </thead>
                         <tbody class="divide-y divide-border">
                             @foreach (var endpoint in group.Endpoints)
@@ -166,8 +169,9 @@
                                         @endpoint.Path
                                         @if (endpoint.Auth)
                                         {
-                                            <span class="ml-1.5 align-middle text-[0.625rem] uppercase tracking-wider text-muted-foreground"
-                                                  title="Needs a session or a personal token">auth</span>
+                                            <span
+                                            class="ml-1.5 align-middle text-[0.625rem] uppercase tracking-wider text-muted-foreground"
+                                            title="Needs a session or a personal token">auth</span>
                                         }
                                     </td>
                                     <td class="py-3 align-top text-sm text-muted-foreground">@endpoint.Summary</td>
@@ -188,32 +192,34 @@
             <ul class="mt-3 space-y-1.5 text-sm text-muted-foreground">
                 <li><code class="font-mono text-xs text-foreground">q</code> — matches name and short description.</li>
                 <li><code class="font-mono text-xs text-foreground">tag</code> — filters to one tag.</li>
-                <li><code class="font-mono text-xs text-foreground">type</code> — <code class="font-mono text-xs">mod</code> or <code class="font-mono text-xs">mod-loader</code>.</li>
-                <li><code class="font-mono text-xs text-foreground">gameBuild</code> — keeps only what has a release for that revision.</li>
-                <li><code class="font-mono text-xs text-foreground">limit</code> — defaults to 50, capped at 200.</li>
-                <li><code class="font-mono text-xs text-foreground">after</code> — the cursor.</li>
-            </ul>
+                <li><code class="font-mono text-xs text-foreground">type</code> — <code
+                    class="font-mono text-xs">mod</code> or <code class="font-mono text-xs">mod-loader</code>.</li>
+                    <li><code class="font-mono text-xs text-foreground">gameBuild</code> — keeps only what has a release for
+                        that revision.</li>
+                        <li><code class="font-mono text-xs text-foreground">limit</code> — defaults to 50, capped at 200.</li>
+                        <li><code class="font-mono text-xs text-foreground">after</code> — the cursor.</li>
+                    </ul>
 
-            <p class="mt-4 text-sm leading-relaxed text-muted-foreground">
-                Responses carry a <code class="font-mono text-xs">next</code> value. Pass it back as
-                <code class="font-mono text-xs">after</code> for the following page, and stop when it
-                comes back null. It is a cursor rather than an offset on purpose: offsets skip and
-                repeat rows when the catalogue changes mid-scroll, so anything taking a full snapshot
-                would end up with a corrupt one.
-            </p>
-        </section>
+                    <p class="mt-4 text-sm leading-relaxed text-muted-foreground">
+                        Responses carry a <code class="font-mono text-xs">next</code> value. Pass it back as
+                        <code class="font-mono text-xs">after</code> for the following page, and stop when it
+                        comes back null. It is a cursor rather than an offset on purpose: offsets skip and
+                        repeat rows when the catalogue changes mid-scroll, so anything taking a full snapshot
+                        would end up with a corrupt one.
+                    </p>
+                </section>
 
-        <section id="resolve" class="mt-12 scroll-mt-8">
-            <h2 class="text-lg font-semibold tracking-tight">Resolving an install</h2>
-            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
-                <code class="font-mono text-xs">POST /resolve</code> takes what you want and returns a
-                concrete install plan, or an explanation of why there is not one. It also reports
-                asset id collisions between the mods you picked, which is the failure a player
-                otherwise discovers by noticing something silently missing in game.
-            </p>
+                <section id="resolve" class="mt-12 scroll-mt-8">
+                    <h2 class="text-lg font-semibold tracking-tight">Resolving an install</h2>
+                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+                        <code class="font-mono text-xs">POST /resolve</code> takes what you want and returns a
+                        concrete install plan, or an explanation of why there is not one. It also reports
+                        asset id collisions between the mods you picked, which is the failure a player
+                        otherwise discovers by noticing something silently missing in game.
+                    </p>
 
-            <pre class="mt-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs leading-relaxed"
-                 tabindex="0" role="region" aria-label="Example resolve request, scrollable"><code>POST /api/v1/resolve
+                    <pre class="mt-4 overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs leading-relaxed"
+                         tabindex="0" role="region" aria-label="Example resolve request, scrollable"><code>POST /api/v1/resolve
 Content-Type: application/json
 
 {
@@ -225,46 +231,46 @@ Content-Type: application/json
   "includeRecommended": false
 }</code></pre>
 
-            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Leave <code class="font-mono text-xs">version</code> out to take the newest release
-                that fits. <code class="font-mono text-xs">gameBuild</code> is the revision from
-                <code class="font-mono text-xs">/builds</code> — the fourth component of the game's
-                version, and the only one that orders.
-            </p>
-        </section>
+                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+                        Leave <code class="font-mono text-xs">version</code> out to take the newest release
+                        that fits. <code class="font-mono text-xs">gameBuild</code> is the revision from
+                        <code class="font-mono text-xs">/builds</code> — the fourth component of the game's
+                        version, and the only one that orders.
+                    </p>
+                </section>
 
-        <section id="caveats" class="mt-12 scroll-mt-8">
-            <h2 class="text-lg font-semibold tracking-tight">Before you build on this</h2>
+                <section id="caveats" class="mt-12 scroll-mt-8">
+                    <h2 class="text-lg font-semibold tracking-tight">Before you build on this</h2>
 
-            <Alert Variant="warning" Title="Download URLs are not ours" Class="mt-4">
-                Every release points at a file on the author's own forge, and we store the
-                <code class="font-mono text-xs">sha256</code> we measured when we checked it. Verify
-                that hash after downloading. If it does not match, do not install the file: the bytes
-                changed after we looked at them.
-            </Alert>
+                    <Alert Variant="warning" Title="Download URLs are not ours" Class="mt-4">
+                        Every release points at a file on the author's own forge, and we store the
+                        <code class="font-mono text-xs">sha256</code> we measured when we checked it. Verify
+                        that hash after downloading. If it does not match, do not install the file: the bytes
+                        changed after we looked at them.
+                    </Alert>
 
-            <Alert Variant="warning" Title="Passing validation is not a safety verdict" Class="mt-3">
-                Findings tell you an archive is packaged the way the game expects. Code mods are
-                unsandboxed assemblies, and no amount of packaging analysis tells you what one does
-                once it is running.
-            </Alert>
-        </section>
+                    <Alert Variant="warning" Title="Passing validation is not a safety verdict" Class="mt-3">
+                        Findings tell you an archive is packaged the way the game expects. Code mods are
+                        unsandboxed assemblies, and no amount of packaging analysis tells you what one does
+                        once it is running.
+                    </Alert>
+                </section>
 
-        <section id="export" class="mt-12 scroll-mt-8">
-            <h2 class="text-lg font-semibold tracking-tight">The exported index</h2>
-            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
-                If you want the whole catalogue rather than a query against it, there is a static
-                export and a git mirror of it, both built to keep working if this API is not. Polling
-                <code class="font-mono text-xs">/mods</code> in a loop is the wrong tool for that job.
-            </p>
-            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
-                It is one snapshot document carrying every listing joined to its releases, the index
-                status and the game build list. There is no timestamp field in it, so an unchanged
-                index keeps its ETag and costs a poller one 304.
-            </p>
-        </section>
-    </div>
-</div>
+                <section id="export" class="mt-12 scroll-mt-8">
+                    <h2 class="text-lg font-semibold tracking-tight">The exported index</h2>
+                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+                        If you want the whole catalogue rather than a query against it, there is a static
+                        export and a git mirror of it, both built to keep working if this API is not. Polling
+                        <code class="font-mono text-xs">/mods</code> in a loop is the wrong tool for that job.
+                    </p>
+                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
+                        It is one snapshot document carrying every listing joined to its releases, the index
+                        status and the game build list. There is no timestamp field in it, so an unchanged
+                        index keeps its ETag and costs a poller one 304.
+                    </p>
+                </section>
+            </div>
+        </div>
 
 @code {
     private sealed record Endpoint(string Method, string Path, string Summary, bool Auth = false);
