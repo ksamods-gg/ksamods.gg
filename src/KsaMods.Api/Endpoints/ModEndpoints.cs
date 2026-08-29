@@ -193,6 +193,11 @@ public static class ModEndpoints
             var mod = await mods.FindAsync(id, ct);
             if (mod is null) return Results.NotFound();
 
+            // A listing the community index arbitrates is rewritten wholesale on the next sync, so
+            // an edit accepted here would survive until then and no longer. Refusing says so;
+            // accepting would be a silent revert with somebody's work in it.
+            if (mod.Source == "index") return IndexOwned(mod.Id);
+
             if (!string.IsNullOrWhiteSpace(body.BannerUrl) && !IsUsableBannerUrl(body.BannerUrl))
             {
                 return Results.ValidationProblem(new Dictionary<string, string[]>
@@ -1124,6 +1129,19 @@ public static class ModEndpoints
 
     private static string? Serialise<T>(T? value) where T : class =>
         value is null ? null : System.Text.Json.JsonSerializer.Serialize(value);
+
+    /// <summary>
+    /// Refuses a write to a listing the community index owns, and says where it is changed instead.
+    /// </summary>
+    private static IResult IndexOwned(string id) =>
+        Results.Json(new
+        {
+            error = "index_owned",
+            detail = $"'{id}' comes from the community index and is edited there, "
+                   + "in KSAModding/content-index. A change made here would be overwritten by the "
+                   + "next sync.",
+        },
+        statusCode: StatusCodes.Status409Conflict);
 
     private static IResult BadBound(string field, string message) =>
         Results.ValidationProblem(new Dictionary<string, string[]> { [field] = [message] });

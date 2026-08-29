@@ -115,6 +115,21 @@ builder.Services.AddSingleton(new BuildPolicy
 });
 builder.Services.AddHostedService<BuildPoller>();
 
+// The community index (RFC 0033) as the catalogue. Off unless switched on, so nothing starts
+// pulling a third-party repository into this database unasked.
+builder.Services.AddSingleton(new IndexSyncPolicy
+{
+    Enabled = builder.Configuration.GetValue("IndexSync:Enabled", false),
+    AuthoredRepo = builder.Configuration["IndexSync:AuthoredRepo"] ?? new IndexSyncPolicy().AuthoredRepo,
+    GeneratedRepo = builder.Configuration["IndexSync:GeneratedRepo"] ?? new IndexSyncPolicy().GeneratedRepo,
+    // Deliberately not under scratch: that is a tmpfs, so a clone there would be discarded on
+    // every restart and every start would pay a full one.
+    WorkingDirectory = builder.Configuration["IndexSync:WorkingDirectory"]
+        ?? new IndexSyncPolicy().WorkingDirectory,
+    Interval = TimeSpan.FromMinutes(builder.Configuration.GetValue("IndexSync:IntervalMinutes", 10)),
+});
+builder.Services.AddHostedService<IndexSync>();
+
 builder.Services.AddHostedService<ReleasePoller>();
 builder.Services.AddHostedService<ReverifySweeper>();
 builder.Services.AddHostedService<JobPump>();

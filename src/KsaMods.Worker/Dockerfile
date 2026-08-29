@@ -32,7 +32,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 # and running a second one inside would need --privileged, which is a much larger hole than the
 # socket already is.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends docker.io ca-certificates \
+ && apt-get install -y --no-install-recommends docker.io git ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

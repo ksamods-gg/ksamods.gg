@@ -131,21 +131,37 @@ public sealed class TagVocabulary(Database database)
             .ToDictionary(t => t.Slug, t => t.State, StringComparer.Ordinal);
 
         var accepted = new List<string>();
+        var adopted = new List<string>();
 
         foreach (var slug in candidates)
         {
-            if (known.TryGetValue(slug, out var state) && state == "approved")
+            // A tag an admin looked at and turned down is the one refusal worth keeping. Everything
+            // else is an absence rather than a decision, and refusing an absence is what made this
+            // site reject listings the community index accepts.
+            if (known.TryGetValue(slug, out var state) && state == "rejected")
             {
-                accepted.Add(slug);
+                rejected[slug] = "This tag was reviewed and turned down.";
                 continue;
             }
 
-            rejected[slug] = state switch
-            {
-                "proposed" => "Waiting on an admin to approve it.",
-                "rejected" => "This tag was reviewed and turned down.",
-                _ => "Not a tag on this site yet. You can suggest it.",
-            };
+            accepted.Add(slug);
+
+            if (!known.ContainsKey(slug)) adopted.Add(slug);
+        }
+
+        // Unknown tags are recorded for review rather than refused, which is the rule the community
+        // index states outright: the curated vocabulary warns, it does not reject. It exists to
+        // drive the picker and to make browsing by a tag worth doing, and an unlisted tag is still
+        // findable by search. Refusing one only moved the cost onto the author, who then has to
+        // pick a worse tag or wait for an admin before their listing can exist at all.
+        if (adopted.Count > 0)
+        {
+            await connection.ExecuteAsync("""
+                insert into tag (slug, label, state, reason)
+                values (@slug, @slug, 'proposed', 'Used on a listing. Adopted for review.')
+                on conflict (slug) do nothing
+                """,
+                adopted.Select(slug => new { slug }));
         }
 
         return ([.. accepted], rejected);

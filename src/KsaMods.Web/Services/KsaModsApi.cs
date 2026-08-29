@@ -657,6 +657,17 @@ public sealed record ModDetail
     [JsonPropertyName("game_min")] public string? GameMin { get; init; }
     [JsonPropertyName("game_max")] public string? GameMax { get; init; }
 
+    /// <summary>'local' or 'index'. An index listing is arbitrated upstream and not editable here.</summary>
+    [JsonPropertyName("source")] public string Source { get; init; } = "local";
+
+    /// <summary>
+    /// Author names, for a listing from the community index. Those authors have no account here,
+    /// so <see cref="Author"/> is null for them and this is what a reader is shown instead.
+    /// </summary>
+    [JsonPropertyName("authors")] public IReadOnlyList<string>? Authors { get; init; }
+
+    public bool IsFromIndex => Source == "index";
+
     /// <summary>owner, maintainer, or null for everyone else. Decides who sees the manage controls.</summary>
     [JsonPropertyName("your_role")] public string? YourRole { get; init; }
 

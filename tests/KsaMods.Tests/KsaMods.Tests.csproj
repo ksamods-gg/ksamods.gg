@@ -26,4 +26,10 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Real files from KSAModding/content-index and content-index-releases, copied unmodified.
+         Copied rather than fetched at test time so the suite stays offline and deterministic. -->
+    <None Include="IndexFixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

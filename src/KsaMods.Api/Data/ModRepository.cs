@@ -29,6 +29,12 @@ public sealed record ModRow
     public string[]? Os { get; init; }
 
     /// <summary>
+    /// Author names for a listing that came from the community index, which has names and no
+    /// accounts here. Null for a local listing, whose authors are its maintainer rows.
+    /// </summary>
+    public string[]? Authors { get; init; }
+
+    /// <summary>
     /// The authored compatibility bound (RFC 0031). Display is what the author wrote; the revision
     /// is what orders. A release inherits both unless it carries its own.
     /// </summary>
@@ -45,7 +51,14 @@ public sealed record ModRow
     public string? Install { get; init; }
     public string? Provides { get; init; }
 
-    public required long CreatedBy { get; init; }
+    /// <summary>'local' or 'index'. An index row is rewritten by the sync, so it is not editable here.</summary>
+    public string Source { get; init; } = "local";
+
+    /// <summary>
+    /// Null for a listing from the community index: nobody on this site created it, which is
+    /// stated rather than impersonated with a synthetic account.
+    /// </summary>
+    public long? CreatedBy { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset UpdatedAt { get; init; }
 }
@@ -130,7 +143,7 @@ public sealed class ModRepository(Database database)
                    links::text as Links, status as Status, superseded_by as SupersededBy,
                    listing_state as ListingState, banner_url as BannerUrl,
                    icon_url as IconUrl, hide_author as HideAuthor,
-                   os as Os, created_by as CreatedBy,
+                   os as Os, authors as Authors, source as Source, created_by as CreatedBy,
                    game_min_display as GameMinDisplay, game_min_revision as GameMinRevision,
                    game_max_display as GameMaxDisplay, game_max_revision as GameMaxRevision,
                    install::text as Install, provides::text as Provides,

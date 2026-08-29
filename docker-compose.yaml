@@ -122,11 +122,19 @@ services:
       # Raises GitHub's limit from 60 requests an hour to 5000. Optional: the site reads public
       # repositories only, so this buys rate limit and no access.
       - GitHub__Token=${GITHUB_TOKEN:-}
+      # Mirrors KSAModding/content-index and content-index-releases into the catalogue, read-only.
+      # Off by default: switching it on hands the id namespace to the community index, and a
+      # listing authored here whose id is taken upstream stops being the one the site shows.
+      - IndexSync__Enabled=${INDEX_SYNC:-false}
+      - IndexSync__WorkingDirectory=/var/lib/ksamods/index
     volumes:
       # Root-equivalent on the host. There is no way to run a container per validation without it,
       # and the alternative - validating in-process - is strictly worse: it would put a zip parser
       # handling hostile input inside the service that holds the database credentials.
       - /var/run/docker.sock:/var/run/docker.sock
+      # The index working copies. A real volume rather than the tmpfs below: these are clones we
+      # want to survive a restart, or every start pays a full one.
+      - index-cache:/var/lib/ksamods
     tmpfs:
       # Downloaded archives, deleted after each job. On a tmpfs so they cannot outlive the
       # container even if a job dies between fetching and cleaning up.
@@ -196,3 +204,6 @@ volumes:
   # The working clone. Kept between runs because the mirror grows, and re-cloning it every
   # fifteen minutes is bandwidth spent arriving at the state already on disk.
   mirror-clone:
+
+  # The community index working copies, for the same reason.
+  index-cache:

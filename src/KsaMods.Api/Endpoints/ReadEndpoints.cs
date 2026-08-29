@@ -91,6 +91,11 @@ public static class ReadEndpoints
                 game_min = mod.GameMinDisplay,
                 game_max = mod.GameMaxDisplay,
 
+                // Where the listing is arbitrated. An 'index' listing is owned upstream: it has
+                // author names rather than accounts here, and nothing on this site may edit it.
+                source = mod.Source,
+                authors = mod.Authors,
+
                 // The caller's own role on this listing, so the frontend can offer management
                 // controls only to people they will work for. The principal is already loaded
                 // above for the visibility check, so this costs nothing extra.
