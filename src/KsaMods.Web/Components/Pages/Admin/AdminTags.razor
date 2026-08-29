@@ -84,7 +84,7 @@
 
             <div class="flex flex-wrap items-end gap-2 border-b border-border pb-4">
                 <div>
-                    <label class="eyebrow text-muted-foreground" for="newSlug">Add one</label>
+                    <label class="field-label text-muted-foreground" for="newSlug">Add one</label>
                     <input id="newSlug" value="@_newSlug"
                            @oninput='e => _newSlug = e.Value?.ToString() ?? ""'
                            placeholder="lowercase-with-hyphens"

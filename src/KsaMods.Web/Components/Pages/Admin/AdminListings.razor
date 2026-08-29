@@ -7,14 +7,14 @@
 <AdminFrame Current="listings">
     <div class="flex flex-wrap items-end gap-3">
         <div class="min-w-56 flex-1">
-            <label class="eyebrow text-muted-foreground" for="q">Search</label>
+            <label class="field-label text-muted-foreground" for="q">Search</label>
             <input id="q" value="@_query" @oninput='e => _query = e.Value?.ToString() ?? ""'
                    @onkeydown="OnKeyDownAsync" placeholder="Name or id"
                    class="@InputClass" autocomplete="off" spellcheck="false" />
         </div>
 
         <div>
-            <label class="eyebrow text-muted-foreground" for="state">State</label>
+            <label class="field-label text-muted-foreground" for="state">State</label>
             <select id="state" value="@_state" @onchange="OnStateChangedAsync" class="@InputClass">
                 <option value="">Any</option>
                 <option value="listed">Listed</option>
@@ -96,7 +96,7 @@
                             <div class="border-t border-border bg-card/50 px-5 py-4">
                                 <div class="grid gap-3 sm:grid-cols-[12rem_1fr]">
                                     <div>
-                                        <label class="eyebrow text-muted-foreground" for="@($"state-{listing.Id}")">
+                                        <label class="field-label text-muted-foreground" for="@($"state-{listing.Id}")">
                                             New state
                                         </label>
                                         <select id="@($"state-{listing.Id}")" value="@_target"
@@ -110,7 +110,7 @@
                                     </div>
 
                                     <div>
-                                        <label class="eyebrow text-muted-foreground" for="@($"why-{listing.Id}")">
+                                        <label class="field-label text-muted-foreground" for="@($"why-{listing.Id}")">
                                             Reason
                                         </label>
                                         <input id="@($"why-{listing.Id}")" value="@_rationale"

@@ -1,206 +1,148 @@
 @import "tailwindcss";
 
 /*
-  ── Typefaces ────────────────────────────────────────────────────────────────────────────────
+  ksamods.gg — Interface Control Document.
 
-  IBM Plex, self-hosted. Self-hosted rather than linked because the privacy page promises no
-  third-party requests, and a font CDN is exactly that: every visitor's address handed to
-  somebody else before the page has even painted.
+  The lettering is B612, the face Airbus commissioned for cockpit displays: drawn to be read
+  correctly at a glance, at small sizes, under glare and vibration. This site's whole job is
+  getting an identifier read correctly — a revision, a bound, a sha256 — so the face is chosen
+  from the audience's own instrument world rather than from what a catalogue usually wears.
 
-  Three roles from one superfamily, so they share skeletons and never look like a collision:
-
-    Condensed  headings, the wordmark, eyebrow labels. Narrow and a little severe, the way
-               technical signage and spacecraft labelling are narrow.
-    Sans       everything a person reads in sentences.
-    Mono       identifiers only. A mod id, a version, a sha256 and a byte count are literal
-               strings that the game and the API compare character by character, so they are
-               set in a face where every character occupies the same width and none of them are
-               ambiguous. That is information design, not decoration.
-
-  Only the weights actually used are shipped. The rest would be dead bytes on first paint.
+  One family for everything, sans and mono. ISO 3098 specifies a single lettering style for a
+  whole drawing; mixing a display face into a technical sheet is a costume. Self-hosted, because
+  the privacy page promises no third-party requests and that is shipped copy, not a preference.
 */
 @font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 100 700;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-latin-wght-normal.woff2") format("woff2-variations");
-}
-
-@font-face {
-  font-family: "IBM Plex Sans Condensed";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-condensed-latin-600-normal.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "IBM Plex Sans Condensed";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-condensed-latin-700-normal.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "IBM Plex Mono";
+  font-family: "B612";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  src: url("/fonts/b612-latin-400-normal.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: "IBM Plex Mono";
+  font-family: "B612";
   font-style: normal;
-  font-weight: 500;
+  font-weight: 700;
   font-display: swap;
-  src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+  src: url("/fonts/b612-latin-700-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "B612 Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/b612-mono-latin-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "B612 Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/b612-mono-latin-700-normal.woff2") format("woff2");
 }
 
 /*
-  ── Tokens ───────────────────────────────────────────────────────────────────────────────────
+  The palette is a drawing, not an application chrome.
 
-  Every colour is a variable and components reference the semantic name, so a theme is a token
-  swap rather than a `dark:` prefix on every element.
+  Dark is the ground, forced by the scene rather than by category habit: somebody alt-tabbed out
+  of a fullscreen space game at night, on a second monitor, deciding whether to trust a
+  stranger's zip. Light is not an inversion of that but the other real state of the same
+  artifact — the sheet printed. Neither is a theme of the other; both are how this drawing exists.
 
-  Two rules this palette is built around.
+  Every colour is written once as `light-dark(light, dark)`, decided by `color-scheme` on the root,
+  which also hands the browser's own surfaces — scrollbars, caret, form controls — to the palette.
 
-  The neutrals are not grey. They carry a little chroma on a cold hue, because a zero-chroma
-  ramp is what a component library ships with rather than something anybody picked.
+  Four roles, and the discipline is that the last two are never decoration:
 
-  The accent is not a severity. It used to be amber at hue 58, sitting twelve degrees from the
-  warning colour at hue 70, near enough that a warning badge and a primary button were the same
-  colour and severity stopped meaning anything. The accent is now teal, well clear of the red,
-  amber, green and indigo that carry meaning. Nothing else is allowed to be saturated purely for
-  decoration.
+    sheet / ink   the ground and the linework. Almost everything is one of these two.
+    revision      drafting red. Faults, retractions, anything that stops an install.
+    reference     drafting blue. Measurement and reference marks only.
 
-  OKLCH throughout: lightness is perceptually even across hues, so a mid-teal and a mid-red at
-  the same L actually look equally bright. Hex does not give you that.
-
-  It also makes the contrast floor a one-dimensional problem. Every colour that carries text is
-  set at the lightest L that still clears 4.5:1 against the surface it is read on, hue and chroma
-  untouched. The light ramp used to be tuned by eye and missed: the primary button sat at 4.00:1
-  and the warning badge at 3.02:1, which is the ordinary failure mode of picking a mid-tone that
-  looks right on a white artboard and never measuring it against the tint it actually sits on.
-
-  Two of these are chroma-capped rather than freely chosen. sRGB cannot hold 0.145 chroma at the
-  lightness the warning colour now needs, so it is declared at the in-gamut maximum instead of a
-  number the browser would silently clip. A token that lies about what it renders is worse than a
-  duller token.
-
-  ── One declaration per token ────────────────────────────────────────────────────────────────
-
-  Each colour is written once, as `light-dark(light, dark)`. The palette used to exist three
-  times: once here, once under `.dark`, and once more inside a `prefers-color-scheme` query that
-  repeated all twenty-four lines verbatim. Nothing kept those two dark copies honest, so the
-  drift was a matter of which one a future edit happened to land in.
-
-  What decides between the pair is `color-scheme` on the root element, set once at the bottom of
-  this file, which also buys the thing a class-and-media-query pair never could: the browser's
-  own surfaces. Scrollbars, the caret, spinners and the default form controls all follow
-  `color-scheme`, and until now they stayed light on a dark page because nothing here ever told
-  the browser what kind of document this is.
-
-  The cost is a floor: `light-dark()` is Baseline from May 2024, which is above Tailwind v4's own
-  minimum (Safari 16.4 against the 17.5 this needs). Without it a visitor keeps the light theme
-  rather than losing the page, so the failure is a degradation and not a break.
+  A red on this page means something is wrong with a mod. That is the whole reason the accent is
+  spent nowhere else — no red buttons, no red brand furniture.
 */
 @theme {
-  /* Light is the first argument throughout: cool paper, the way a printed technical document is
-     never pure white. Dark is the second: not near-black but a deep blue-slate, which is both the
-     more interesting ground and the one that lets a teal accent sit on it without vibrating. */
-  --color-background: light-dark(oklch(0.984 0.003 240), oklch(0.171 0.021 254));
-  --color-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
+  /* Vellum, then graphite. The light ground is cool rather than cream: a blueline print is a cool
+     white, and cream here would be a warm-paper reflex this world never asked for. */
+  --color-background: light-dark(oklch(0.971 0.003 250), oklch(0.168 0.014 252));
+  --color-foreground: light-dark(oklch(0.215 0.017 252), oklch(0.935 0.005 245));
 
-  --color-card: light-dark(oklch(1 0 0), oklch(0.216 0.024 254));
-  --color-card-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
+  /* A panel is a region cut into the sheet, one step from the ground and no more. It is separated
+     by a rule, not by elevation, so the step is small on purpose. */
+  --color-card: light-dark(oklch(1 0 0), oklch(0.205 0.015 252));
+  --color-card-foreground: light-dark(oklch(0.215 0.017 252), oklch(0.935 0.005 245));
 
-  --color-popover: light-dark(oklch(1 0 0), oklch(0.216 0.024 254));
-  --color-popover-foreground: light-dark(oklch(0.19 0.021 250), oklch(0.947 0.008 245));
+  --color-popover: light-dark(oklch(1 0 0), oklch(0.228 0.016 252));
+  --color-popover-foreground: light-dark(oklch(0.215 0.017 252), oklch(0.935 0.005 245));
 
-  /* 4.73:1 under primary-foreground as a fill, 4.64:1 as text on the page ground. Both roles
-     bind, and the fill is the tighter of the two, so the token is set by it. */
-  --color-primary: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
-  --color-primary-foreground: light-dark(oklch(0.99 0.004 200), oklch(0.185 0.026 254));
+  /* Reference blue is the primary: the colour a drawing spends on dimensions, datums and
+     anything that points at a measurement. It carries links and the primary action, and it is
+     deliberately not the colour of a state.
 
-  /* Hover darkens on light and lightens on dark, because that is the direction that adds contrast
-     in each. A filter that lightened both was taking the light button back under the floor at the
-     moment somebody had committed to pressing it. Written as a pair, the two directions sit on one
-     line and cannot quietly become the same one. */
-  --color-primary-hover: light-dark(oklch(0.49 0.084 205), oklch(0.83 0.105 197));
+     Measured, not estimated: 6.07:1 on the light ground, 8.95:1 on the dark one, and as a fill
+     under its own foreground 6.41:1 and 9.06:1. An earlier version of this comment claimed 4.6
+     and 4.8 — numbers nobody had computed. Both roles clear AA with room; the fill is the tighter
+     of the two and still sets the token. */
+  --color-primary: light-dark(oklch(0.475 0.114 242), oklch(0.755 0.098 232));
+  --color-primary-foreground: light-dark(oklch(0.99 0.002 250), oklch(0.16 0.014 252));
+  --color-primary-hover: light-dark(oklch(0.415 0.108 242), oklch(0.82 0.088 232));
 
-  --color-secondary: light-dark(oklch(0.957 0.006 245), oklch(0.278 0.024 254));
-  --color-secondary-foreground: light-dark(oklch(0.24 0.021 250), oklch(0.947 0.008 245));
+  --color-secondary: light-dark(oklch(0.945 0.004 250), oklch(0.255 0.014 252));
+  --color-secondary-foreground: light-dark(oklch(0.25 0.017 252), oklch(0.935 0.005 245));
 
-  --color-muted: light-dark(oklch(0.957 0.006 245), oklch(0.278 0.024 254));
-  --color-muted-foreground: light-dark(oklch(0.505 0.018 248), oklch(0.695 0.018 248));
+  --color-muted: light-dark(oklch(0.948 0.004 250), oklch(0.245 0.014 252));
+  --color-muted-foreground: light-dark(oklch(0.482 0.014 250), oklch(0.712 0.012 248));
 
-  --color-accent: light-dark(oklch(0.947 0.009 245), oklch(0.278 0.024 254));
-  --color-accent-foreground: light-dark(oklch(0.24 0.021 250), oklch(0.947 0.008 245));
+  --color-accent: light-dark(oklch(0.936 0.006 250), oklch(0.268 0.015 252));
+  --color-accent-foreground: light-dark(oklch(0.25 0.017 252), oklch(0.935 0.005 245));
 
-  /* The dark fill is darker than the light one, which looks backwards until you remember it is a
-     fill carrying near-white text rather than a colour read on a tint. At the old 0.665 nothing
-     could fix it: white text on it tops out at 3.32:1, so the ceiling was below the floor and the
-     foreground was never the adjustable end. */
-  --color-destructive: light-dark(oklch(0.565 0.208 25), oklch(0.575 0.185 25));
+  /* Drafting red. The revision mark, and the only colour on the sheet that means stop.
+
+     The dark fill is darker than instinct wants because it carries near-white text: at 0.598 it
+     measured 4.14:1 against its own foreground, under AA, on the destructive button's small
+     label. Lightening a red fill lowers that ratio; darkening raises it. 0.560 measures 4.86:1. */
+  --color-destructive: light-dark(oklch(0.522 0.196 30), oklch(0.560 0.176 30));
   --color-destructive-foreground: light-dark(oklch(0.99 0 0), oklch(0.985 0 0));
 
-  /* Severity. Semantic, and deliberately nothing like the accent: a finding's colour must not
-     drift between the listing page, the release page and the CLI's mental model.
+  /* Severity keeps its four roles and its contract: a finding's colour must not drift between
+     the listing page, the release page and the CLI's mental model. Each clears 4.5:1 against its
+     own 10% tint, which is the lowest-contrast surface it is ever read on.
 
-     Each is set against its own 10% tint, not against the page, because that is where these
-     are actually read: Badge and Alert both put the colour on a wash of itself, which is the
-     lowest-contrast surface it ever meets. Clearing 4.5:1 there clears everything else. The
-     warning colour is at the in-gamut chroma ceiling for its lightness, so it reads as a darker
-     ochre than the old amber rather than a duller version of it. */
-  --color-severity-error: light-dark(oklch(0.538 0.208 25), oklch(0.685 0.178 25));
+     Error is the same drafting red as destructive, on purpose. On a drawing there is one red. */
+  --color-severity-error: light-dark(oklch(0.522 0.196 30), oklch(0.672 0.168 30));
   --color-severity-warning: light-dark(oklch(0.525 0.112 72), oklch(0.775 0.145 72));
-  --color-severity-info: light-dark(oklch(0.528 0.148 272), oklch(0.695 0.135 272));
-  --color-severity-ok: light-dark(oklch(0.505 0.135 150), oklch(0.715 0.145 150));
+  --color-severity-info: light-dark(oklch(0.475 0.114 242), oklch(0.742 0.098 232));
+  --color-severity-ok: light-dark(oklch(0.492 0.118 152), oklch(0.712 0.132 152));
 
-  /* Border and input are not the same job and no longer share a value. A border separates two
-     regions and may be as quiet as it likes; an input's border is the only thing telling anyone
-     where the control is, so it owes 3:1 against both surfaces it appears on - the page ground
-     and a card. It reads as a noticeably firmer edge, which is what a text field should look
-     like.
+  /* The rule is the structural device of this world: the hairline that separates two regions on a
+     sheet. It does more work here than a border does in a card world, because there are no
+     shadows doing the separating, so it is drawn a little firmer than a decorative border would
+     be. Input keeps its own heavier value — the edge of a control is the only thing saying where
+     the control is, and it owes 3:1 on both surfaces it appears on. */
+  --color-border: light-dark(oklch(0.868 0.006 250), oklch(0.935 0.005 245 / 17%));
+  --color-input: light-dark(oklch(0.62 0.011 250), oklch(0.935 0.005 245 / 44%));
+  --color-ring: light-dark(oklch(0.475 0.114 242), oklch(0.755 0.098 232));
 
-     Dark keeps both as an alpha of the foreground, and there that is the more robust choice
-     rather than the lazier one: one value has to clear its bar on the page ground and on a card,
-     and an alpha re-derives itself against whichever it lands on. */
-  --color-border: light-dark(oklch(0.895 0.008 245), oklch(0.947 0.008 245 / 13%));
-  --color-input: light-dark(oklch(0.65 0.009 245), oklch(0.947 0.008 245 / 40%));
-  --color-ring: light-dark(oklch(0.54 0.092 205), oklch(0.775 0.105 197));
+  /* Square. A drawing frame has corners, and this is the sharpest break from what the site
+     looked like before, which was rounded soft cards scanned a hundred at a time. sm exists for
+     controls, where a hair of radius keeps a small target from looking chipped; panels take 0. */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-lg: 0;
 
-  /* This used to read "panels, not pills - a 4px corner reads as a machined edge; 12px reads as a
-     chat bubble", and the machined edge was the right call for a drafting-instrument world. That
-     world has been replaced: the site is now shaped like the mod catalogues its visitors already
-     use, where the card is a soft object you scan a hundred of rather than a panel you read.
+  /* A drawing has no elevation, so separation is a rule and not a shadow. These two exist only
+     for things that genuinely float above the sheet — a menu, a dialog — where depth is
+     information rather than decoration. Both carry an offset and a soft blur; neither is a halo. */
+  --shadow-card: none;
+  --shadow-raised: 0 2px 4px light-dark(oklch(0.215 0.017 252 / 10%), oklch(0 0 0 / 34%)),
+                   0 10px 28px light-dark(oklch(0.215 0.017 252 / 9%), oklch(0 0 0 / 30%));
 
-     Three steps, each with a job. sm is the pill and the chip. md is the control - button, input,
-     select - large enough to read as soft, small enough that the label still sits square in it.
-     lg is the card, and it is the one carrying the change: at 14px a card stops looking like a
-     region of the page and starts looking like a thing on it. */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-
-  /* Elevation, not decoration. Every one carries a vertical offset and a soft blur, because a
-     zero-offset halo is a glow and glows do not tell you which surface is nearer.
-
-     The colour is the ground's own hue rather than neutral black: a grey shadow over a blue-slate
-     page reads as dirt on the surface. In dark the ambient shadow does almost nothing - there is
-     no light above a dark room - so the border carries separation there and this stays subtle
-     enough not to smear. */
-  --shadow-card: 0 1px 2px light-dark(oklch(0.19 0.021 250 / 6%), oklch(0 0 0 / 24%)),
-                 0 2px 8px light-dark(oklch(0.19 0.021 250 / 5%), oklch(0 0 0 / 18%));
-  --shadow-raised: 0 2px 4px light-dark(oklch(0.19 0.021 250 / 7%), oklch(0 0 0 / 28%)),
-                   0 8px 24px light-dark(oklch(0.19 0.021 250 / 8%), oklch(0 0 0 / 24%));
-
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  --font-sans: "B612", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "B612", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "B612 Mono", ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
 }
 
 /*
@@ -276,8 +218,10 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Headings are condensed and tight. The width contrast against the body face is the point:
-     it is what stops a page set in one family reading as one undifferentiated block. */
+  /* Headings are tight, not condensed. B612 ships one width, and a drawing letters its whole
+     sheet in one style anyway (ISO 3098), so hierarchy here is size and weight rather than a
+     second face. An earlier version of this comment claimed a width contrast against the body
+     face; there is no condensed cut and there never was one. */
   h1, h2, h3 {
     font-family: var(--font-display);
     letter-spacing: -0.011em;
@@ -390,12 +334,24 @@ header:has(.mod-banner) .mod-icon {
   box-shadow: 0 0 0 4px var(--color-card);
 }
 
-/* An eyebrow is a label, not a sentence: condensed, spaced, and small enough to stay quiet. */
-.eyebrow {
-  font-family: var(--font-display);
-  font-weight: 600;
+/*
+  A field label on a drawing: the small lettered caption naming what a region or a control holds.
+  Set in the mono, because on a sheet the label and the value it names are lettered alike.
+
+  Named for what it is. It used to be `.eyebrow`, and an eyebrow — a label parked above a heading
+  to introduce it — is a pattern this world does not use: the heading carries its own weight.
+
+  This class is for a label naming a region or a control. It is not for a caption above an <h1>.
+  A first pass removed three of those and this comment claimed they were all gone; a review found
+  two more still standing under the new name, which is the rename preserving the habit it was
+  supposed to kill. Those are gone too. If you are about to put this class immediately before a
+  heading, that is the banned pattern and the heading does not need the help.
+*/
+.field-label {
+  font-family: var(--font-mono);
+  font-weight: 700;
   font-size: 0.6875rem;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -518,3 +474,114 @@ header:has(.mod-banner) .mod-icon {
 .markdown table { width: 100%; border-collapse: collapse; margin-block: 0.75em; }
 .markdown th,
 .markdown td { border: 1px solid var(--color-border); padding: 0.375rem 0.625rem; text-align: start; }
+
+/*
+  ── The drawing devices ───────────────────────────────────────────────────────────────────────
+
+  Four, and each one exists because it carries a fact this product already has. A drawing world
+  that only supplied borders and a font would be a skin; these are the parts that diagram.
+*/
+
+/*
+  The sheet: the ruled frame a drawing is bordered by, with zone ticks down the trim.
+
+  Drawn with gradients rather than elements so it costs no markup and never lands in the tab
+  order. The ticks are decorative in the strict sense — aria-hidden by construction, because they
+  are painted background — and they are the one purely-atmospheric thing here, kept to a whisper.
+*/
+.sheet {
+  position: relative;
+  border: 1px solid var(--color-border);
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      var(--color-border) 0 1px,
+      transparent 1px var(--zone-step, 5rem)
+    );
+  background-repeat: no-repeat;
+  background-size: 7px 100%;
+  background-position: left top;
+}
+
+/*
+  The title block. On a real sheet it sits bottom-right and answers "what am I holding, which
+  revision, and who signed it off" without reading the drawing.
+
+  Here it answers the same question about a mod: the id, the revision the bound resolves to, and
+  what was verified and when. That last field is the product's first principle rendered as
+  furniture — a guarantee is a claim about a moment in the past, so the moment is on the sheet.
+*/
+.title-block {
+  border: 1px solid var(--color-border);
+  display: grid;
+  grid-template-columns: auto 1fr;
+}
+
+.title-block > dt,
+.title-block > dd {
+  border-top: 1px solid var(--color-border);
+  padding: 0.4375rem 0.75rem;
+  min-width: 0;
+}
+
+/* The first row closes the top edge with the frame rather than doubling it. */
+.title-block > dt:first-of-type,
+.title-block > dt:first-of-type + dd { border-top: 0; }
+
+.title-block > dt {
+  border-right: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  white-space: nowrap;
+}
+
+.title-block > dd {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  /* Identifiers are read digit by digit here; a proportional numeral set is the wrong tool. */
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/*
+  A callout: the numbered bubble that ties a mark on the drawing to its row in the key. Used where
+  a finding or a release genuinely has a number a reader will look up, never as an ornament and
+  never as a step counter for a sequence that has no steps.
+*/
+.callout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  padding-inline: 0.25rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/*
+  A leader line: the rule that runs from a callout to the thing it names. Horizontal, hairline,
+  and it stops rather than fading, because a drawn line either reaches its target or does not.
+*/
+.leader {
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 1rem;
+  background: var(--color-border);
+}
+
+/*
+  Every number a person compares against another number is lettered on the same rail. Versions,
+  revisions, byte counts, hashes. Proportional digits make two versions of different widths look
+  like different kinds of thing.
+*/
+.tabular { font-variant-numeric: tabular-nums; }

@@ -12,36 +12,52 @@
     checker or a launcher. The differentiator earns its place in the sentence underneath, once
     the reader knows what they are looking at.
 *@
-<section class="max-w-2xl pb-10">
-    <p class="eyebrow text-primary">Kitten Space Agency</p>
+@*
+    The head of the sheet. No label above the heading: the heading carries its own weight, and a
+    kicker introducing it is the one device this world does not own.
 
-    <h1 class="mt-4 text-balance text-[2.5rem] font-bold leading-[1.05] tracking-tight sm:text-[3.25rem]">
-        Find mods for KSA.
-    </h1>
+    The search field is the primary action and is drawn as the widest thing on the page, because
+    a visitor arriving from a Discord link already knows the name of the mod they want.
+*@
+<section class="pb-10">
+    <div class="max-w-2xl">
+        <h1 class="text-balance text-[2.5rem] font-bold leading-[1.04] tracking-[-0.02em] sm:text-[3.25rem]">
+            Find mods for KSA.
+        </h1>
 
-    <p class="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-muted-foreground">
-        A catalogue of what people have made, with every release unpacked and read the same way
-        the game reads it. If an archive is broken, you find out here rather than after you have
-        installed it.
-    </p>
+        <p class="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-muted-foreground">
+            A catalogue of what people have made, with every release unpacked and read the same way
+            the game reads it. If an archive is broken, you find out here rather than after you have
+            installed it.
+        </p>
+    </div>
 
-    <form action="/mods" method="get" class="mt-7 flex gap-2">
-        <input name="q" type="search" placeholder="Search mods…" aria-label="Search mods"
-               class="h-10 flex-1 rounded-md border border-input bg-card px-3.5 text-sm
+    @* Ruled top and bottom rather than boxed: on a sheet a region is bounded by lines, and the
+       search rail is the one region that spans the full measure. *@
+    <form action="/mods" method="get"
+          class="mt-8 flex gap-0 border-y border-border bg-card">
+        <input name="q" type="search" placeholder="Search mods by name or id…" aria-label="Search mods"
+               class="h-12 min-w-0 flex-1 border-0 bg-transparent px-4 font-mono text-sm
                       placeholder:text-muted-foreground focus-visible:outline-2
-                      focus-visible:outline-offset-2 focus-visible:outline-ring" />
-        <Button Type="submit" Class="h-10 px-5">Search</Button>
+                      focus-visible:-outline-offset-2 focus-visible:outline-ring" />
+        <button type="submit"
+                class="h-12 shrink-0 border-l border-border bg-primary px-6 font-mono text-xs
+                       font-bold uppercase tracking-[0.12em] text-primary-foreground
+                       transition-colors hover:bg-primary-hover focus-visible:outline-2
+                       focus-visible:-outline-offset-2 focus-visible:outline-ring">
+            Search
+        </button>
     </form>
 
     @* Answers the question the header's Sign in button raises for everyone who does not need it. *@
-    <p class="mt-3 text-xs text-muted-foreground">
+    <p class="mt-3 font-mono text-xs text-muted-foreground">
         Browsing and downloading need no account.
     </p>
 </section>
 
 <section class="border-t border-border pt-10">
     <div class="mb-5 flex items-baseline justify-between gap-4">
-        <h2 class="eyebrow text-muted-foreground">Recently updated</h2>
+        <h2 class="field-label text-muted-foreground">Recently updated</h2>
         <a href="/mods" class="inline-flex min-h-6 items-center text-[0.8125rem] text-muted-foreground transition-colors hover:text-foreground">
             Browse all
         </a>
@@ -85,7 +101,7 @@
 {
     <section class="mt-8 rounded-lg border border-border bg-card/40 px-5 py-4">
         <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 class="eyebrow text-muted-foreground">Loaders</h2>
+            <h2 class="field-label text-muted-foreground">Loaders</h2>
             <p class="text-sm text-muted-foreground">
                 The code mods run on. Install one when a mod asks for it.
             </p>

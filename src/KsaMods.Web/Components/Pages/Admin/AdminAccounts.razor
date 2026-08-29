@@ -7,7 +7,7 @@
 <AdminFrame Current="accounts">
     <div class="flex flex-wrap items-end gap-3">
         <div class="min-w-56 flex-1">
-            <label class="eyebrow text-muted-foreground" for="q">Search</label>
+            <label class="field-label text-muted-foreground" for="q">Search</label>
             <input id="q" value="@_query" @oninput='e => _query = e.Value?.ToString() ?? ""'
                    @onkeydown="OnKeyDownAsync" placeholder="Handle or display name"
                    class="@InputClass" autocomplete="off" spellcheck="false" />
@@ -89,7 +89,7 @@
                                     @* Deliberately not labelled optional, even though a promotion
                                        does not need it: the Suspend button shares this field and
                                        always does. The exception is stated where it applies. *@
-                                    <label class="eyebrow text-muted-foreground" for="@($"why-{account.Id}")">
+                                    <label class="field-label text-muted-foreground" for="@($"why-{account.Id}")">
                                         Reason
                                     </label>
                                     <input id="@($"why-{account.Id}")" value="@_rationale"
@@ -134,7 +134,7 @@
                                 @if (_me?.SiteRole == "admin")
                                 {
                                     <div class="border-t border-border pt-4">
-                                        <label class="eyebrow text-muted-foreground" for="@($"role-{account.Id}")">
+                                        <label class="field-label text-muted-foreground" for="@($"role-{account.Id}")">
                                             Site role
                                         </label>
                                         <div class="mt-1 flex flex-wrap items-center gap-2">

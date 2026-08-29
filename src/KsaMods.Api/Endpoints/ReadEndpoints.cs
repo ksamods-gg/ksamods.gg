@@ -395,6 +395,10 @@ public static class ReadEndpoints
         game_min_revision = r.GameMinRevision,
         game_max_revision = r.GameMaxRevision,
         availability = r.Availability,
+
+        // When that availability was last established. The site does not host the file, so
+        // "verified" is a claim about a moment in the past and is worth little without it.
+        last_verified_at = r.LastVerifiedAt,
         validation_state = r.ValidationState,
         yanked = r.YankedAt is not null,
     };

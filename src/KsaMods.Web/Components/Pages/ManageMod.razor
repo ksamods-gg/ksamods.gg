@@ -17,7 +17,6 @@
 <div class="mx-auto max-w-3xl">
     <div class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
         <div class="min-w-0">
-            <p class="eyebrow text-muted-foreground">Manage</p>
             <h1 class="mt-2 truncate text-2xl font-bold tracking-tight">@(_mod?.Name ?? Id)</h1>
             <code class="mt-1 block font-mono text-xs text-muted-foreground">@(_mod?.Id ?? Id)</code>
         </div>
@@ -170,7 +169,7 @@ else
                    somebody who can write to it can put this file in it, which is exactly the claim
                    being made. *@
                 <div class="mt-5 rounded-lg border border-border bg-card/50 p-4">
-                    <h3 class="eyebrow text-muted-foreground">One more step</h3>
+                    <h3 class="field-label text-muted-foreground">One more step</h3>
                     <p class="mt-2 text-sm leading-relaxed">
                         Prove you control
                         <code class="font-mono text-xs">@_challenge.RepoFullName</code>

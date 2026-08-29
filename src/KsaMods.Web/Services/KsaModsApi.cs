@@ -728,6 +728,10 @@ public sealed record ReleaseSummary
     [JsonPropertyName("game_min_revision")] public int? GameMinRevision { get; init; }
     [JsonPropertyName("game_max_revision")] public int? GameMaxRevision { get; init; }
     [JsonPropertyName("availability")] public string Availability { get; init; } = "unverified";
+
+    /// <summary>When the availability above was last established. Null if it never has been.</summary>
+    [JsonPropertyName("last_verified_at")] public DateTimeOffset? LastVerifiedAt { get; init; }
+
     [JsonPropertyName("validation_state")] public string ValidationState { get; init; } = "pending";
     [JsonPropertyName("yanked")] public bool Yanked { get; init; }
 }

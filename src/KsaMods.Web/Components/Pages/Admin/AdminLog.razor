@@ -13,7 +13,7 @@
 
     <div class="mt-4 flex flex-wrap items-end gap-3">
         <div class="min-w-56 flex-1">
-            <label class="eyebrow text-muted-foreground" for="subject">Filter by subject</label>
+            <label class="field-label text-muted-foreground" for="subject">Filter by subject</label>
             <input id="subject" value="@_subject" @oninput='e => _subject = e.Value?.ToString() ?? ""'
                    @onkeydown="OnKeyDownAsync" placeholder="A mod id, or a handle"
                    class="@InputClass" autocomplete="off" spellcheck="false" />

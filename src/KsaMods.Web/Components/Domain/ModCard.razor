@@ -15,10 +15,12 @@
 *@
 
 <a href="@($"/mods/{Mod.Id}")"
-   class="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card
-          shadow-card transition-[border-color,box-shadow,transform] duration-150
-          hover:-translate-y-px hover:border-primary/40 hover:shadow-raised
-          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+   @* Hover is a rule going firm, not an object lifting. The lift and the raised shadow belonged
+      to the previous world, where a listing was a soft card you scanned a hundred of; here a
+      listing is a region on a sheet, and a region does not leave the paper. *@
+   class="group relative flex flex-col overflow-hidden border border-border bg-card
+          transition-colors duration-150 hover:border-primary
+          focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
 
     @if (!string.IsNullOrWhiteSpace(Mod.BannerUrl))
     {
@@ -58,7 +60,7 @@
             <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
                 @foreach (var tag in Mod.Tags.Take(3))
                 {
-                    <Badge Variant="outline" Class="rounded-full px-2">@tag</Badge>
+                    <Badge Variant="outline" Class="rounded-sm px-2">@tag</Badge>
                 }
 
                 @if (Mod.Tags.Count > 3)

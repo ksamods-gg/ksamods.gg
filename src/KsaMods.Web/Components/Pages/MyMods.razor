@@ -30,7 +30,6 @@ else
     <div class="mx-auto max-w-4xl">
         <header class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
             <div class="min-w-0">
-                <p class="eyebrow text-muted-foreground">Yours</p>
                 <h1 class="mt-2 text-2xl font-bold tracking-tight">Your mods</h1>
             </div>
             <Button Href="/mods/new" Size="sm">Add a mod</Button>
@@ -55,7 +54,7 @@ else
             @if (NeedsAttention.Count > 0)
             {
                 <section class="mt-6">
-                    <h2 class="eyebrow text-muted-foreground">Waiting on you</h2>
+                    <h2 class="field-label text-muted-foreground">Waiting on you</h2>
                     <ul class="mt-3 space-y-3">
                         @foreach (var mod in NeedsAttention)
                         {
@@ -68,7 +67,7 @@ else
             @if (Settled.Count > 0)
             {
                 <section class="@(NeedsAttention.Count > 0 ? "mt-8" : "mt-6")">
-                    <h2 class="eyebrow text-muted-foreground">
+                    <h2 class="field-label text-muted-foreground">
                         @(NeedsAttention.Count > 0 ? "Everything else" : "Your listings")
                     </h2>
                     <ul class="mt-3 space-y-3">

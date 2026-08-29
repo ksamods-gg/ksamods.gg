@@ -5,7 +5,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <ResourcePreloader />
+    @* The two faces first paint needs. This was a <ResourcePreloader /> element that resolves to
+       no component in the solution: Blazor emits an unknown element as literal markup, so it
+       shipped as dead tags to the browser and nothing was ever preloaded. With font-display:swap
+       that put the system sans on every cold load — the platform face the design refuses. *@
+    <link rel="preload" href="/fonts/b612-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["KsaMods.Web.styles.css"]" />
     <ImportMap />
@@ -67,19 +72,18 @@
     /// </summary>
     private static readonly MarkupString DirectionContract = new("""
         <!--
-        THESIS: A catalogue you scan, not a datasheet you read. Refuses the drafting-instrument
-        world this site shipped with - 4px machined corners, eyebrow labels, panels flush to the
-        page - because the job is finding a mod that works, and that is done by eye at speed.
-        OWN-WORLD: Teal on blue-slate, unchanged and still AA in both themes. Cards are soft
-        objects on the ground: 14px corners, a real border, elevation with offset and blur. Square
-        per-listing marks, derived from the id when the author has none. IBM Plex kept; mono
-        reserved for ids, versions and hashes, which are data rather than costume.
-        STORY: A visitor filters down the left, recognises listings by their mark, and opens one to
-        find what it needs and where it came from held still on the right.
-        FIRST VIEWPORT: Browse - facet rail left, search above a two-column card grid right.
-        Listing - one header card, banner as its lid, icon overlapping the seam, primary action top
-        right.
-        FORM: Modrinth anatomy, pinned by the brief; palette, copy and voice stay this site's own.
+        THESIS: The catalogue as the drawing that says which parts mate, and marks where two fight
+        for the same pin. Refuses the dark package-registry grid - icon cards, counts, an install
+        button - which is what this site shipped as and what every mod index already is.
+        OWN-WORLD: A sheet, not an application chrome. Graphite ground or vellum print, hairline
+        rules doing the separating instead of elevation, square corners, B612 throughout - the
+        face Airbus drew for cockpit displays. Reference blue carries links and actions; drafting
+        red is spent only where something is wrong with a mod.
+        STORY: A visitor arrives holding a build number, reads the title block for what was
+        verified and when, and sees a collision drawn as two callouts claiming one pin.
+        FIRST VIEWPORT: Listing - the sheet framed, name and id at the head, the title block
+        holding id, revision, bound and verified-at; releases ruled beneath.
+        FORM: Interface control document, 3rd on my ordered list, seed b12cf9d3.
         FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review,
         the verdict, and DESIGN.md
         -->
