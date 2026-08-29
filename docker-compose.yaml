@@ -123,9 +123,9 @@ services:
       # repositories only, so this buys rate limit and no access.
       - GitHub__Token=${GITHUB_TOKEN:-}
       # Mirrors KSAModding/content-index and content-index-releases into the catalogue, read-only.
-      # Off by default: switching it on hands the id namespace to the community index, and a
-      # listing authored here whose id is taken upstream stops being the one the site shows.
-      - IndexSync__Enabled=${INDEX_SYNC:-false}
+      # The community index arbitrates the id namespace (RFC 0033), so this is on: the catalogue
+      # is what it says it is. Set INDEX_SYNC=false to run on local listings alone.
+      - IndexSync__Enabled=${INDEX_SYNC:-true}
       - IndexSync__WorkingDirectory=/var/lib/ksamods/index
     volumes:
       # Root-equivalent on the host. There is no way to run a container per validation without it,
