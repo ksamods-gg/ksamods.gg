@@ -1,0 +1,76 @@
+diff --git a/node_modules/better-auth-steam/.bun-tag-51e5e4c53436a6d2 b/.bun-tag-51e5e4c53436a6d2
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/dist/index.js b/dist/index.js
+index 3c9f80296fc28f4c32aff64891a0545c94f09143..8c1b98c870d745fe00b9e730077ed13969d45eed 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -243,6 +243,7 @@ function addErrorToRedirect(target, code, baseURL) {
+ 
+ // src/steam/index.ts
+ var PROVIDER_ID = "steam";
++var ACCOUNT_ISSUER = "local:oauth:" + encodeURIComponent(PROVIDER_ID);
+ var OAUTH_ERROR_CODES = {
+   "account not linked": "STEAM_ACCOUNT_NOT_LINKED",
+   "unable to link account": "STEAM_UNABLE_TO_LINK_ACCOUNT",
+@@ -327,8 +328,8 @@ var steamOpenID = (options) => {
+             ctx.context.baseURL,
+             isTrustedRedirect
+           );
+-          const { state } = await generateState(ctx, void 0, {
+-            returnTo: callbackEndpoint
++          const { state } = await generateState(ctx, {
++            additionalData: { returnTo: callbackEndpoint }
+           });
+           const url = buildSteamAuthorizationURL(callbackEndpoint, realm, state);
+           ctx.setHeader("Location", url);
+@@ -378,14 +379,13 @@ var steamOpenID = (options) => {
+             ctx.context.baseURL,
+             isTrustedRedirect
+           );
+-          const { state } = await generateState(
+-            ctx,
+-            {
++          const { state } = await generateState(ctx, {
++            link: {
+               email: ctx.context.session.user.email,
+               userId: ctx.context.session.user.id
+             },
+-            { returnTo: callbackEndpoint }
+-          );
++            additionalData: { returnTo: callbackEndpoint }
++          });
+           const url = buildSteamAuthorizationURL(callbackEndpoint, realm, state);
+           ctx.setHeader("Location", url);
+           return ctx.json({
+@@ -532,10 +532,10 @@ var steamOpenID = (options) => {
+             }
+             let existingAccount;
+             try {
+-              existingAccount = await ctx.context.internalAdapter.findAccountByProviderId(
+-                steamId,
+-                PROVIDER_ID
+-              );
++              existingAccount = await ctx.context.internalAdapter.findAccountByKey({
++                issuer: ACCOUNT_ISSUER,
++                accountId: steamId
++              });
+             } catch (error) {
+               ctx.context.logger.error(
+                 "The plugin could not check the Steam account owner.",
+@@ -555,6 +555,7 @@ var steamOpenID = (options) => {
+                 createdAccount = await ctx.context.internalAdapter.createAccount({
+                   userId: link.userId,
+                   providerId: PROVIDER_ID,
++                  issuer: ACCOUNT_ISSUER,
+                   accountId: steamId
+                 });
+                 if (!createdAccount) {
+@@ -601,6 +602,7 @@ var steamOpenID = (options) => {
+               },
+               account: {
+                 providerId: PROVIDER_ID,
++                issuer: ACCOUNT_ISSUER,
+                 accountId: steamId
+               },
+               callbackURL,

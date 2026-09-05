@@ -1,12 +1,27 @@
 {
   "name": "server",
   "scripts": {
-    "dev": "bun run --hot src/index.ts"
+    "dev": "bun run --hot src/index.ts",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev && prisma generate",
+    "postinstall": "prisma generate",
+    "sync": "bun -e 'console.log(await (await import(\"./src/content-index\")).syncContentIndex())'",
+    "test": "bun test"
   },
   "dependencies": {
-    "hono": "^4.13.7"
+    "@orpc/server": "^1.15.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "better-auth": "^1.7.2",
+    "better-auth-steam": "^0.2.3",
+    "hono": "^4.13.7",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "prisma": "7.10.0"
+  },
+  "exports": {
+    "./router": "./src/router.ts"
   }
 }

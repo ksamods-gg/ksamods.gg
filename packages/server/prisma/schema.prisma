@@ -1,0 +1,151 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  steamId       String?
+
+  // Contributed by better-auth's admin plugin. Hand-maintained for the same
+  // reason as Account.issuer: the CLI (1.4.x) lags the library (1.7.x).
+  role       String?
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
+  sessions      Session[]
+  accounts      Account[]
+  claims        ListingClaim[]
+  decidedClaims ListingClaim[] @relation("ListingClaimDecider")
+
+  @@unique([email])
+  @@unique([steamId])
+  @@map("user")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  // better-auth admin plugin (hand-maintained, see User).
+  impersonatedBy String?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  // better-auth 1.7 scopes account identity by issuer. The @better-auth/cli
+  // (1.4.x) lags the library and omits it, so it is maintained by hand.
+  issuer                String
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([issuer, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// One row per upstream content-index release, keyed by the generated repo's
+/// commit. `data` is the whole verbatim document (jsonb), so the shape can
+/// evolve upstream without a migration here.
+model ContentSnapshot {
+  id              String   @id @default(cuid())
+  snapshotVersion Int
+  authoredCommit  String
+  generatedCommit String   @unique
+  etag            String?
+  listingCount    Int
+  data            Json
+  fetchedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  @@index([fetchedAt])
+  @@map("content_snapshot")
+}
+
+enum ListingClaimStatus {
+  pending
+  approved
+  rejected
+  revoked
+}
+
+/// A user's claim on a content-index listing. An approved row IS maintainership;
+/// there is no separate owner table. Several approved rows per listingId is the
+/// normal case, because GitHub push access is held by whole teams.
+model ListingClaim {
+  id          String             @id @default(cuid())
+  /// Upstream listing id. Deliberately not a foreign key: listings live inside
+  /// ContentSnapshot.data jsonb and can disappear from upstream at any time.
+  listingId   String
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      ListingClaimStatus @default(pending)
+  /// Append-only proof log, newest last. One entry per verification attempt or
+  /// admin decision. ponytail: capped at the last 20 entries in application
+  /// code; promote to a listing_claim_event table if moderation ever needs to
+  /// query across attempts.
+  evidence    Json               @default("[]")
+  /// Reason shown to the claimant on reject or revoke.
+  note        String?
+  decidedAt   DateTime?
+  /// The admin who decided. Null means the automated GitHub check decided,
+  /// which is what separates a self-verified maintainer from a granted one.
+  decidedById String?
+  decidedBy   User?              @relation("ListingClaimDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@unique([listingId, userId])
+  @@index([listingId, status])
+  @@index([userId])
+  @@map("listing_claim")
+}

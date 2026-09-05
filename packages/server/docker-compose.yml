@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ksamods
+      POSTGRES_PASSWORD: ksamods
+      POSTGRES_DB: ksamods
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ksamods']
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:

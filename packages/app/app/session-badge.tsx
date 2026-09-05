@@ -1,0 +1,30 @@
+'use client'
+
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { signOut, useSession } from '@/lib/auth-client'
+
+export function SessionBadge() {
+  const { data: session, isPending } = useSession()
+
+  if (isPending) return null
+
+  if (!session)
+    return (
+      // Renders an <a>, so Base UI must not assume native button semantics.
+      <Button render={<Link href="/sign-in" />} nativeButton={false} variant="outline" size="sm">
+        Sign in
+      </Button>
+    )
+
+  return (
+    <div className="flex items-center gap-3">
+      <Button render={<Link href="/account" />} nativeButton={false} variant="ghost" size="sm">
+        {session.user.name || session.user.email}
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => signOut().then(() => window.location.reload())}>
+        Sign out
+      </Button>
+    </div>
+  )
+}
