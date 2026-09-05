@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient, signOut, useSession } from "@/lib/auth-client";
 import { SITE_CONTAINER } from "@/lib/layout";
+import { YourListingsCard } from "./listings-card";
 
 type Account = {
   id: string;
@@ -184,6 +185,8 @@ export default function AccountPage() {
             </p>
           </CardContent>
         </Card>
+
+        <YourListingsCard />
 
         <Card>
           <CardHeader>

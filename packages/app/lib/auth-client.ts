@@ -1,9 +1,9 @@
-import { createAuthClient } from 'better-auth/react'
-import { steamOpenIDClient } from 'better-auth-steam/client'
+import { createAuthClient } from "better-auth/react";
+import { steamOpenIDClient } from "better-auth-steam/client";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3000',
+  baseURL: process.env.NEXT_PUBLIC_SERVER_URL ?? "http://localhost:3000",
   plugins: [steamOpenIDClient()],
-})
+});
 
-export const { signIn, signUp, signOut, useSession } = authClient
+export const { signIn, signUp, signOut, useSession } = authClient;

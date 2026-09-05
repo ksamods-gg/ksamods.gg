@@ -12,7 +12,10 @@ export const metadata = {
 };
 
 export default async function ModsPage() {
-  const snapshot = await orpc.contentIndex.latest().catch(() => null);
+  const [snapshot, claimed] = await Promise.all([
+    orpc.contentIndex.latest().catch(() => null),
+    orpc.listings.claimed().catch(() => [] as string[]),
+  ]);
   const listings = snapshot?.data.listings ?? [];
   // Newest first, matching how a version picker is normally read.
   const gameVersions = [
@@ -30,7 +33,11 @@ export default async function ModsPage() {
       </div>
 
       {snapshot ? (
-        <ModBrowser listings={listings} gameVersions={gameVersions} />
+        <ModBrowser
+          listings={listings}
+          gameVersions={gameVersions}
+          claimed={claimed}
+        />
       ) : (
         <div className="border-border text-muted-foreground rounded-lg border border-dashed py-16 text-center text-sm">
           The content index is not available right now. Try again in a moment.

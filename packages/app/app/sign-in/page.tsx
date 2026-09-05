@@ -1,7 +1,8 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,44 +10,56 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { authClient, signIn, signUp } from '@/lib/auth-client'
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { authClient, signIn, signUp } from "@/lib/auth-client";
+
+/**
+ * Only same-origin relative paths into known areas are accepted. An open
+ * redirect on a sign-in page is a phishing primitive, so anything else falls
+ * back to the home page.
+ */
+function safeNext(value: string | null) {
+  if (!value) return "/";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/";
+  return value.startsWith("/mods/") || value === "/account" ? value : "/";
+}
 
 export default function SignIn() {
-  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const next = safeNext(useSearchParams().get("next"));
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  const isSignUp = mode === 'sign-up'
+  const isSignUp = mode === "sign-up";
 
   async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setPending(true)
+    e.preventDefault();
+    setError(null);
+    setPending(true);
 
     const result = isSignUp
       ? await signUp.email({ email, password, name })
-      : await signIn.email({ email, password })
+      : await signIn.email({ email, password });
 
-    setPending(false)
-    if (result.error) setError(result.error.message ?? 'Something went wrong')
-    else window.location.href = '/'
+    setPending(false);
+    if (result.error) setError(result.error.message ?? "Something went wrong");
+    else window.location.href = next;
   }
 
   return (
     <div className="flex flex-1 items-center justify-center px-6 py-16">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{isSignUp ? 'Create an account' : 'Sign in'}</CardTitle>
+          <CardTitle>{isSignUp ? "Create an account" : "Sign in"}</CardTitle>
           <CardDescription>
             {isSignUp
-              ? 'Enter your details to get started.'
-              : 'Welcome back. Sign in to continue.'}
+              ? "Enter your details to get started."
+              : "Welcome back. Sign in to continue."}
           </CardDescription>
         </CardHeader>
 
@@ -55,7 +68,12 @@ export default function SignIn() {
             {isSignUp && (
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
               </div>
             )}
 
@@ -76,7 +94,7 @@ export default function SignIn() {
               <Input
                 id="password"
                 type="password"
-                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                autoComplete={isSignUp ? "new-password" : "current-password"}
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -91,7 +109,7 @@ export default function SignIn() {
             )}
 
             <Button type="submit" className="w-full" disabled={pending}>
-              {isSignUp ? 'Sign up' : 'Sign in'}
+              {isSignUp ? "Sign up" : "Sign in"}
             </Button>
           </form>
 
@@ -111,7 +129,10 @@ export default function SignIn() {
               variant="outline"
               className="w-full"
               onClick={() =>
-                signIn.social({ provider: 'discord', callbackURL: `${window.location.origin}/` })
+                signIn.social({
+                  provider: "discord",
+                  callbackURL: `${window.location.origin}${next}`,
+                })
               }
             >
               Discord
@@ -120,7 +141,10 @@ export default function SignIn() {
               variant="outline"
               className="w-full"
               onClick={() =>
-                signIn.social({ provider: 'github', callbackURL: `${window.location.origin}/` })
+                signIn.social({
+                  provider: "github",
+                  callbackURL: `${window.location.origin}${next}`,
+                })
               }
             >
               GitHub
@@ -130,7 +154,7 @@ export default function SignIn() {
               className="w-full"
               onClick={() =>
                 authClient.steam.login({
-                  callbackURL: `${window.location.origin}/`,
+                  callbackURL: `${window.location.origin}${next}`,
                   errorCallbackURL: `${window.location.origin}/sign-in`,
                 })
               }
@@ -144,12 +168,14 @@ export default function SignIn() {
           <Button
             variant="link"
             className="w-full"
-            onClick={() => setMode(isSignUp ? 'sign-in' : 'sign-up')}
+            onClick={() => setMode(isSignUp ? "sign-in" : "sign-up")}
           >
-            {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
+            {isSignUp
+              ? "Already have an account? Sign in"
+              : "Need an account? Sign up"}
           </Button>
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }
