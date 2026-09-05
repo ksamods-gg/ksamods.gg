@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { githubSlug, latestRelease } from "@/lib/listing";
+import { Prose } from "@/lib/markdown";
 import { SITE_CONTAINER } from "@/lib/layout";
 import { orpc } from "@/lib/orpc";
 
@@ -82,10 +83,9 @@ export default async function ListingPage({
           {authored.description && (
             <section className="space-y-3">
               <h2 className="text-lg font-semibold">About</h2>
-              {/* Upstream text, rendered as plain text rather than markup. */}
-              <p className="text-muted-foreground text-sm whitespace-pre-wrap">
-                {authored.description}
-              </p>
+              {/* Upstream markdown. The rendering policy, including why raw
+                  HTML stays disabled, lives in lib/markdown.tsx. */}
+              <Prose>{authored.description}</Prose>
             </section>
           )}
 

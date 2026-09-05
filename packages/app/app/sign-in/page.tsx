@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { safeNext } from "@/lib/next-path";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,18 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient, signIn, signUp } from "@/lib/auth-client";
 
-/**
- * Only same-origin relative paths into known areas are accepted. An open
- * redirect on a sign-in page is a phishing primitive, so anything else falls
- * back to the home page.
- */
-function safeNext(value: string | null) {
-  if (!value) return "/";
-  if (!value.startsWith("/") || value.startsWith("//")) return "/";
-  return value.startsWith("/mods/") || value === "/account" ? value : "/";
-}
-
-export default function SignIn() {
+function SignInForm() {
   const next = safeNext(useSearchParams().get("next"));
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
   const [email, setEmail] = useState("");
@@ -177,5 +167,17 @@ export default function SignIn() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+/**
+ * useSearchParams opts the tree into client rendering, so it needs a boundary
+ * for the page to prerender.
+ */
+export default function SignIn() {
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
   );
 }
