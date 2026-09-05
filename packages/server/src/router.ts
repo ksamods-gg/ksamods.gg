@@ -3,12 +3,18 @@ import { z } from 'zod'
 import { claimListing, listMaintainers } from './claims'
 import { latestSnapshot } from './content-index'
 import { db } from './db'
+import { isAdmin } from './auth'
 import { adminOnly, authed, pub } from './orpc'
 
 const listingId = z.object({ listingId: z.string().min(1).max(200) })
 
 export const router = {
   health: pub.handler(() => ({ ok: true })),
+
+  /** Whether the caller is an admin, by either path. Lets the UI show an admin
+   *  link without guessing from the role column, which misses break-glass
+   *  admins. Cosmetic only: the adminOnly procedures are the real gate. */
+  amIAdmin: authed.handler(({ context }) => isAdmin(context.user)),
 
   contentIndex: {
     /** The most recently fetched upstream snapshot, or null before the first sync. */

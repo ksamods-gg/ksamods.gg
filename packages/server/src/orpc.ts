@@ -30,7 +30,7 @@ export const authed = pub.use(async ({ context, next }) => {
  * Authorization lives here, on the procedure. Any page-level redirect is UX
  * only and is not a substitute for this check.
  */
-export const adminOnly = authed.use(({ context, next }) => {
-  if (!isAdmin(context.user)) throw new ORPCError('FORBIDDEN')
+export const adminOnly = authed.use(async ({ context, next }) => {
+  if (!(await isAdmin(context.user))) throw new ORPCError('FORBIDDEN')
   return next()
 })

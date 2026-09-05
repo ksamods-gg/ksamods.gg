@@ -1,11 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/lib/auth-client";
+import { orpc } from "@/lib/orpc-browser";
 
 export function SessionBadge() {
   const { data: session, isPending } = useSession();
+  // Asked of the server rather than read off session.user.role, because a
+  // break-glass admin has no role column set. Cosmetic only: the adminOnly
+  // procedures are the real gate.
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!session) return setIsAdmin(false);
+    orpc.amIAdmin()
+      .then(setIsAdmin)
+      .catch(() => setIsAdmin(false));
+  }, [session]);
 
   if (isPending) return null;
 
@@ -21,11 +34,6 @@ export function SessionBadge() {
         Sign in
       </Button>
     );
-
-  // Cosmetic only. The oRPC procedures are the real gate.
-  const isAdmin = (session.user as { role?: string | null }).role
-    ?.split(",")
-    .includes("admin");
 
   return (
     <div className="flex items-center gap-3">

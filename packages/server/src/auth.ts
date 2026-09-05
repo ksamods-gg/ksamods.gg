@@ -13,16 +13,28 @@ const githubId = process.env.GITHUB_CLIENT_ID
 const githubSecret = process.env.GITHUB_CLIENT_SECRET
 const steamApiKey = process.env.STEAM_API_KEY
 
-// Break-glass bootstrap: these ids are admin regardless of the role column, so
-// a fresh database always has an arbiter. Everyone else is promoted via setRole.
-const adminUserIds = (process.env.ADMIN_USER_IDS ?? '')
+// Break-glass bootstrap. Discord snowflakes rather than internal user ids: a
+// user id is an opaque cuid that only exists after signup, while a Discord id
+// is knowable up front, so a fresh database can always be given an arbiter.
+const adminDiscordIds = (process.env.ADMIN_DISCORD_IDS ?? '')
   .split(',')
   .map((id) => id.trim())
   .filter(Boolean)
 
-/** The admin plugin stores role as a comma separated list. */
-export function isAdmin(user: { id: string; role?: string | null }) {
-  return adminUserIds.includes(user.id) || (user.role?.split(',').includes('admin') ?? false)
+/**
+ * The role column is the normal path and costs no query. The Discord list is
+ * the fallback, and needs one indexed lookup because a Discord id lives on the
+ * account row, not the user.
+ */
+export async function isAdmin(user: { id: string; role?: string | null }) {
+  if (user.role?.split(',').includes('admin')) return true
+  if (adminDiscordIds.length === 0) return false
+
+  const account = await db.account.findFirst({
+    where: { userId: user.id, providerId: 'discord', accountId: { in: adminDiscordIds } },
+    select: { id: true },
+  })
+  return account !== null
 }
 
 // Providers register only when configured, so local dev works with email alone.
@@ -57,5 +69,8 @@ export const auth = betterAuth({
 
   // Registered unconditionally: it contributes user.steamId, so making it
   // conditional would make the generated Prisma schema depend on the env.
-  plugins: [steamOpenID({ apiKey: steamApiKey ?? '' }), admin({ adminUserIds })],
+  // No adminUserIds: the plugin's own endpoints take internal user ids, which
+  // the Discord break-glass list cannot supply. They authorize off the role
+  // column instead, so promote a bootstrap admin with setRole once signed in.
+  plugins: [steamOpenID({ apiKey: steamApiKey ?? '' }), admin()],
 })
