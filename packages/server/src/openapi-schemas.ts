@@ -1,5 +1,6 @@
-import { JSON_SCHEMA_OUTPUT_REGISTRY } from '@orpc/zod/zod4'
+import { JSON_SCHEMA_INPUT_REGISTRY, JSON_SCHEMA_OUTPUT_REGISTRY } from '@orpc/zod/zod4'
 import { z } from 'zod'
+import { authoredDocument } from './authored'
 import { type ContentIndex, contentIndexSchema } from './content-index-schema'
 
 /**
@@ -48,3 +49,23 @@ export const snapshotOutputSchema = z
   })
   .nullable()
   .describe('The newest stored snapshot, or null before the first sync.')
+
+/**
+ * The authored document as a procedure input.
+ *
+ * Deliberately not validated by oRPC: `preview` exists to report every problem
+ * with a document as field-keyed blockers, which it cannot do if the framework
+ * rejects the payload before the handler runs. `submitListing` validates with
+ * the real schema. The registry supplies the rich schema the docs need.
+ */
+const documentInput = z.custom<unknown>()
+JSON_SCHEMA_INPUT_REGISTRY.add(documentInput, {
+  ...(z.toJSONSchema(authoredDocument, {
+    io: 'input',
+    unrepresentable: 'any',
+  }) as Record<string, unknown>),
+  description:
+    'A listing document as described by KSAModding/content-index schemas/authored.schema.json.',
+})
+
+export const documentInputSchema = documentInput

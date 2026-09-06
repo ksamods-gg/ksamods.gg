@@ -92,28 +92,53 @@ export function decide(status: number, body: unknown, header: Header = () => nul
   return { kind: 'retry', reason: `GitHub responded ${status}` }
 }
 
-/** Performs the call and maps it. Network and timeout failures are retryable. */
-export async function checkRepoPushAccess(
+export type GhResponse<T = unknown> = {
+  /** Zero means the request never reached GitHub. Always treated as retryable. */
+  status: number
+  body: T
+  header: (name: string) => string | null
+}
+
+/**
+ * One place for the request conventions every GitHub call shares. A network or
+ * timeout failure surfaces as status zero rather than throwing, so callers map
+ * it the same way they map an HTTP failure.
+ */
+export async function gh<T = unknown>(
   accessToken: string,
-  { owner, repo }: Repo,
-): Promise<Outcome> {
+  path: string,
+  init: { method?: string; body?: unknown } = {},
+): Promise<GhResponse<T>> {
   let response: Response
   try {
-    response = await fetch(`${API}/repos/${owner}/${repo}`, {
+    response = await fetch(`${API}${path}`, {
+      method: init.method ?? 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
         // GitHub rejects requests without one.
         'User-Agent': 'ksamods.gg',
+        ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       redirect: 'follow',
     })
   } catch {
-    return { kind: 'retry', reason: 'could not reach GitHub' }
+    return { status: 0, body: null as T, header: () => null }
   }
 
-  const body = await response.json().catch(() => null)
-  return decide(response.status, body, (name) => response.headers.get(name))
+  const body = (await response.json().catch(() => null)) as T
+  return { status: response.status, body, header: (name) => response.headers.get(name) }
+}
+
+/** Performs the call and maps it. Network and timeout failures are retryable. */
+export async function checkRepoPushAccess(
+  accessToken: string,
+  { owner, repo }: Repo,
+): Promise<Outcome> {
+  const response = await gh(accessToken, `/repos/${owner}/${repo}`)
+  if (response.status === 0) return { kind: 'retry', reason: 'could not reach GitHub' }
+  return decide(response.status, response.body, response.header)
 }

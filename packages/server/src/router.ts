@@ -4,8 +4,14 @@ import { isAdmin } from './auth'
 import { claimListing, listMaintainers } from './claims'
 import { latestSnapshot } from './content-index'
 import { db } from './db'
-import { snapshotOutputSchema } from './openapi-schemas'
+import { documentInputSchema, snapshotOutputSchema } from './openapi-schemas'
 import { adminOnly, authed, pub } from './orpc'
+import {
+  mySubmissions,
+  previewSubmission,
+  refreshSubmission,
+  submitListing,
+} from './submissions'
 
 const listingId = z.object({ listingId: z.string().min(1).max(200) })
 
@@ -22,6 +28,43 @@ const claimResultSchema = z.object({
   status: z.enum(['approved', 'rejected', 'pending']),
   repo: z.string().optional(),
   reason: z.string().optional(),
+})
+
+const blockerSchema = z.object({
+  /** A dotted path into the document, so the form can put the error under the
+   *  right input. Absent when the problem is not about one field. */
+  field: z.string().optional(),
+  message: z.string(),
+  code: z.string().optional(),
+})
+
+const ownershipSchema = z.object({
+  proof: z.enum(['owner-id', 'topic', 'marker']).nullable(),
+  selfMerges: z.boolean(),
+  authority: z.string().nullable(),
+  remediation: z.array(z.string()),
+})
+
+const previewSchema = z.object({
+  toml: z.string().nullable(),
+  path: z.string(),
+  baseRepo: z.string(),
+  baseBranch: z.string(),
+  blockers: z.array(blockerSchema),
+  ownership: ownershipSchema,
+})
+
+const submissionStateSchema = z.enum(['submitting', 'open', 'merged', 'closed', 'failed'])
+
+const mySubmissionSchema = z.object({
+  id: z.string(),
+  listingId: z.string(),
+  state: submissionStateSchema,
+  prNumber: z.number().int().nullable(),
+  prUrl: z.string().nullable(),
+  ownershipProof: z.string().nullable(),
+  error: z.string().nullable(),
+  createdAt: z.date(),
 })
 
 const myClaimSchema = z.object({
@@ -122,6 +165,69 @@ export const router = {
           orderBy: { updatedAt: 'desc' },
         }),
       ),
+
+    submissions: {
+      /** Renders the file and reports every problem, without writing anything. */
+      preview: authed
+        .route({
+          method: 'POST',
+          path: '/listings/submissions/preview',
+          summary: 'Check a listing document and render its TOML',
+          tags: ['Submissions'],
+        })
+        .input(z.object({ document: documentInputSchema }))
+        .output(previewSchema)
+        .handler(({ input, context }) => previewSubmission(context.user.id, input.document)),
+
+      /** Opens the pull request as the caller. Their GitHub account is what
+       *  upstream's ownership check reads, so it can never be a bot. */
+      submit: authed
+        .route({
+          method: 'POST',
+          path: '/listings/submissions',
+          summary: 'Open a listing pull request as the caller',
+          tags: ['Submissions'],
+        })
+        .input(
+          z.object({
+            document: documentInputSchema,
+            acknowledgeStewardReview: z.boolean().optional(),
+          }),
+        )
+        .output(
+          z.object({
+            id: z.string(),
+            state: submissionStateSchema,
+            prNumber: z.number().int().nullable(),
+            prUrl: z.string().nullable(),
+            ownershipProof: z.enum(['owner-id', 'topic', 'marker']).nullable(),
+          }),
+        )
+        .handler(({ input, context }) =>
+          submitListing(context.user.id, input.document, input.acknowledgeStewardReview ?? false),
+        ),
+
+      mine: authed
+        .route({
+          method: 'GET',
+          path: '/me/submissions',
+          summary: 'The listing submissions belonging to the caller',
+          tags: ['Me'],
+        })
+        .output(z.array(mySubmissionSchema))
+        .handler(({ context }) => mySubmissions(context.user.id)),
+
+      refresh: authed
+        .route({
+          method: 'POST',
+          path: '/me/submissions/{id}/refresh',
+          summary: 'Re-read the pull request state from GitHub',
+          tags: ['Me'],
+        })
+        .input(z.object({ id: z.string().min(1) }))
+        .output(z.object({ state: z.string() }))
+        .handler(({ input, context }) => refreshSubmission(context.user.id, input.id)),
+    },
 
     admin: {
       claims: adminOnly

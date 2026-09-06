@@ -19,6 +19,12 @@ export function SiteHeader() {
           >
             Mods
           </Link>
+          <Link
+            href="/mods/new"
+            className="text-muted-foreground hover:text-foreground text-sm"
+          >
+            Submit
+          </Link>
         </div>
         <div className="flex items-center gap-3">
           <SessionBadge />

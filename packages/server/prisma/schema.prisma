@@ -32,7 +32,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
   claims        ListingClaim[]
-  decidedClaims ListingClaim[] @relation("ListingClaimDecider")
+  decidedClaims ListingClaim[]      @relation("ListingClaimDecider")
+  submissions   ListingSubmission[]
 
   @@unique([email])
   @@unique([steamId])
@@ -148,4 +149,69 @@ model ListingClaim {
   @@index([listingId, status])
   @@index([userId])
   @@map("listing_claim")
+}
+
+enum ListingSubmissionState {
+  submitting
+  open
+  merged
+  closed
+  failed
+}
+
+/// A user's attempt to add listings/<id>.toml to the upstream content index.
+///
+/// Deliberately independent of ListingClaim: a brand new listing has no claim
+/// and cannot have one, because a claim is verified against the published
+/// snapshot and an unlisted mod is not in it.
+model ListingSubmission {
+  id        String                 @id @default(cuid())
+  /// The upstream listing id. Not a foreign key, same reason as ListingClaim.
+  listingId String
+  userId    String
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state     ListingSubmissionState @default(submitting)
+
+  /// The exact bytes committed. This is the audit record of what we put in a
+  /// third party repository under this user's name, so it is stored rather than
+  /// re-rendered, which would silently change history when the serializer does.
+  toml     String
+  /// The validated document those bytes were rendered from.
+  document Json
+
+  /// The GitHub identity the pull request was opened as. The login is mutable,
+  /// so githubUserId is what an ownership question is answered against.
+  githubLogin  String
+  githubUserId String
+
+  baseRepo   String
+  baseBranch String
+  headRepo   String?
+  headBranch String?
+  commitSha  String?
+  prNumber   Int?
+  prUrl      String?
+
+  /// What we predicted upstream would conclude: owner-id, topic, marker, or
+  /// null when no proof was possible and the user accepted steward review.
+  ownershipProof String?
+  acknowledged   Boolean @default(false)
+
+  /// Append-only log, newest last. ponytail: capped at the last 20 entries in
+  /// application code, same as ListingClaim.evidence; promote to a table if
+  /// moderation ever needs to query across attempts.
+  events   Json    @default("[]")
+  /// Every submit call against this row, including ones that failed before a
+  /// pull request existed. The rate limiter reads this.
+  attempts Int     @default(0)
+  error    String?
+
+  refreshedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([listingId, userId])
+  @@index([listingId, state])
+  @@index([userId, createdAt])
+  @@map("listing_submission")
 }
