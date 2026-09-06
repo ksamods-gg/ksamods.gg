@@ -1,0 +1,81 @@
+# Deployment stack. The compose file in packages/server is for local development
+# and only runs Postgres; this one runs everything.
+#
+# Both application services build from the Dockerfile at the repository root,
+# each from its own target. The build context is the root because this is a Bun
+# workspace and the lockfile has to be visible to the install.
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ksamods}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a database password}
+      POSTGRES_DB: ${POSTGRES_DB:-ksamods}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-ksamods}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      target: server
+    restart: unless-stopped
+    # The server runs prisma migrate deploy before it serves, so starting it
+    # against a database that is not accepting connections yet just crash loops.
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ksamods}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ksamods}?schema=public
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?openssl rand -base64 32}
+      # Public origins, not container names. These end up in OAuth redirects and
+      # in the CORS allowlist, so they have to match what the browser sees.
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?the server's public origin}
+      APP_URL: ${APP_URL:?the site's public origin}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      STEAM_API_KEY: ${STEAM_API_KEY:-}
+      ADMIN_DISCORD_IDS: ${ADMIN_DISCORD_IDS:-}
+      CONTENT_INDEX_REPO: ${CONTENT_INDEX_REPO:-KSAModding/content-index}
+      CONTENT_INDEX_BASE_BRANCH: ${CONTENT_INDEX_BASE_BRANCH:-automation-test}
+      SUBMISSIONS_ENABLED: ${SUBMISSIONS_ENABLED:-true}
+      LISTING_METADATA_ENABLED: ${LISTING_METADATA_ENABLED:-false}
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:3000/v1/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  app:
+    build:
+      context: .
+      target: app
+      args:
+        # Next inlines this into the client bundle, so it is needed at build
+        # time as well as at runtime. Changing it is a rebuild, not a restart.
+        NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:?the server's public origin}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL}
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:3000/']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  pgdata:

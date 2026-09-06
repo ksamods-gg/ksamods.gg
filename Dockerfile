@@ -11,10 +11,11 @@ COPY --from=oven/bun:1.4.2 /usr/local/bin/bun /usr/local/bin/bun
 # bunx is a symlink to bun in the official image, so copying the binary alone
 # leaves it missing.
 RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
-# Prisma probes for the openssl CLI and warns loudly on every command without
-# it. node:slim ships libssl but not the binary.
+# openssl: Prisma probes for the CLI and warns loudly on every command without
+# it, and node:slim ships libssl but not the binary. curl: the compose
+# healthchecks run inside the container.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl \
+  && apt-get install -y --no-install-recommends openssl curl \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 

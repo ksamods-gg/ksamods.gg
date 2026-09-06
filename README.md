@@ -14,50 +14,59 @@ bun run index.ts
 
 This project was created using `bun init` in bun v1.4.2. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
 
-## Deploying (Coolify and Docker)
+## Deploying (Coolify and Docker Compose)
 
-One `Dockerfile` with two targets. Two Coolify applications, both with the
-**Dockerfile** build pack, **Base Directory** `/` and **Dockerfile Location**
-`/Dockerfile`, differing only in their build stage target.
+One Coolify application on the **Docker Compose** build pack, pointed at
+`docker-compose.yaml` at the repository root. It runs three services: `db`,
+`server` and `app`. Both application services build from the `Dockerfile` beside
+it, each from its own target, with the repository root as the build context
+because this is a Bun workspace and the lockfile has to be visible to the
+install.
 
-|                            | Server           | Web app          |
-| -------------------------- | ---------------- | ---------------- |
-| Docker Build Stage Target  | `server`         | `app`            |
-| Port                       | 3000             | 3000             |
-| Domain                     | `api.ksamods.gg` | `dev.ksamods.gg` |
+Give `server` and `app` a domain each in Coolify. Neither publishes a port; both
+are reached through Coolify's proxy on container port 3000.
 
-The build context is the repository root, not a package directory: this is a Bun
-workspace, so the lockfile and both manifests have to be visible to the install.
+| Service  | Domain           |
+| -------- | ---------------- |
+| `server` | `api.ksamods.gg` |
+| `app`    | `dev.ksamods.gg` |
 
 The two domains have to share a registrable domain. The session cookie is
 `SameSite=Lax`, so an app on a different apex than the API would never send it
 and the site would look permanently signed out.
 
-`NEXT_PUBLIC_SERVER_URL` needs **Build Variable** enabled, so Coolify passes it
-as a build argument. Next inlines it into the client bundle, so setting it only
-at runtime leaves the browser talking to localhost, and changing it later is a
-rebuild rather than a restart. Everything else in
-`packages/server/.env.example` is runtime only.
+Set these in Coolify's environment variables; the compose file substitutes them
+and refuses to start if a required one is missing:
 
-`BETTER_AUTH_URL` is the server origin and `APP_URL` is the site origin; they
-have to be the real public URLs or CORS and the OAuth callbacks fail. Auth is
-mounted at `/auth`, so a callback reads as
+| Variable                                                | Notes                            |
+| ------------------------------------------------------- | -------------------------------- |
+| `POSTGRES_PASSWORD`                                      | required                         |
+| `BETTER_AUTH_SECRET`                                     | required, `openssl rand -base64 32` |
+| `BETTER_AUTH_URL`                                        | the server's public origin       |
+| `APP_URL`                                                | the site's public origin         |
+| `NEXT_PUBLIC_SERVER_URL`                                 | the server's public origin, used at build and runtime |
+| `DISCORD_*`, `GITHUB_*`, `STEAM_API_KEY`, `ADMIN_DISCORD_IDS` | optional, see `packages/server/.env.example` |
+
+`NEXT_PUBLIC_SERVER_URL` is passed as a build argument as well, because Next
+inlines it into the client bundle. Changing it is a rebuild, not a restart.
+
+Auth is mounted at `/auth`, so an OAuth callback reads as
 `https://api.ksamods.gg/auth/callback/discord`.
 
-The server target runs `prisma migrate deploy` before it serves, so a deploy
-applies pending migrations first. Postgres is a separate Coolify resource that
-`DATABASE_URL` points at. The `docker-compose.yml` in `packages/server` is for
-local development only.
+The server applies pending migrations before it serves, and waits on the
+database's healthcheck first, so a cold start does not crash loop. Postgres data
+lives in the `pgdata` volume. The compose file in `packages/server` is a
+separate, local-development-only Postgres.
 
-Both images are around 2 GB, almost all of it the workspace install. If that
-becomes a problem, the fix is `output: "standalone"` in `next.config.ts` plus a
-slim runtime stage, rather than trimming the build.
+The app reaches the server over its public URL even for server-side rendering,
+which means SSR traffic leaves and re-enters through the proxy. That is fine,
+but if Coolify's proxy ever fails to resolve its own domain from inside a
+container, this is the thing that breaks.
 
-To run either locally:
+To run the whole stack locally:
 
 ```bash
-docker build --target server -t ksamods-server .
-docker build --target app --build-arg NEXT_PUBLIC_SERVER_URL=https://api.ksamods.gg -t ksamods-app .
+docker compose up --build
 ```
 
 ## License
