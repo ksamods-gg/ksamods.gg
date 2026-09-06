@@ -16,7 +16,7 @@ const steamApiKey = process.env.STEAM_API_KEY
 // Break-glass bootstrap. Discord snowflakes rather than internal user ids: a
 // user id is an opaque cuid that only exists after signup, while a Discord id
 // is knowable up front, so a fresh database can always be given an arbiter.
-const adminDiscordIds = (process.env.ADMIN_DISCORD_IDS ?? '')
+export const adminDiscordIds = (process.env.ADMIN_DISCORD_IDS ?? '')
   .split(',')
   .map((id) => id.trim())
   .filter(Boolean)

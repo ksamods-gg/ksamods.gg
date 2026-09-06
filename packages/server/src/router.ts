@@ -1,6 +1,6 @@
-import { type RouterClient } from '@orpc/server'
+import { ORPCError, type RouterClient } from '@orpc/server'
 import { z } from 'zod'
-import { isAdmin } from './auth'
+import { adminDiscordIds, isAdmin } from './auth'
 import { claimListing, listMaintainers } from './claims'
 import { latestSnapshot, linkState, visibleSnapshot } from './content-index'
 import { db } from './db'
@@ -65,6 +65,23 @@ const mySubmissionSchema = z.object({
   ownershipProof: z.string().nullable(),
   error: z.string().nullable(),
   createdAt: z.date(),
+})
+
+const adminUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  image: z.string().nullable(),
+  role: z.string().nullable(),
+  banned: z.boolean().nullable(),
+  banReason: z.string().nullable(),
+  banExpires: z.date().nullable(),
+  createdAt: z.date(),
+  providers: z.array(z.string()),
+  /** Admin through ADMIN_DISCORD_IDS rather than the role column. */
+  breakGlass: z.boolean(),
+  claims: z.number().int(),
+  submissions: z.number().int(),
 })
 
 const myClaimSchema = z.object({
@@ -308,6 +325,123 @@ export const router = {
             select: { id: true, status: true },
           }),
         ),
+    },
+  },
+
+  users: {
+    admin: {
+      /** Everyone with an account, newest first. A plain contains match is
+       *  what a few hundred users needs; add an index when it stops being. */
+      list: adminOnly
+        .route({
+          method: 'GET',
+          path: '/admin/users',
+          summary: 'List users',
+          tags: ['Admin'],
+        })
+        .input(z.object({ q: z.string().max(200).optional() }).optional())
+        .output(z.array(adminUserSchema))
+        .handler(async ({ input }) => {
+          const q = input?.q?.trim()
+          const rows = await db.user.findMany({
+            where: q
+              ? {
+                  OR: [
+                    { name: { contains: q, mode: 'insensitive' } },
+                    { email: { contains: q, mode: 'insensitive' } },
+                  ],
+                }
+              : undefined,
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              role: true,
+              banned: true,
+              banReason: true,
+              banExpires: true,
+              createdAt: true,
+              accounts: { select: { providerId: true, accountId: true } },
+              _count: { select: { claims: true, submissions: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            // ponytail: no pagination. Add a cursor when the list outgrows one
+            // screen of scrolling, which is a long way past 200 users.
+            take: 200,
+          })
+
+          return rows.map(({ accounts, _count, ...user }) => ({
+            ...user,
+            providers: [...new Set(accounts.map((account) => account.providerId))].sort(),
+            // Reported separately from the role column, because a break-glass
+            // admin has no role set and showing them as an ordinary user would
+            // make the list lie about who can do what.
+            breakGlass: accounts.some(
+              (account) =>
+                account.providerId === 'discord' && adminDiscordIds.includes(account.accountId),
+            ),
+            claims: _count.claims,
+            submissions: _count.submissions,
+          }))
+        }),
+
+      setRole: adminOnly
+        .route({
+          method: 'POST',
+          path: '/admin/users/{userId}/role',
+          summary: 'Grant or remove admin',
+          tags: ['Admin'],
+        })
+        .input(z.object({ userId: z.string().min(1), admin: z.boolean() }))
+        .output(z.object({ id: z.string(), role: z.string().nullable() }))
+        .handler(async ({ input, context }) => {
+          // Demoting yourself locks you out of the page you are standing on,
+          // and only a break-glass Discord id could undo it.
+          if (input.userId === context.user.id)
+            throw new ORPCError('BAD_REQUEST', { message: 'You cannot change your own role' })
+
+          return db.user.update({
+            where: { id: input.userId },
+            data: { role: input.admin ? 'admin' : 'user' },
+            select: { id: true, role: true },
+          })
+        }),
+
+      setBan: adminOnly
+        .route({
+          method: 'POST',
+          path: '/admin/users/{userId}/ban',
+          summary: 'Suspend or restore an account',
+          tags: ['Admin'],
+        })
+        .input(
+          z.object({
+            userId: z.string().min(1),
+            banned: z.boolean(),
+            reason: z.string().max(500).optional(),
+          }),
+        )
+        .output(z.object({ id: z.string(), banned: z.boolean() }))
+        .handler(async ({ input, context }) => {
+          if (input.userId === context.user.id)
+            throw new ORPCError('BAD_REQUEST', { message: 'You cannot suspend your own account' })
+
+          const user = await db.user.update({
+            where: { id: input.userId },
+            data: input.banned
+              ? { banned: true, banReason: input.reason?.trim() || null }
+              : { banned: false, banReason: null, banExpires: null },
+            select: { id: true, banned: true },
+          })
+
+          // Without this the suspension only takes effect when their session
+          // expires. The authed middleware refuses a banned user mid-request
+          // too, so this is the second lock rather than the only one.
+          if (input.banned) await db.session.deleteMany({ where: { userId: input.userId } })
+
+          return { id: user.id, banned: user.banned ?? false }
+        }),
     },
   },
 }
