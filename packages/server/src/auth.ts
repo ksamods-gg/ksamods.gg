@@ -50,6 +50,10 @@ export const auth = betterAuth({
   database: prismaAdapter(db, { provider: 'postgresql' }),
   secret,
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+  // The host is already api.ksamods.gg, so /api/auth would say it twice.
+  // The client sets the same basePath; the two have to agree or every
+  // auth call 404s.
+  basePath: '/auth',
   trustedOrigins: [process.env.APP_URL ?? 'http://localhost:3001'],
 
   emailAndPassword: { enabled: true },

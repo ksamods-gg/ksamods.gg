@@ -21,7 +21,7 @@ let cached: Promise<unknown> | undefined
 
 /**
  * Router paths that stay out of the published document. The procedures still
- * exist and are still served at /api/v1; they are simply not advertised.
+ * exist and are still served at /v1; they are simply not advertised.
  * Authorization is enforced by adminOnly, never by hiding them.
  */
 const isAdminProcedure = (path: readonly string[]) => path.includes('admin')
@@ -35,7 +35,7 @@ export function generateOpenAPIDocument() {
       description:
         'Content index and listing maintainership. The same procedures are also available over the oRPC protocol at /rpc.',
     },
-    servers: [{ url: `${baseURL}/api/v1` }],
+    servers: [{ url: `${baseURL}/v1` }],
     security: [{ sessionCookie: [] }],
     components: {
       securitySchemes: {
@@ -43,7 +43,7 @@ export function generateOpenAPIDocument() {
           type: 'apiKey',
           in: 'cookie',
           name: 'better-auth.session_token',
-          description: 'Session cookie issued by the auth routes under /api/auth.',
+          description: 'Session cookie issued by the auth routes under /auth.',
         },
       },
     },

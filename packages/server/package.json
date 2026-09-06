@@ -3,6 +3,7 @@
   "license": "CC-BY-NC-ND-4.0",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
+    "start": "prisma migrate deploy && bun src/index.ts",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev && prisma generate",
     "postinstall": "prisma generate",

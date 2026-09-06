@@ -15,8 +15,8 @@ if (!(globalThis as any).__contentIndexWorker) {
   ;(globalThis as any).__contentIndexWorker = startContentIndexWorker()
 }
 const rpc = new RPCHandler(router)
-// The same router, served as REST. /api/v1 rather than /api so it cannot
-// collide with the auth routes mounted under /api/auth.
+// The same router, served as REST. Versioned so a breaking change can ship
+// under /v2 instead of silently rewriting this one.
 const openapi = new OpenAPIHandler(router)
 
 // The app runs on a different origin, so auth cookies need credentialed CORS.
@@ -30,7 +30,7 @@ app.use(
   }),
 )
 
-app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
+app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')
@@ -57,9 +57,9 @@ app.get(
   }),
 )
 
-app.use('/api/v1/*', async (c, next) => {
+app.use('/v1/*', async (c, next) => {
   const { matched, response } = await openapi.handle(c.req.raw, {
-    prefix: '/api/v1',
+    prefix: '/v1',
     context: { headers: c.req.raw.headers },
   })
   return matched ? response : next()
