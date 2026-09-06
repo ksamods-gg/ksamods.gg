@@ -18,6 +18,7 @@ import {
   syncFork,
   viewer,
 } from './github-write'
+import { NAMESPACE, modIdFor } from './mod-links'
 import type { InputJsonValue } from './generated/prisma/internal/prismaNamespace'
 
 /**
@@ -32,6 +33,14 @@ import type { InputJsonValue } from './generated/prisma/internal/prismaNamespace
 const UPSTREAM_SLUG = process.env.CONTENT_INDEX_REPO ?? 'KSAModding/content-index'
 const BASE_BRANCH = process.env.CONTENT_INDEX_BASE_BRANCH ?? 'automation-test'
 const ENABLED = process.env.SUBMISSIONS_ENABLED !== 'false'
+
+/**
+ * RFC 0051 is still Proposed and the upstream schema is additionalProperties:
+ * false, so a file carrying [metadata] is invalid today and its pull request
+ * would be rejected. Off until the schema catches up; on, every listing we open
+ * carries its mod row id back.
+ */
+const METADATA_ENABLED = process.env.LISTING_METADATA_ENABLED === 'true'
 
 /** Validated at module load, so a misconfigured slug cannot redirect a call. */
 const UPSTREAM: Repo = parseSlug(UPSTREAM_SLUG)
@@ -171,7 +180,14 @@ async function evaluate(userId: string, input: unknown) {
     throw new ORPCError('SERVICE_UNAVAILABLE', { message: 'Submissions are turned off right now' })
   }
 
-  const parsed = authoredDocument.safeParse(input)
+  // Our namespace is ours. Whatever the client sent under [metadata] is
+  // dropped before validation, and the link below is written server side.
+  const submitted =
+    typeof input === 'object' && input !== null
+      ? (({ metadata: _ignored, ...rest }) => rest)(input as Record<string, unknown>)
+      : input
+
+  const parsed = authoredDocument.safeParse(submitted)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       blockers.push({ field: issue.path.join('.') || undefined, message: issue.message })
@@ -179,7 +195,9 @@ async function evaluate(userId: string, input: unknown) {
     return { blockers, document: null, toml: null }
   }
 
-  const document = parsed.data
+  const document = METADATA_ENABLED
+    ? { ...parsed.data, metadata: { [NAMESPACE]: { id: modIdFor(parsed.data.id) } } }
+    : parsed.data
   const toml = renderAuthoredToml(document)
 
   const credentials = await tokenFor(userId)
@@ -361,6 +379,18 @@ export async function submitListing(
       error: null,
     },
   })
+
+  // The row the listing's [metadata.ksamods-gg] id points back at. Created
+  // here rather than on merge, because the file we are about to commit already
+  // names it. Bound to this listing id, which is what makes a later listing
+  // claiming the same row an impostor rather than a tie.
+  if (METADATA_ENABLED) {
+    await db.mod.upsert({
+      where: { listingId: document.id },
+      create: { id: modIdFor(document.id), listingId: document.id, submissionId: row.id },
+      update: { submissionId: row.id },
+    })
+  }
 
   const branch = `ksamods/${document.id}`
 

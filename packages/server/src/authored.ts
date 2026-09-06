@@ -161,6 +161,35 @@ const base = z.strictObject({
   dependencies: z.array(dependency).optional(),
   install: installSpec.optional(),
   provides: provides.optional(),
+
+  /**
+   * RFC 0051's metadata bag: a table of tables, each named after the consumer
+   * that owns it. Every direct child must be a table, because a bare key is how
+   * two consumers end up fighting over the same name.
+   *
+   * Still Proposed at the time of writing, and absent from the upstream schema,
+   * which is additionalProperties: false. Emitting this before the RFC merges
+   * makes the file invalid, which is why submissions.ts populates it only when
+   * LISTING_METADATA_ENABLED says the schema has caught up.
+   */
+  metadata: z
+    .record(
+      z.string().regex(PATTERNS.contentId, 'A namespace follows the id rules'),
+      z.record(z.string(), z.unknown()),
+    )
+    .refine((bag) => {
+      const seen = new Set<string>()
+      // Namespaces fold case, so two spellings of one name are invalid.
+      return Object.keys(bag).every((name) => {
+        const folded = name.toLowerCase()
+        return seen.has(folded) ? false : (seen.add(folded), true)
+      })
+    }, 'Two namespaces differ only by case')
+    .refine(
+      (bag) => JSON.stringify(bag).length <= 4096,
+      'The metadata table is limited to 4 KiB',
+    )
+    .optional(),
 })
 
 /** The conditional rules from the upstream schema's allOf. Each one is
@@ -251,6 +280,7 @@ export const KEY_ORDER: (keyof AuthoredDocument)[] = [
   'dependencies',
   'install',
   'provides',
+  'metadata',
 ]
 
 /** Drops undefined and empty objects, which Bun would render as a bare table

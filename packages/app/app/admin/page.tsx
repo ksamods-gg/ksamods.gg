@@ -8,6 +8,14 @@ import { Input } from "@/components/ui/input";
 import { SITE_CONTAINER } from "@/lib/layout";
 import { orpc } from "@/lib/orpc-browser";
 
+type LinkIssue = {
+  kind: string;
+  listingId: string;
+  claimedModId: string | null;
+  boundTo?: string;
+  detail: string;
+};
+
 type Claim = {
   id: string;
   listingId: string;
@@ -20,6 +28,7 @@ type Claim = {
 
 export default function AdminPage() {
   const [claims, setClaims] = useState<Claim[] | null>(null);
+  const [issues, setIssues] = useState<LinkIssue[]>([]);
   const [denied, setDenied] = useState(false);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -30,6 +39,11 @@ export default function AdminPage() {
       .then((rows) => setClaims(rows as Claim[]))
       // The procedure is the real gate; this only decides what to render.
       .catch(() => setDenied(true));
+
+    orpc.listings.admin
+      .linkIssues()
+      .then((rows) => setIssues(rows as LinkIssue[]))
+      .catch(() => setIssues([]));
   }, []);
 
   useEffect(load, [load]);
@@ -70,6 +84,32 @@ export default function AdminPage() {
           by the automated GitHub check.
         </p>
       </div>
+
+      {issues.length > 0 && (
+        <div className="border-destructive/40 mb-8 space-y-2 rounded-lg border p-4">
+          <h2 className="text-destructive text-sm font-medium">
+            {issues.length === 1
+              ? "One listing link needs attention"
+              : `${issues.length} listing links need attention`}
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            A contested listing is hidden from end users until this is resolved.
+            The listing the mod row is bound to stays visible.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {issues.map((issue, index) => (
+              <li key={index}>
+                <span className="font-medium">{issue.listingId}</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  {issue.detail}
+                  {issue.claimedModId ? ` (${issue.claimedModId})` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {claims === null ? (
         <p className="text-muted-foreground text-sm">Loading...</p>

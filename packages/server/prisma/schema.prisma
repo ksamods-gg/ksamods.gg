@@ -215,3 +215,23 @@ model ListingSubmission {
   @@index([userId, createdAt])
   @@map("listing_submission")
 }
+
+/// A mod this site manages, linked from its upstream listing through
+/// `[metadata.ksamods-gg]`. The row is created when we open the listing pull
+/// request, and its id is what the listing carries back.
+///
+/// listingId is the binding, and it is ours: a second listing naming this row
+/// is an impostor and gets hidden, rather than both being hidden, which would
+/// let anyone take a mod down by copying its id.
+model Mod {
+  id           String  @id @default(cuid())
+  /// The upstream listing id this row belongs to.
+  listingId    String  @unique
+  /// The submission that created it, when it came from the form.
+  submissionId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("mod")
+}

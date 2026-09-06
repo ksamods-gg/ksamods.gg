@@ -251,3 +251,32 @@ test('the pinned schema still matches upstream', async () => {
     'upstream authored.schema.json changed. Diff it against authored.schema.fixture.json, update authored.ts, then re-pin the fixture.',
   ).toBe(digest(pinned))
 })
+
+// ------------------------------------------------------------ metadata bag
+
+test('accepts a namespaced metadata bag', () => {
+  const doc = withDoc({
+    metadata: { 'ksamods-gg': { id: 'mod_abc' }, borea: { accent: '#ff8800' } },
+  })
+  expect(authoredDocument.safeParse(doc).success).toBe(true)
+  expect(renderAuthoredToml(doc)).toContain('[metadata.ksamods-gg]')
+})
+
+test.each([
+  ['a scalar directly under metadata', { metadata: { colour: '#fff' } }],
+  ['an array directly under metadata', { metadata: { things: ['a'] } }],
+  ['a namespace that is not a valid id', { metadata: { 'not a namespace': { a: 1 } } }],
+  ['two namespaces differing only by case', {
+    metadata: { borea: { a: 1 }, Borea: { b: 2 } },
+  }],
+  ['a bag over 4 KiB', { metadata: { borea: { blob: 'x'.repeat(4200) } } }],
+])('rejects %s', (_label, patch) => {
+  expect(authoredDocument.safeParse({ ...valid, ...patch }).success).toBe(false)
+})
+
+test('the metadata table renders last, after every real field', () => {
+  const toml = renderAuthoredToml(
+    withDoc({ tags: ['utility'], metadata: { 'ksamods-gg': { id: 'mod_abc' } } }),
+  )
+  expect(toml.indexOf('[metadata.ksamods-gg]')).toBeGreaterThan(toml.indexOf('[compatibility]'))
+})

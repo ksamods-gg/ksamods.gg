@@ -1,4 +1,5 @@
 import { db } from './db'
+import { claimedModId, resolveLinks } from './mod-links'
 import {
   type ContentIndex,
   type ContentListing,
@@ -86,7 +87,17 @@ export async function syncContentIndex(): Promise<SyncResult> {
 export function startContentIndexWorker() {
   const run = () =>
     syncContentIndex()
-      .then((result) => console.log(`[content-index] ${JSON.stringify(result)}`))
+      .then(async (result) => {
+        console.log(`[content-index] ${JSON.stringify(result)}`)
+        // Surface contested links on every sync, so an admin sees them without
+        // going looking. The admin page reads the same list.
+        const snapshot = await latestSnapshot()
+        if (!snapshot) return
+        const { issues } = await linkState(snapshot.data.listings)
+        for (const issue of issues) {
+          console.warn(`[mod-link] ${issue.listingId}: ${issue.detail}`)
+        }
+      })
       .catch((error) => console.error(`[content-index] sync failed:`, error.message))
 
   run()
@@ -133,4 +144,39 @@ export async function latestSnapshot(): Promise<ContentSnapshot | null> {
 export async function findListing(id: string): Promise<ContentListing | null> {
   const snapshot = await latestSnapshot()
   return snapshot?.data.listings.find((listing) => listing.id === id) ?? null
+}
+
+/**
+ * The newest snapshot with contested listings removed.
+ *
+ * A listing that claims a mod row bound to a different listing is hidden from
+ * end users until an admin resolves it, per the linking rules in mod-links.ts.
+ * The incumbent is never hidden, so this cannot be used to take a mod down.
+ */
+export async function visibleSnapshot(): Promise<ContentSnapshot | null> {
+  const snapshot = await latestSnapshot()
+  if (!snapshot) return null
+
+  const { hidden } = await linkState(snapshot.data.listings)
+  if (hidden.size === 0) return snapshot
+
+  return {
+    ...snapshot,
+    data: {
+      ...snapshot.data,
+      listings: snapshot.data.listings.filter((listing) => !hidden.has(listing.id)),
+    },
+  }
+}
+
+/** Resolves every listing's metadata claim against our mod rows. */
+export async function linkState(listings: { id: string; authored: unknown }[]) {
+  const mods = await db.mod.findMany({ select: { id: true, listingId: true } })
+  return resolveLinks(
+    listings.map((listing) => ({
+      listingId: listing.id,
+      claimedModId: claimedModId(listing.authored),
+    })),
+    mods,
+  )
 }

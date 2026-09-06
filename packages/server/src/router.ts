@@ -2,7 +2,7 @@ import { type RouterClient } from '@orpc/server'
 import { z } from 'zod'
 import { isAdmin } from './auth'
 import { claimListing, listMaintainers } from './claims'
-import { latestSnapshot } from './content-index'
+import { latestSnapshot, linkState, visibleSnapshot } from './content-index'
 import { db } from './db'
 import { documentInputSchema, snapshotOutputSchema } from './openapi-schemas'
 import { adminOnly, authed, pub } from './orpc'
@@ -105,7 +105,7 @@ export const router = {
       })
       // Typed and documented but not validated: see openapi-schemas.ts.
       .output(snapshotOutputSchema)
-      .handler(() => latestSnapshot()),
+      .handler(() => visibleSnapshot()),
   },
 
   listings: {
@@ -230,6 +230,33 @@ export const router = {
     },
 
     admin: {
+      /** Listings whose metadata claim does not resolve. Recomputed from the
+       *  snapshot rather than stored, so it can never go stale. */
+      linkIssues: adminOnly
+        .route({
+          method: 'GET',
+          path: '/admin/link-issues',
+          summary: 'Listings whose ksamods-gg metadata does not resolve',
+          tags: ['Admin'],
+        })
+        .output(
+          z.array(
+            z.object({
+              kind: z.enum(['unknown-id', 'wrong-listing', 'orphaned']),
+              listingId: z.string(),
+              claimedModId: z.string().nullable(),
+              boundTo: z.string().optional(),
+              detail: z.string(),
+            }),
+          ),
+        )
+        .handler(async () => {
+          const snapshot = await latestSnapshot()
+          if (!snapshot) return []
+          const { issues } = await linkState(snapshot.data.listings)
+          return issues
+        }),
+
       claims: adminOnly
         .route({
           method: 'GET',
