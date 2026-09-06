@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { admin } from 'better-auth/plugins'
+import { admin, openAPI } from 'better-auth/plugins'
 import { steamOpenID } from 'better-auth-steam'
 import { db } from './db'
 
@@ -72,5 +72,12 @@ export const auth = betterAuth({
   // No adminUserIds: the plugin's own endpoints take internal user ids, which
   // the Discord break-glass list cannot supply. They authorize off the role
   // column instead, so promote a bootstrap admin with setRole once signed in.
-  plugins: [steamOpenID({ apiKey: steamApiKey ?? '' }), admin()],
+  // openAPI documents the auth HTTP routes themselves, separately from the
+  // oRPC document. The bundled reference page is disabled because it cannot
+  // filter routes; the server serves a filtered copy at /docs/auth instead.
+  plugins: [
+    steamOpenID({ apiKey: steamApiKey ?? '' }),
+    admin(),
+    openAPI({ disableDefaultReference: true }),
+  ],
 })

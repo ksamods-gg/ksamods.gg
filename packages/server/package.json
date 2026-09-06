@@ -9,7 +9,10 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "@orpc/openapi": "^1.15.0",
     "@orpc/server": "^1.15.0",
+    "@orpc/zod": "^1.15.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "better-auth": "^1.7.2",
