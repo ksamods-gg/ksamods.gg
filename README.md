@@ -14,37 +14,51 @@ bun run index.ts
 
 This project was created using `bun init` in bun v1.4.2. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
 
-## Deploying (Coolify and Railpack)
+## Deploying (Coolify and Docker)
 
-Two applications, both pointed at this repository with **Base Directory** `/` and
-the **Railpack** build pack. They differ only in which config file they use,
-selected by a `RAILPACK_CONFIG_FILE` build variable.
+One `Dockerfile` with two targets. Two Coolify applications, both with the
+**Dockerfile** build pack, **Base Directory** `/` and **Dockerfile Location**
+`/Dockerfile`, differing only in their build stage target.
 
-|                        | Server                 | Web app             |
-| ---------------------- | ---------------------- | ------------------- |
-| `RAILPACK_CONFIG_FILE` | `railpack-server.json` | `railpack-app.json` |
-| Internal port          | 3000                   | 3000                |
+|                            | Server           | Web app          |
+| -------------------------- | ---------------- | ---------------- |
+| Docker Build Stage Target  | `server`         | `app`            |
+| Port                       | 3000             | 3000             |
+| Domain                     | `api.ksamods.gg` | `dev.ksamods.gg` |
 
-`RAILPACK_CONFIG_FILE` needs **Build Variable** enabled. Neither file is named
-`railpack.json`, so a missing variable fails the build instead of quietly
-shipping the wrong package.
+The build context is the repository root, not a package directory: this is a Bun
+workspace, so the lockfile and both manifests have to be visible to the install.
 
-Both builds install the whole workspace and run `prisma generate`: the app
-imports the server router for its types, so the generated client has to exist
-before `next build` typechecks.
+The two domains have to share a registrable domain. The session cookie is
+`SameSite=Lax`, so an app on a different apex than the API would never send it
+and the site would look permanently signed out.
 
-`NEXT_PUBLIC_SERVER_URL` also needs **Build Variable** enabled. Next inlines it
-into the client bundle, so setting it only at runtime leaves the browser talking
-to localhost.
+`NEXT_PUBLIC_SERVER_URL` needs **Build Variable** enabled, so Coolify passes it
+as a build argument. Next inlines it into the client bundle, so setting it only
+at runtime leaves the browser talking to localhost, and changing it later is a
+rebuild rather than a restart. Everything else in
+`packages/server/.env.example` is runtime only.
 
-Everything else in `packages/server/.env.example` is runtime only.
 `BETTER_AUTH_URL` is the server origin and `APP_URL` is the site origin; they
-have to be the real public URLs or CORS and the OAuth callbacks fail.
+have to be the real public URLs or CORS and the OAuth callbacks fail. Auth is
+mounted at `/auth`, so a callback reads as
+`https://api.ksamods.gg/auth/callback/discord`.
 
-The server runs `prisma migrate deploy` on start, so a deploy applies pending
-migrations before serving. Postgres is a separate Coolify resource that
+The server target runs `prisma migrate deploy` before it serves, so a deploy
+applies pending migrations first. Postgres is a separate Coolify resource that
 `DATABASE_URL` points at. The `docker-compose.yml` in `packages/server` is for
 local development only.
+
+Both images are around 2 GB, almost all of it the workspace install. If that
+becomes a problem, the fix is `output: "standalone"` in `next.config.ts` plus a
+slim runtime stage, rather than trimming the build.
+
+To run either locally:
+
+```bash
+docker build --target server -t ksamods-server .
+docker build --target app --build-arg NEXT_PUBLIC_SERVER_URL=https://api.ksamods.gg -t ksamods-app .
+```
 
 ## License
 
