@@ -1,6 +1,7 @@
 {
   "name": "app",
   "version": "0.1.0",
+  "license": "CC-BY-NC-ND-4.0",
   "private": true,
   "scripts": {
     "dev": "next dev --port 3001",

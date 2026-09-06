@@ -1,5 +1,6 @@
 {
   "name": "server",
+  "license": "CC-BY-NC-ND-4.0",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "generate": "prisma generate",
