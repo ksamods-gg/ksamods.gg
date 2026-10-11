@@ -17,6 +17,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $github_login
  * @property string|null $github_token
  * @property string|null $github_scopes
+ * @property string|null $discord_id
+ * @property string|null $discord_username
  * @property string $name
  * @property string|null $email
  * @property string|null $avatar
@@ -26,7 +28,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['github_id', 'github_login', 'github_token', 'github_scopes', 'name', 'email', 'avatar', 'password'])]
+#[Fillable(['github_id', 'github_login', 'github_token', 'github_scopes', 'discord_id', 'discord_username', 'name', 'email', 'avatar', 'password'])]
 #[Hidden(['password', 'remember_token', 'github_token'])]
 class User extends Authenticatable
 {

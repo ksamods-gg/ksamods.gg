@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { home, login, logout } from '@/routes';
+import { accounts, home, login, logout } from '@/routes';
 import { create } from '@/routes/listings';
 import { mine } from '@/routes/mods';
 
@@ -23,7 +23,7 @@ const page = usePage();
                 <div
                     class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm"
                 >
-                    <!-- A plain link: guests get redirected to GitHub to log in. -->
+                    <!-- A plain link: it may go on to GitHub to ask for pull request access. -->
                     <a :href="create().url" class="hover:underline">
                         Submit a mod
                     </a>
@@ -31,15 +31,21 @@ const page = usePage();
                         <Link :href="mine()" class="hover:underline">
                             My mods
                         </Link>
-                        <img
-                            v-if="page.props.auth.user.avatar"
-                            :src="page.props.auth.user.avatar"
-                            alt=""
-                            class="hidden size-7 rounded-full sm:block"
-                        />
-                        <span class="hidden sm:inline">{{
-                            page.props.auth.user.name
-                        }}</span>
+                        <Link
+                            :href="accounts()"
+                            class="flex items-center gap-2 hover:underline"
+                        >
+                            <img
+                                v-if="page.props.auth.user.avatar"
+                                :src="page.props.auth.user.avatar"
+                                alt=""
+                                class="hidden size-7 rounded-full sm:block"
+                            />
+                            <span class="hidden sm:inline">{{
+                                page.props.auth.user.name
+                            }}</span>
+                            <span class="sm:hidden">Account</span>
+                        </Link>
                         <Link
                             :href="logout()"
                             as="button"
@@ -48,13 +54,13 @@ const page = usePage();
                             Log out
                         </Link>
                     </template>
-                    <a
+                    <Link
                         v-else
-                        :href="login().url"
+                        :href="login()"
                         class="rounded-md border border-[#19140035] px-3 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                     >
-                        Log in<span class="hidden sm:inline"> with GitHub</span>
-                    </a>
+                        Log in
+                    </Link>
                 </div>
             </div>
         </header>

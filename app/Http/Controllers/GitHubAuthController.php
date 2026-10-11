@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Support\SocialAccounts;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\GithubProvider;
 use Laravel\Socialite\Two\User as OAuthUser;
@@ -16,6 +17,16 @@ class GitHubAuthController extends Controller
 {
     public function redirect(): SymfonyRedirectResponse
     {
+        return $this->github()->redirect();
+    }
+
+    /**
+     * Links GitHub to the signed-in account, then returns to the account settings.
+     */
+    public function link(): SymfonyRedirectResponse
+    {
+        redirect()->setIntendedUrl(route('accounts'));
+
         return $this->github()->redirect();
     }
 
@@ -36,19 +47,26 @@ class GitHubAuthController extends Controller
         $githubUser = $this->github()->user();
         throw_unless($githubUser instanceof OAuthUser, LogicException::class, 'GitHub did not return an OAuth 2 user.');
 
-        $user = User::updateOrCreate(
-            ['github_id' => $githubUser->getId()],
-            [
-                'github_login' => $githubUser->getNickname(),
-                'github_token' => $githubUser->token,
-                'github_scopes' => implode(',', $githubUser->approvedScopes),
-                'name' => $githubUser->getNickname(),
-                'email' => $githubUser->getEmail(),
-                'avatar' => $githubUser->getAvatar(),
-            ],
-        );
-
-        Auth::login($user, remember: true);
+        try {
+            SocialAccounts::connect(
+                'github_id',
+                (string) $githubUser->getId(),
+                [
+                    'github_login' => $githubUser->getNickname(),
+                    'github_token' => $githubUser->token,
+                    'github_scopes' => implode(',', $githubUser->approvedScopes),
+                ],
+                [
+                    'name' => $githubUser->getNickname(),
+                    'email' => $githubUser->getEmail(),
+                    'avatar' => $githubUser->getAvatar(),
+                ],
+                // Listings are tied to the GitHub identity, so its profile wins.
+                applyProfile: true,
+            );
+        } catch (ValidationException $e) {
+            return redirect()->route('accounts')->withErrors($e->errors());
+        }
 
         return redirect()->intended(route('home'));
     }

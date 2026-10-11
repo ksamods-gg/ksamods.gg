@@ -84,7 +84,8 @@ class ListingPullRequest
 
     public static function github(User $user): PendingRequest
     {
-        return Http::withToken((string) $user->github_token)
+        // A Discord-only account has no token; it can still read the public index.
+        return Http::when($user->github_token !== null, fn (PendingRequest $request) => $request->withToken((string) $user->github_token))
             ->baseUrl('https://api.github.com')
             ->withHeaders(['X-GitHub-Api-Version' => '2022-11-28'])
             ->acceptJson()

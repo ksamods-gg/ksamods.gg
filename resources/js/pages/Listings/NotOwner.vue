@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { accounts } from '@/routes';
 import { show } from '@/routes/mods';
 
 const props = defineProps<{
@@ -33,7 +34,14 @@ const link = 'underline underline-offset-4';
             <div
                 class="mt-6 flex flex-col gap-3 rounded-lg bg-white p-5 text-sm shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
             >
-                <template v-if="repository">
+                <p v-if="githubLogin === null">
+                    Editing a listing goes through GitHub, and your account has
+                    no GitHub linked.
+                    <Link :href="accounts()" :class="link"
+                        >Link your GitHub account</Link
+                    >, then come back to this page.
+                </p>
+                <template v-else-if="repository">
                     <p>
                         The KSA content index counts whoever controls
                         <a
