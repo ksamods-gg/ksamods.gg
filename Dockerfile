@@ -20,9 +20,25 @@ ARG VITE_REVERB_SCHEME=https
 
 COPY . .
 RUN composer dump-autoload --optimize --no-dev \
-    && npm run build \
+    && npm run build:ssr \
     && rm -rf node_modules
 
 FROM serversideup/php:8.4-fpm-nginx
 ENV PHP_OPCACHE_ENABLE=1
+# The image's health check (and Coolify's) asks Laravel, so a container is only live once it serves.
+ENV HEALTHCHECK_PATH=/up
+
+# Inertia's SSR server runs beside nginx and PHP-FPM, so it ships and rolls with every deploy.
+# The bundle carries its own dependencies; only the node binary is needed.
+COPY --from=node:22-slim /usr/local/bin/node /usr/local/bin/node
+USER root
+RUN mkdir -p /etc/s6-overlay/s6-rc.d/inertia-ssr/dependencies.d \
+    && echo longrun > /etc/s6-overlay/s6-rc.d/inertia-ssr/type \
+    && touch /etc/s6-overlay/s6-rc.d/inertia-ssr/dependencies.d/base \
+        /etc/s6-overlay/user-bundles.d/user/contents.d/inertia-ssr \
+    && printf '#!/command/with-contenv sh\nexec node /var/www/html/bootstrap/ssr/app.js\n' \
+        > /etc/s6-overlay/s6-rc.d/inertia-ssr/run \
+    && chmod +x /etc/s6-overlay/s6-rc.d/inertia-ssr/run
+USER www-data
+
 COPY --from=build --chown=www-data:www-data /var/www/html /var/www/html

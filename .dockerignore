@@ -5,6 +5,7 @@
 node_modules
 vendor
 public/build
+bootstrap/ssr
 public/hot
 public/storage
 bootstrap/cache/*.php

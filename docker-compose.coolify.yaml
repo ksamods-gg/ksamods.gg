@@ -1,51 +1,47 @@
-# Production stack for Coolify. Local dev uses compose.yaml (Sail).
-# Domains come from Coolify's proxy, so nothing publishes ports.
-# Set them in Coolify's Domains UI: app -> https://ksamods.gg, reverb -> https://ws.ksamods.gg
+# Background services for ksamods.gg on Coolify: the queue worker and Reverb.
+#
+# The production stack is three Coolify resources, so the website gets rolling updates
+# (Coolify only does those for single-container applications, never for compose):
+#
+# 1. Database: a Coolify MySQL 8.4 database resource. Not part of any deploy.
+# 2. Website: a Coolify Application, build pack "Dockerfile", from this repository.
+#    - Port 8080; domain https://ksamods.gg.
+#    - Health check enabled: path /up, port 8080. Rolling updates need it.
+#    - Migrations run as each new container starts, while the old one still serves,
+#      so a migration must not break the running release (add, then remove in a later deploy).
+#    - SSR runs inside this container.
+# 3. This compose file: Reverb (domain https://ws.ksamods.gg on port 8080) and the queue worker.
+#    Enable "Connect To Predefined Network" so they can reach the database.
+#
+# Define these once as Shared Variables on the Coolify environment, and reference them from
+# both the Application and this resource (for example {{environment.APP_KEY}}):
+#   APP_KEY                       php artisan key:generate --show
+#   APP_URL                       https://ksamods.gg
+#   DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD
+#                                 from the database resource (its internal hostname)
+#   REVERB_APP_ID, REVERB_APP_KEY, REVERB_APP_SECRET
+#                                 any random strings; the key is public, the secret is not
+#   REVERB_HOST                   ws.ksamods.gg
+#
+# The Application additionally needs:
+#   APP_ENV=production, APP_DEBUG=false, LOG_CHANNEL=stderr, DB_CONNECTION=mysql,
+#   AUTORUN_ENABLED=true, SESSION_SECURE_COOKIE=true,
+#   BROADCAST_CONNECTION=reverb, REVERB_PORT=443, REVERB_SCHEME=https,
+#   GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET    GitHub OAuth App (not a GitHub App), callback
+#                                             https://ksamods.gg/auth/github/callback
+#   DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET  Discord OAuth2 redirect
+#                                             https://ksamods.gg/auth/discord/callback
+#   and, marked "Build Variable" because they are baked into the JavaScript:
+#   VITE_APP_NAME=ksamods.gg, VITE_REVERB_APP_KEY (same as REVERB_APP_KEY),
+#   VITE_REVERB_HOST=ws.ksamods.gg
+#
+# After the first deploy, make yourself an admin from the Application's terminal:
+#   php artisan ksamods:admin <github login or discord username>
 services:
-    app:
-        build:
-            context: .
-            args:
-                VITE_APP_NAME: '${APP_NAME:-ksamods.gg}'
-                VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
-                VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
-        environment:
-            - SERVICE_URL_APP_8080
-            - AUTORUN_ENABLED=true
-            - APP_NAME=${APP_NAME:-ksamods.gg}
-            - APP_ENV=production
-            - APP_DEBUG=false
-            - APP_KEY=${APP_KEY:?}
-            - APP_URL=${SERVICE_URL_APP}
-            - LOG_CHANNEL=stderr
-            - DB_CONNECTION=mysql
-            - DB_HOST=mysql
-            - DB_DATABASE=laravel
-            - DB_USERNAME=${SERVICE_USER_MYSQL}
-            - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
-            - BROADCAST_CONNECTION=reverb
-            - REVERB_APP_ID=${SERVICE_USER_REVERBID}
-            - REVERB_APP_KEY=${SERVICE_USER_REVERBKEY}
-            - REVERB_APP_SECRET=${SERVICE_PASSWORD_REVERBSECRET}
-            - REVERB_HOST=reverb
-            - REVERB_PORT=8080
-            - REVERB_SCHEME=http
-            - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:?}
-            - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:?}
-            - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:?}
-            - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:?}
-        depends_on:
-            mysql:
-                condition: service_healthy
-
-    # Sends queued jobs, including broadcasts to Reverb.
+    # Sends queued jobs, including notification broadcasts to Reverb.
     queue:
         build:
             context: .
-            args:
-                VITE_APP_NAME: '${APP_NAME:-ksamods.gg}'
-                VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
-                VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
         command: ['php', '/var/www/html/artisan', 'queue:work', '--tries=3']
         stop_signal: SIGTERM
         healthcheck:
@@ -55,31 +51,25 @@ services:
             - APP_ENV=production
             - APP_DEBUG=false
             - APP_KEY=${APP_KEY:?}
-            - APP_URL=${SERVICE_URL_APP}
+            - APP_URL=${APP_URL:?}
             - LOG_CHANNEL=stderr
             - DB_CONNECTION=mysql
-            - DB_HOST=mysql
-            - DB_DATABASE=laravel
-            - DB_USERNAME=${SERVICE_USER_MYSQL}
-            - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+            - DB_HOST=${DB_HOST:?}
+            - DB_DATABASE=${DB_DATABASE:?}
+            - DB_USERNAME=${DB_USERNAME:?}
+            - DB_PASSWORD=${DB_PASSWORD:?}
             - BROADCAST_CONNECTION=reverb
-            - REVERB_APP_ID=${SERVICE_USER_REVERBID}
-            - REVERB_APP_KEY=${SERVICE_USER_REVERBKEY}
-            - REVERB_APP_SECRET=${SERVICE_PASSWORD_REVERBSECRET}
-            - REVERB_HOST=reverb
-            - REVERB_PORT=8080
-            - REVERB_SCHEME=http
-        depends_on:
-            mysql:
-                condition: service_healthy
+            - REVERB_APP_ID=${REVERB_APP_ID:?}
+            - REVERB_APP_KEY=${REVERB_APP_KEY:?}
+            - REVERB_APP_SECRET=${REVERB_APP_SECRET:?}
+            # Through the public domain, the same way the website reaches it.
+            - REVERB_HOST=${REVERB_HOST:?}
+            - REVERB_PORT=443
+            - REVERB_SCHEME=https
 
     reverb:
         build:
             context: .
-            args:
-                VITE_APP_NAME: '${APP_NAME:-ksamods.gg}'
-                VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
-                VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
         command: ['php', '/var/www/html/artisan', 'reverb:start']
         stop_signal: SIGTERM
         healthcheck:
@@ -90,38 +80,13 @@ services:
             - APP_DEBUG=false
             - APP_KEY=${APP_KEY:?}
             - LOG_CHANNEL=stderr
-            - REVERB_APP_ID=${SERVICE_USER_REVERBID}
-            - REVERB_APP_KEY=${SERVICE_USER_REVERBKEY}
-            - REVERB_APP_SECRET=${SERVICE_PASSWORD_REVERBSECRET}
-            - REVERB_HOST=${SERVICE_FQDN_REVERB}
+            - REVERB_APP_ID=${REVERB_APP_ID:?}
+            - REVERB_APP_KEY=${REVERB_APP_KEY:?}
+            - REVERB_APP_SECRET=${REVERB_APP_SECRET:?}
+            - REVERB_HOST=${REVERB_HOST:?}
             # Reverb checks the app's cache, which lives in the database, for a restart signal.
             - DB_CONNECTION=mysql
-            - DB_HOST=mysql
-            - DB_DATABASE=laravel
-            - DB_USERNAME=${SERVICE_USER_MYSQL}
-            - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
-        depends_on:
-            mysql:
-                condition: service_healthy
-
-    mysql:
-        image: 'mysql:8.4'
-        environment:
-            - MYSQL_DATABASE=laravel
-            - MYSQL_USER=${SERVICE_USER_MYSQL}
-            - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
-            - MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQLROOT}
-        volumes:
-            - 'mysql-data:/var/lib/mysql'
-        healthcheck:
-            test:
-                [
-                    'CMD-SHELL',
-                    'mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD',
-                ]
-            interval: 5s
-            timeout: 5s
-            retries: 20
-
-volumes:
-    mysql-data:
+            - DB_HOST=${DB_HOST:?}
+            - DB_DATABASE=${DB_DATABASE:?}
+            - DB_USERNAME=${DB_USERNAME:?}
+            - DB_PASSWORD=${DB_PASSWORD:?}

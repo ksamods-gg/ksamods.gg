@@ -31,6 +31,10 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    // The SSR bundle carries its dependencies, so production runs it with Node alone.
+    ssr: {
+        noExternal: true,
+    },
     server: {
         watch: {
             ignored: [
