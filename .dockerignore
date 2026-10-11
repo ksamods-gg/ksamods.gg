@@ -1,26 +1,22 @@
-# Keep the build context small and, more importantly, keep host build output from leaking into
-# the image - a bin/ from a different SDK is a genuinely confusing way to break a container build.
-
-**/bin/
-**/obj/
-**/node_modules/
-**/.vs/
-**/.vscode/
-**/.idea/
-
-.git/
-.gitignore
-.gitmodules
-
-# Design documents and the RFC submodule are not needed to build anything.
-docs/
-content-manager-design/
-*.md
-
-# Generated stylesheet: the image rebuilds it from Styles/app.css so the container never inherits
-# whatever happened to be on the host.
-src/KsaMods.Web/wwwroot/app.css
-
-**/*.user
-**/.env
-**/.env.*
+.git
+.env
+.env.*
+!.env.example
+node_modules
+vendor
+public/build
+bootstrap/ssr
+public/hot
+public/storage
+bootstrap/cache/*.php
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+resources/js/actions
+resources/js/routes
+resources/js/wayfinder
+database/*.sqlite
+.claude
+.agents
+tests
