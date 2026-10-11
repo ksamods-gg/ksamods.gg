@@ -78,6 +78,8 @@ export function boreaInstallLink(id: string, version?: string): string | null {
 }
 
 // Borea registers its scheme on Windows and Linux only. Android reports Linux, but runs no Borea.
-export function boreaSupported(userAgent = navigator.userAgent): boolean {
+// Pass the browser's user agent from the page props, not navigator's: a server-side render runs
+// in Node, whose navigator says "Node.js", and would then disagree with the browser.
+export function boreaSupported(userAgent: string): boolean {
     return /Windows|Linux/.test(userAgent) && !/Android/.test(userAgent);
 }

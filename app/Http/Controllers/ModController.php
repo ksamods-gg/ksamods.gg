@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Support\ContentIndex;
+use App\Support\ListingOwnership;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,18 +23,34 @@ class ModController extends Controller
         $snapshot = ContentIndex::snapshot();
 
         return Inertia::render('Mods/Index', [
-            'mods' => collect($snapshot['listings'])->map(fn (array $listing) => [
-                'id' => $listing['id'],
-                'type' => $listing['authored']['type'],
-                'name' => $listing['authored']['name'],
-                'authors' => $listing['authored']['authors'] ?? [],
-                'abstract' => $listing['authored']['abstract'] ?? null,
-                'tags' => $listing['authored']['tags'] ?? [],
-                'icon' => $listing['authored']['images']['icon']['url'] ?? null,
-                'downloads' => $listing['downloads']['total'] ?? 0,
-                'updated_at' => $listing['updated_at'],
-                'version' => $this->latestVersion($listing),
-            ])->values(),
+            'mods' => collect($snapshot['listings'])->map($this->summary(...))->values(),
+            'tagNames' => $this->tagNames($snapshot),
+        ]);
+    }
+
+    /**
+     * The listings the user controls the release repository of, the same check that gates editing.
+     */
+    public function mine(Request $request): Response
+    {
+        $user = $request->user();
+        $snapshot = ContentIndex::snapshot();
+
+        // ponytail: one GitHub lookup per listing, concurrent and cached per user; past a few
+        // hundred listings, ask GitHub for the user's own repositories instead.
+        $roles = Cache::remember("my-mods:{$user->id}", 300, fn () => ListingOwnership::roles(
+            $user,
+            collect($snapshot['listings'])
+                ->mapWithKeys(fn (array $listing) => [$listing['id'] => ListingOwnership::repository($listing['authored'])])
+                ->filter()
+                ->all(),
+        ));
+
+        return Inertia::render('Mods/Mine', [
+            'mods' => collect($snapshot['listings'])
+                ->filter(fn (array $listing) => isset($roles[$listing['id']]))
+                ->map(fn (array $listing) => [...$this->summary($listing), 'role' => $roles[$listing['id']]])
+                ->values(),
             'tagNames' => $this->tagNames($snapshot),
         ]);
     }
@@ -94,6 +113,28 @@ class ModController extends Controller
     private function releases(array $listing): Collection
     {
         return collect($listing['releases'] ?? [])->sortByDesc('release_date')->values();
+    }
+
+    /**
+     * What a mod card shows.
+     *
+     * @param  Listing  $listing
+     * @return array<string, mixed>
+     */
+    private function summary(array $listing): array
+    {
+        return [
+            'id' => $listing['id'],
+            'type' => $listing['authored']['type'],
+            'name' => $listing['authored']['name'],
+            'authors' => $listing['authored']['authors'] ?? [],
+            'abstract' => $listing['authored']['abstract'] ?? null,
+            'tags' => $listing['authored']['tags'] ?? [],
+            'icon' => $listing['authored']['images']['icon']['url'] ?? null,
+            'downloads' => $listing['downloads']['total'] ?? 0,
+            'updated_at' => $listing['updated_at'],
+            'version' => $this->latestVersion($listing),
+        ];
     }
 
     /**

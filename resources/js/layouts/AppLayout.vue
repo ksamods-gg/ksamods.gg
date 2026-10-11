@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { home, login, logout } from '@/routes';
 import { create } from '@/routes/listings';
+import { mine } from '@/routes/mods';
 
 const page = usePage();
 </script>
@@ -24,6 +25,9 @@ const page = usePage();
                         Submit a mod
                     </a>
                     <template v-if="page.props.auth.user">
+                        <Link :href="mine()" class="hover:underline">
+                            My mods
+                        </Link>
                         <img
                             v-if="page.props.auth.user.avatar"
                             :src="page.props.auth.user.avatar"

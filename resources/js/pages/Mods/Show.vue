@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -24,7 +24,7 @@ const latest = computed(
 );
 
 // Borea only handles its links on Windows and Linux, so elsewhere its buttons would do nothing.
-const showBorea = boreaSupported();
+const showBorea = boreaSupported(usePage().props.userAgent);
 const latestStable = computed(() =>
     props.mod.releases.find((release) => release.status === 'stable'),
 );
@@ -54,6 +54,10 @@ const linkLabels: Record<string, string> = {
 };
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
+const primaryButton =
+    'rounded-md bg-[#1b1b18] px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white';
+const secondaryButton =
+    'rounded-md border border-[#19140035] px-4 py-1.5 text-center text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
 const card =
     'rounded-lg bg-white p-5 shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]';
 </script>
@@ -91,9 +95,42 @@ const card =
             </div>
 
             <div v-if="latest" class="flex shrink-0 flex-col sm:items-end">
+                <!-- Borea first where it runs; the direct download stays as the fallback. -->
+                <template v-if="showBorea && boreaInstall">
+                    <a :href="boreaInstall" :class="primaryButton">
+                        Install<template v-if="latestStable">
+                            v{{ latestStable.version }}</template
+                        >
+                        with Borea
+                    </a>
+                    <p
+                        class="mt-2 flex flex-wrap gap-x-3 text-xs sm:justify-end"
+                    >
+                        <a
+                            v-if="boreaOpen"
+                            :href="boreaOpen"
+                            class="underline underline-offset-4"
+                        >
+                            Open in Borea
+                        </a>
+                        <a
+                            :href="BOREA_RELEASES_URL"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            :class="['hover:underline', muted]"
+                        >
+                            Don't have Borea?
+                        </a>
+                    </p>
+                </template>
+
                 <a
                     :href="latest.download_url"
-                    class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
+                    :class="
+                        showBorea && boreaInstall
+                            ? [secondaryButton, 'mt-4']
+                            : primaryButton
+                    "
                 >
                     Download v{{ latest.version }}
                 </a>
@@ -105,34 +142,6 @@ const card =
                         >Game {{ latest.game_min }} or newer</template
                     >
                 </p>
-
-                <div
-                    v-if="showBorea && boreaInstall"
-                    class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:justify-end"
-                >
-                    <a
-                        :href="boreaInstall"
-                        class="rounded-md border border-[#19140035] px-3 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
-                    >
-                        Install with Borea
-                    </a>
-                    <a
-                        v-if="boreaOpen"
-                        :href="boreaOpen"
-                        class="underline underline-offset-4"
-                    >
-                        Open in Borea
-                    </a>
-                </div>
-                <a
-                    v-if="showBorea && boreaInstall"
-                    :href="BOREA_RELEASES_URL"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    :class="['mt-1 text-xs hover:underline', muted]"
-                >
-                    Don't have Borea?
-                </a>
             </div>
         </div>
 

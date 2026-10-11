@@ -38,6 +38,9 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            // The browser's, so a server-side render decides platform-specific UI (such as Borea's
+            // buttons) the same way the browser does; Node's own navigator says "Node.js".
+            'userAgent' => (string) $request->userAgent(),
             'auth' => [
                 'user' => $request->user(),
             ],

@@ -80,6 +80,14 @@ it('returns 404 for an unknown mod', function () {
     $this->get(route('mods.show', 'Nope'))->assertNotFound();
 });
 
+it('hands the page the browser\'s user agent, so a server-side render picks the same buttons', function () {
+    fakeContentIndex();
+
+    $this->withHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+        ->get(route('mods.show', 'Rockets'))
+        ->assertInertia(fn (Assert $page) => $page->where('userAgent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'));
+});
+
 it('serves the cached index when the source is down', function () {
     fakeContentIndex();
     $this->get(route('home'))->assertOk();

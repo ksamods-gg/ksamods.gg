@@ -12,6 +12,7 @@ Route::get('/auth/github', [GitHubAuthController::class, 'redirect'])->middlewar
 Route::get('/auth/github/callback', [GitHubAuthController::class, 'callback']);
 
 Route::middleware('auth')->group(function () {
+    Route::get('/my-mods', [ModController::class, 'mine'])->name('mods.mine');
     Route::get('/auth/github/pull-requests', [GitHubAuthController::class, 'authorizePullRequests'])->name('github.pull-requests');
     Route::get('/listings/create', [ListingController::class, 'create'])->name('listings.create');
     Route::post('/listings', [ListingController::class, 'store'])->name('listings.store');
