@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Reportable;
 use Database\Factories\CommentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,7 +33,7 @@ use Illuminate\Support\Carbon;
 class Comment extends Model
 {
     /** @use HasFactory<CommentFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, Reportable, SoftDeletes;
 
     /**
      * @return BelongsTo<User, $this>

@@ -18,18 +18,40 @@ class ContentIndex
 
     public const REPOSITORY = 'KSAModding/content-index';
 
+    private const CACHE_KEY = 'content-index:v1';
+
     /**
      * Fresh for 10 minutes, then served stale for up to a day while it refreshes in the background.
-     *
+     */
+    private const CACHE_TTL = [600, 86400];
+
+    /**
      * @return Snapshot
      */
     public static function snapshot(): array
     {
-        return Cache::flexible('content-index:v1', [600, 86400], fn () => Http::timeout(15)
-            ->retry(2, 500)
-            ->get(self::URL)
-            ->throw()
-            ->json());
+        return Cache::flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => self::fetch());
+    }
+
+    /**
+     * Fetches the index now and replaces the cached copy. If the fetch fails, the cache is untouched.
+     *
+     * @return Snapshot
+     */
+    public static function refresh(): array
+    {
+        $snapshot = self::fetch();
+        Cache::forget(self::CACHE_KEY);
+
+        return Cache::flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => $snapshot);
+    }
+
+    /**
+     * @return Snapshot
+     */
+    private static function fetch(): array
+    {
+        return Http::timeout(15)->retry(2, 500)->get(self::URL)->throw()->json();
     }
 
     /**

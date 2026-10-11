@@ -10,6 +10,7 @@ import {
     logout,
     notifications as notificationsPage,
 } from '@/routes';
+import { dashboard as adminDashboard } from '@/routes/admin';
 import { create } from '@/routes/listings';
 import { index, mine } from '@/routes/mods';
 import { open as openNotification } from '@/routes/notifications';
@@ -75,6 +76,21 @@ if (page.props.auth.user) {
                     <template v-if="page.props.auth.user">
                         <Link :href="mine()" class="hover:underline">
                             My mods
+                        </Link>
+                        <Link
+                            v-if="page.props.auth.user.role"
+                            :href="adminDashboard()"
+                            class="flex items-center gap-1.5 hover:underline"
+                        >
+                            Admin
+                            <span
+                                v-if="page.props.openReports"
+                                class="rounded-full bg-accent px-1.5 text-xs leading-5 font-semibold text-white tabular-nums dark:text-[#0a0a0a]"
+                                >{{ page.props.openReports
+                                }}<span class="sr-only">
+                                    open reports</span
+                                ></span
+                            >
                         </Link>
                         <Link
                             :href="notificationsPage()"

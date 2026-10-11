@@ -3,10 +3,12 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -22,7 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $email
  * @property string|null $avatar
- * @property bool $is_admin
+ * @property Role|null $role
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
@@ -37,11 +39,43 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /**
-     * Whether the user may delete a review or comment: its author, or an admin.
+     * @return HasMany<Review, $this>
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * @return HasMany<Comment, $this>
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    /**
+     * Whether the user may delete a review or comment: its author, or a moderator.
      */
     public function canDelete(Review|Comment $post): bool
     {
-        return $this->is_admin || $post->user_id === $this->id;
+        return $this->canModerate() || $post->user_id === $this->id;
+    }
+
+    /**
+     * Moderators and admins: the admin panel, deleting any post, and handling reports.
+     */
+    public function canModerate(): bool
+    {
+        return $this->role !== null;
+    }
+
+    /**
+     * Admins alone change other users' roles.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === Role::Admin;
     }
 
     /**
@@ -65,7 +99,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'github_token' => 'encrypted',
-            'is_admin' => 'boolean',
+            'role' => Role::class,
         ];
     }
 }

@@ -33,6 +33,7 @@ export type Post = {
     deleted: boolean;
     mine: boolean;
     canDelete: boolean;
+    canReport: boolean;
 };
 
 // A comment and the replies to it, which nest the same way.

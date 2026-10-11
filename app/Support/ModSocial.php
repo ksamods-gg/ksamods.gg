@@ -148,6 +148,7 @@ class ModSocial
                 'deleted' => true,
                 'mine' => false,
                 'canDelete' => false,
+                'canReport' => false,
             ];
         }
 
@@ -161,6 +162,7 @@ class ModSocial
             'deleted' => false,
             'mine' => $viewer !== null && $post->user_id === $viewer->id,
             'canDelete' => $viewer !== null && $viewer->canDelete($post),
+            'canReport' => $viewer !== null && $post->user_id !== $viewer->id,
         ];
     }
 }

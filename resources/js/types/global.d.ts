@@ -21,8 +21,13 @@ declare module '@inertiajs/core' {
             auth: Auth;
             userAgent: string;
             unreadNotifications: number;
+            // Open reports, for moderators and admins; null for everyone else.
+            openReports: number | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
+        };
+        flashDataType: {
+            status?: string;
         };
     }
 }

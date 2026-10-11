@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Comment;
 use App\Models\Review;
 use App\Models\User;
@@ -59,7 +60,7 @@ describe('reviews', function () {
         expect(Review::count())->toBe(0);
 
         $another = Review::factory()->create();
-        $this->actingAs(User::factory()->create()->forceFill(['is_admin' => true]))->delete(route('reviews.destroy', $another))->assertRedirect();
+        $this->actingAs(User::factory()->create(['role' => Role::Moderator]))->delete(route('reviews.destroy', $another))->assertRedirect();
         expect(Review::count())->toBe(0);
     });
 });
@@ -81,7 +82,7 @@ describe('comments', function () {
 
     it('lets only the author edit, and the author or an admin delete', function () {
         $comment = Comment::factory()->create();
-        $admin = User::factory()->create()->forceFill(['is_admin' => true]);
+        $admin = User::factory()->create(['role' => Role::Moderator]);
 
         $this->actingAs($admin)->patch(route('comments.update', $comment), ['body' => 'Rewritten'])->assertForbidden();
         $this->actingAs($comment->user)->patch(route('comments.update', $comment), ['body' => 'Fixed typo'])->assertRedirect();
@@ -259,14 +260,17 @@ it('shows each mod\'s rating on the mod list', function () {
         ->where('mods.0.rating', ['average' => 4.5, 'count' => 2]));
 });
 
-it('makes and unmakes an admin from the command line', function () {
+it('makes and unmakes admins and moderators from the command line', function () {
     $user = User::factory()->create(['github_login' => 'jeb-gh']);
 
     $this->artisan('ksamods:admin', ['account' => 'jeb-gh'])->assertSuccessful();
-    expect($user->fresh()->is_admin)->toBeTrue();
+    expect($user->fresh()->role)->toBe(Role::Admin);
+
+    $this->artisan('ksamods:admin', ['account' => 'jeb-gh', '--moderator' => true])->assertSuccessful();
+    expect($user->fresh()->role)->toBe(Role::Moderator);
 
     $this->artisan('ksamods:admin', ['account' => 'jeb-gh', '--revoke' => true])->assertSuccessful();
-    expect($user->fresh()->is_admin)->toBeFalse();
+    expect($user->fresh()->role)->toBeNull();
 
     $this->artisan('ksamods:admin', ['account' => 'nobody'])->assertFailed();
 });

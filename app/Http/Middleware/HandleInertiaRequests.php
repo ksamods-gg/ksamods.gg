@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Report;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -46,6 +47,8 @@ class HandleInertiaRequests extends Middleware
             ],
             // The header's bell; Reverb keeps it current between page loads.
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
+            // The header's Admin link, for moderators and admins.
+            'openReports' => fn () => $request->user()?->canModerate() ? Report::open()->count() : null,
         ];
     }
 }
