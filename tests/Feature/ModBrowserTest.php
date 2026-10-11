@@ -13,7 +13,7 @@ function fakeContentIndex(): void
         'release_status' => $status,
         'release_date' => $date,
         'download' => ['url' => "https://example.com/{$version}.zip", 'size' => 1024],
-        'dependencies' => [['id' => 'Loader', 'kind' => 'required'], ['id' => 'Unlisted', 'kind' => 'optional']],
+        'dependencies' => [['id' => 'Loader', 'kind' => 'required', 'min' => '0.4'], ['id' => 'Unlisted', 'kind' => 'optional']],
         'changelog_text' => '## Changes',
     ];
 
@@ -70,8 +70,8 @@ it('shows a mod with resolved images and stripped html', function () {
         ->where('mod.description', fn (string $html) => str_contains($html, 'src="https://img.example.com/shot.png"')
             && ! str_contains($html, '<script>'))
         ->where('mod.releases.0.version', '2.0.0-dev')
-        ->where('mod.releases.0.dependencies.0.listed', true)
-        ->where('mod.releases.0.dependencies.1.listed', false));
+        ->where('mod.releases.0.dependencies.0', ['id' => 'Loader', 'name' => 'Loader', 'kind' => 'required', 'min' => '0.4', 'max' => null])
+        ->where('mod.releases.0.dependencies.1.name', null));
 });
 
 it('returns 404 for an unknown mod', function () {

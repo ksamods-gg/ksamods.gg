@@ -62,7 +62,7 @@ class ModController extends Controller
         $listing = $listings->firstWhere('id', $id) ?? abort(404);
         $authored = $listing['authored'];
         $images = collect($authored['images']['description'] ?? [])->pluck('url', 'id');
-        $listingIds = $listings->pluck('id')->flip();
+        $listingNames = $listings->mapWithKeys(fn (array $listing) => [$listing['id'] => $listing['authored']['name']]);
 
         return Inertia::render('Mods/Show', [
             'mod' => [
@@ -89,12 +89,16 @@ class ModController extends Controller
                     'mirrors' => $release['download']['mirrors'] ?? [],
                     'loader' => isset($release['loader']) ? [
                         'id' => $release['loader']['id'],
+                        'name' => $listingNames[$release['loader']['id']] ?? null,
                         'min' => $release['loader']['min'] ?? null,
                     ] : null,
                     'dependencies' => collect($release['dependencies'] ?? [])->map(fn (array $dependency) => [
                         'id' => $dependency['id'],
+                        // The listed mod's name, or null when the index does not list it.
+                        'name' => $listingNames[$dependency['id']] ?? null,
                         'kind' => $dependency['kind'],
-                        'listed' => $listingIds->has($dependency['id']),
+                        'min' => $dependency['min'] ?? null,
+                        'max' => $dependency['max'] ?? null,
                     ]),
                     'changelog' => isset($release['changelog_text'])
                         ? $this->markdown($release['changelog_text'], $images)

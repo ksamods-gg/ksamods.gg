@@ -9,6 +9,7 @@ import {
     boreaModLink,
     boreaSupported,
 } from '@/lib/borea';
+import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate, formatNumber, tagName } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { home } from '@/routes';
@@ -25,7 +26,10 @@ const latest = computed(
 );
 
 // Borea only handles its links on Windows and Linux, so elsewhere its buttons would do nothing.
-const showBorea = boreaSupported(usePage().props.userAgent);
+const { userAgent } = usePage().props;
+// Mods install on a desktop, so phones and tablets get a note instead of download buttons.
+const mobile = isMobileDevice(userAgent);
+const showBorea = !mobile && boreaSupported(userAgent);
 const latestStable = computed(() =>
     props.mod.releases.find((release) => release.status === 'stable'),
 );
@@ -44,6 +48,104 @@ const releases = computed(() =>
         boreaInstall: boreaInstallLink(props.mod.id, release.version),
     })),
 );
+
+// The dependencies of the release the install button gets: its loader first, then by kind.
+const dependencyKinds: Record<string, string> = {
+    required: 'Required',
+    recommends: 'Recommended',
+    optional: 'Optional',
+    suggests: 'Suggested',
+    conflict: 'Conflicts with',
+};
+const dependencyGroups = computed(() => {
+    const release = latest.value;
+
+    if (!release) {
+        return [];
+    }
+
+    const groups = Object.entries(dependencyKinds)
+        .map(([kind, label]) => ({
+            label,
+            items: release.dependencies.filter((d) => d.kind === kind),
+        }))
+        .filter((group) => group.items.length > 0);
+
+    return release.loader
+        ? [
+              {
+                  label: 'Mod loader',
+                  items: [
+                      {
+                          id: release.loader.id,
+                          name: release.loader.name,
+                          kind: 'loader',
+                          min: release.loader.min,
+                          max: null,
+                      },
+                  ],
+              },
+              ...groups,
+          ]
+        : groups;
+});
+
+function versionRange(min: string | null, max: string | null): string {
+    if (min && max) {
+        return `${min} to ${max}`;
+    }
+
+    if (min) {
+        return `${min} or newer`;
+    }
+
+    return max ? `up to ${max}` : 'any version';
+}
+
+// The description, dependencies and releases share one spot; a mod without a description skips that tab.
+type Tab = 'description' | 'dependencies' | 'releases';
+const tabs = computed(() => [
+    ...(props.mod.description
+        ? [
+              {
+                  id: 'description' as const,
+                  label: 'Description',
+                  count: undefined,
+              },
+          ]
+        : []),
+    {
+        id: 'dependencies' as const,
+        label: 'Dependencies',
+        count: dependencyGroups.value.reduce((n, g) => n + g.items.length, 0),
+    },
+    {
+        id: 'releases' as const,
+        label: 'Releases',
+        count: props.mod.releases.length,
+    },
+]);
+const activeTab = ref<Tab>(props.mod.description ? 'description' : 'releases');
+const tabButtons = useTemplateRef<HTMLButtonElement[]>('tabButtons');
+
+// Arrow keys, Home and End move between tabs, per the WAI-ARIA tabs pattern.
+function moveBetweenTabs(event: KeyboardEvent, index: number) {
+    const last = tabs.value.length - 1;
+    const target = {
+        ArrowRight: index === last ? 0 : index + 1,
+        ArrowLeft: index === 0 ? last : index - 1,
+        Home: 0,
+        End: last,
+    }[event.key];
+
+    if (target === undefined) {
+        return;
+    }
+
+    event.preventDefault();
+    activeTab.value = tabs.value[target].id;
+    tabButtons.value?.[target]?.focus();
+}
 
 const linkLabels: Record<string, string> = {
     homepage: 'Website',
@@ -205,14 +307,32 @@ const card =
                         </li>
                     </ul>
                 </div>
-                <a v-else :href="latest.download_url" :class="primaryButton">
+                <a
+                    v-else-if="!mobile"
+                    :href="latest.download_url"
+                    :class="primaryButton"
+                >
                     Download v{{ latest.version }}
                 </a>
+                <div
+                    v-else
+                    class="rounded-md border border-dashed border-[#19140035] px-4 py-3 text-sm sm:max-w-72 sm:text-right dark:border-[#3E3E3A]"
+                >
+                    <p class="font-medium">
+                        Downloads and installs are desktop only
+                    </p>
+                    <p :class="['mt-0.5 text-xs', muted]">
+                        Open this page on a Windows, Linux or macOS computer to
+                        get {{ mod.name }}.
+                    </p>
+                </div>
 
                 <p :class="['mt-2 text-xs', muted]">
                     <template
                         v-if="
-                            !(showBorea && boreaInstall) && latest.download_size
+                            !mobile &&
+                            !(showBorea && boreaInstall) &&
+                            latest.download_size
                         "
                         >{{ formatBytes(latest.download_size) }} ·
                     </template>
@@ -224,16 +344,126 @@ const card =
         </div>
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <div class="flex min-w-0 flex-col gap-6">
+            <div class="min-w-0">
+                <div
+                    role="tablist"
+                    aria-label="About this mod"
+                    class="mb-3 flex [scrollbar-width:none] gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_rgba(62,62,58,0.6)]"
+                >
+                    <!-- The bottom line is an inset shadow, which the active tab's border paints over.
+                         A border would need the tabs to overlap it, and inside a scroller that overlap scrolls. -->
+                    <button
+                        v-for="(tab, index) in tabs"
+                        :id="`tab-${tab.id}`"
+                        ref="tabButtons"
+                        :key="tab.id"
+                        type="button"
+                        role="tab"
+                        :aria-selected="activeTab === tab.id"
+                        :aria-controls="`panel-${tab.id}`"
+                        :tabindex="activeTab === tab.id ? 0 : -1"
+                        :class="[
+                            'shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+                            activeTab === tab.id
+                                ? 'border-[#1b1b18] dark:border-[#EDEDEC]'
+                                : [
+                                      'border-transparent hover:text-[#1b1b18] dark:hover:text-[#EDEDEC]',
+                                      muted,
+                                  ],
+                        ]"
+                        @click="activeTab = tab.id"
+                        @keydown="moveBetweenTabs($event, index)"
+                    >
+                        {{ tab.label }}
+                        <span
+                            v-if="tab.count !== undefined"
+                            :class="['ml-1 text-xs font-normal', muted]"
+                            >{{ tab.count }}</span
+                        >
+                    </button>
+                </div>
+
                 <!-- Rendered server-side from the index with raw HTML stripped. -->
                 <article
                     v-if="mod.description"
+                    v-show="activeTab === 'description'"
+                    id="panel-description"
+                    role="tabpanel"
+                    aria-labelledby="tab-description"
+                    tabindex="0"
                     :class="['markdown', card]"
                     v-html="mod.description"
                 />
 
-                <section :class="card">
-                    <h2 class="mb-3 font-semibold">Releases</h2>
+                <section
+                    v-show="activeTab === 'dependencies'"
+                    id="panel-dependencies"
+                    role="tabpanel"
+                    aria-labelledby="tab-dependencies"
+                    tabindex="0"
+                    :class="card"
+                >
+                    <template v-if="dependencyGroups.length">
+                        <p v-if="latest" :class="['mb-4 text-xs', muted]">
+                            For v{{ latest.version }}, the release the install
+                            button gets.
+                        </p>
+                        <div class="flex flex-col gap-5">
+                            <section
+                                v-for="group in dependencyGroups"
+                                :key="group.label"
+                            >
+                                <h3 class="mb-2 text-sm font-semibold">
+                                    {{ group.label }}
+                                </h3>
+                                <ul
+                                    class="divide-y divide-[#19140014] dark:divide-[#3E3E3A]/60"
+                                >
+                                    <li
+                                        v-for="dependency in group.items"
+                                        :key="dependency.id"
+                                        class="flex flex-wrap items-baseline justify-between gap-x-3 py-2 text-sm"
+                                    >
+                                        <span>
+                                            <Link
+                                                v-if="dependency.name"
+                                                :href="show(dependency.id)"
+                                                class="underline underline-offset-4"
+                                            >
+                                                {{ dependency.name }}
+                                            </Link>
+                                            <template v-else>
+                                                {{ dependency.id }}
+                                                <span
+                                                    :class="['text-xs', muted]"
+                                                    >not in the index</span
+                                                >
+                                            </template>
+                                        </span>
+                                        <span :class="['text-xs', muted]">{{
+                                            versionRange(
+                                                dependency.min,
+                                                dependency.max,
+                                            )
+                                        }}</span>
+                                    </li>
+                                </ul>
+                            </section>
+                        </div>
+                    </template>
+                    <p v-else :class="['text-sm', muted]">
+                        This mod needs nothing besides the game.
+                    </p>
+                </section>
+
+                <section
+                    v-show="activeTab === 'releases'"
+                    id="panel-releases"
+                    role="tabpanel"
+                    aria-labelledby="tab-releases"
+                    tabindex="0"
+                    :class="card"
+                >
                     <ul
                         class="divide-y divide-[#19140014] dark:divide-[#3E3E3A]/60"
                     >
@@ -258,6 +488,7 @@ const card =
                                     formatDate(release.date)
                                 }}</span>
                                 <a
+                                    v-if="!mobile"
                                     :href="release.download_url"
                                     class="ml-auto text-xs underline underline-offset-4"
                                 >
@@ -293,7 +524,10 @@ const card =
                 </section>
             </div>
 
-            <aside class="flex flex-col gap-6 text-sm">
+            <!-- Sticky beside the content on wide screens; self-start, or the grid stretches it and it cannot stick. -->
+            <aside
+                class="flex flex-col gap-6 text-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:self-start lg:overflow-y-auto"
+            >
                 <section :class="card">
                     <h2 class="mb-3 font-semibold">Details</h2>
                     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
@@ -341,29 +575,6 @@ const card =
                     >
                         Edit this listing
                     </a>
-                </section>
-
-                <section v-if="latest?.dependencies.length" :class="card">
-                    <h2 class="mb-3 font-semibold">Dependencies</h2>
-                    <ul class="flex flex-col gap-2">
-                        <li
-                            v-for="dependency in latest.dependencies"
-                            :key="dependency.id"
-                            class="flex items-center justify-between gap-2"
-                        >
-                            <Link
-                                v-if="dependency.listed"
-                                :href="show(dependency.id)"
-                                class="underline underline-offset-4"
-                            >
-                                {{ dependency.id }}
-                            </Link>
-                            <span v-else>{{ dependency.id }}</span>
-                            <span :class="['text-xs', muted]">{{
-                                dependency.kind
-                            }}</span>
-                        </li>
-                    </ul>
                 </section>
 
                 <section v-if="Object.keys(mod.links).length" :class="card">

@@ -13,13 +13,16 @@ const page = usePage();
     >
         <header class="border-b border-[#19140014] dark:border-[#3E3E3A]/60">
             <div
-                class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6"
+                class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6"
             >
                 <Link :href="home()" class="font-semibold tracking-tight">
                     {{ page.props.name }}
                 </Link>
 
-                <div class="flex items-center gap-3 text-sm">
+                <!-- On the narrowest phones this wraps below the site name rather than overflowing. -->
+                <div
+                    class="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm"
+                >
                     <!-- A plain link: guests get redirected to GitHub to log in. -->
                     <a :href="create().url" class="hover:underline">
                         Submit a mod
@@ -32,7 +35,7 @@ const page = usePage();
                             v-if="page.props.auth.user.avatar"
                             :src="page.props.auth.user.avatar"
                             alt=""
-                            class="size-7 rounded-full"
+                            class="hidden size-7 rounded-full sm:block"
                         />
                         <span class="hidden sm:inline">{{
                             page.props.auth.user.name
@@ -50,7 +53,7 @@ const page = usePage();
                         :href="login().url"
                         class="rounded-md border border-[#19140035] px-3 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                     >
-                        Log in with GitHub
+                        Log in<span class="hidden sm:inline"> with GitHub</span>
                     </a>
                 </div>
             </div>

@@ -19,8 +19,14 @@ export type Release = {
     download_url: string;
     download_size: number | null;
     mirrors: string[];
-    loader: { id: string; min: string | null } | null;
-    dependencies: { id: string; kind: string; listed: boolean }[];
+    loader: { id: string; name: string | null; min: string | null } | null;
+    dependencies: {
+        id: string;
+        name: string | null;
+        kind: string;
+        min: string | null;
+        max: string | null;
+    }[];
     changelog: string | null;
     changelog_url: string | null;
 };
