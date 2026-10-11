@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Support\ContentIndex;
 use App\Support\ListingOwnership;
+use App\Support\ModSocial;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -18,12 +20,67 @@ use Inertia\Response;
  */
 class ModController extends Controller
 {
+    /**
+     * The landing page: what ships, what people install and rate, and how to install or publish.
+     */
+    public function home(): Response
+    {
+        $snapshot = ContentIndex::snapshot();
+        $listings = collect($snapshot['listings']);
+        $ratings = ModSocial::ratings();
+        $summaries = $listings->map(fn (array $listing) => [...$this->summary($listing), 'rating' => $ratings[$listing['id']] ?? null]);
+
+        // Stable releases only: nightly builds would crowd out everything else.
+        $releases = $listings
+            ->flatMap(fn (array $listing) => collect($listing['releases'] ?? [])
+                ->where('release_status', 'stable')
+                ->map(fn (array $release) => [
+                    'mod' => [
+                        'id' => $listing['id'],
+                        'name' => $listing['authored']['name'],
+                        'icon' => $listing['authored']['images']['icon']['url'] ?? null,
+                    ],
+                    'version' => $release['version'],
+                    'date' => $release['release_date'],
+                    'ago' => Carbon::parse($release['release_date'])->diffForHumans(),
+                    // The log groups releases by day.
+                    'day' => $this->dayLabel(Carbon::parse($release['release_date'])),
+                    'summary' => $this->firstLine($release['changelog_text'] ?? null),
+                    'download_url' => $release['download']['url'],
+                ]))
+            ->sortByDesc('date')
+            ->take(6)
+            ->values();
+        $popular = $summaries->sortByDesc('downloads')->take(6)->values();
+
+        return Inertia::render('Home', [
+            'releases' => $releases,
+            'popular' => $popular,
+            // Rated by enough people to mean something, and not a repeat of the shelf above.
+            'topRated' => $summaries
+                ->filter(fn (array $mod) => ($mod['rating']['count'] ?? 0) >= 3)
+                ->whereNotIn('id', $popular->pluck('id'))
+                ->sortBy([['rating.average', 'desc'], ['rating.count', 'desc']])
+                ->take(3)
+                ->values(),
+            'counts' => [
+                'mods' => $listings->count(),
+                'downloads' => $listings->sum(fn (array $listing) => $listing['downloads']['total'] ?? 0),
+            ],
+            'community' => ModSocial::recent(4, $listings->mapWithKeys(fn (array $listing) => [$listing['id'] => $listing['authored']['name']])->all()),
+        ]);
+    }
+
     public function index(): Response
     {
         $snapshot = ContentIndex::snapshot();
 
+        $ratings = ModSocial::ratings();
+
         return Inertia::render('Mods/Index', [
-            'mods' => collect($snapshot['listings'])->map($this->summary(...))->values(),
+            'mods' => collect($snapshot['listings'])
+                ->map(fn (array $listing) => [...$this->summary($listing), 'rating' => $ratings[$listing['id']] ?? null])
+                ->values(),
             'tagNames' => $this->tagNames($snapshot),
         ]);
     }
@@ -46,16 +103,22 @@ class ModController extends Controller
                 ->all(),
         ));
 
+        $ratings = ModSocial::ratings();
+
         return Inertia::render('Mods/Mine', [
             'mods' => collect($snapshot['listings'])
                 ->filter(fn (array $listing) => isset($roles[$listing['id']]))
-                ->map(fn (array $listing) => [...$this->summary($listing), 'role' => $roles[$listing['id']]])
+                ->map(fn (array $listing) => [
+                    ...$this->summary($listing),
+                    'rating' => $ratings[$listing['id']] ?? null,
+                    'role' => $roles[$listing['id']],
+                ])
                 ->values(),
             'tagNames' => $this->tagNames($snapshot),
         ]);
     }
 
-    public function show(string $id): Response
+    public function show(Request $request, string $id): Response
     {
         $snapshot = ContentIndex::snapshot();
         $listings = collect($snapshot['listings']);
@@ -107,6 +170,10 @@ class ModController extends Controller
                 ])->values(),
             ],
             'tagNames' => $this->tagNames($snapshot),
+            // The tab a link opens, such as a notification's link to a comment.
+            'tab' => in_array($request->query('tab'), ['releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
+            // Adds reviews and comments.
+            ...ModSocial::forListing($id, $request->user()),
         ]);
     }
 
@@ -176,5 +243,45 @@ class ModController extends Controller
         );
 
         return Str::markdown($text, ['html_input' => 'strip', 'allow_unsafe_links' => false]);
+    }
+
+    /**
+     * A changelog's first line of substance, as plain text: headings and bare version lines are
+     * skipped, as are compatibility notes, which say what a release needs rather than what it
+     * changed; list markers, emphasis and links are stripped.
+     */
+    private function firstLine(?string $markdown): ?string
+    {
+        foreach (preg_split('/\R/', (string) $markdown) ?: [] as $line) {
+            $line = trim($line);
+
+            if ($line === '' || str_starts_with($line, '#') || preg_match('/^\[?v?\d+\.\d+/', $line)) {
+                continue;
+            }
+
+            $text = trim((string) preg_replace(
+                ['/^([-*+]|\d+\.)\s+/', '/!\[[^\]]*\]\([^)]*\)/', '/\[([^\]]*)\]\([^)]*\)/', '/[*_`]/'],
+                ['', '', '$1', ''],
+                $line,
+            ));
+
+            if ($text !== '' && ! preg_match('/^(requires|tested on|compatible with)\s*:/i', $text)) {
+                return Str::limit($text, 200);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * "Today", "Yesterday", or the date, as the release log's day markers read.
+     */
+    private function dayLabel(Carbon $date): string
+    {
+        return match (true) {
+            $date->isToday() => 'Today',
+            $date->isYesterday() => 'Yesterday',
+            default => $date->format('M j'),
+        };
     }
 }

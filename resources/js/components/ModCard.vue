@@ -40,6 +40,26 @@ defineProps<{ mod: ModSummary }>();
             >
                 Mod loader
             </span>
+            <span
+                v-if="mod.rating"
+                class="flex items-center gap-1 text-[#1b1b18] dark:text-[#EDEDEC]"
+            >
+                <svg
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    class="size-3.5 fill-[#f5a623]"
+                >
+                    <path
+                        d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.9L10 1.5z"
+                    />
+                </svg>
+                {{ mod.rating.average }}
+                <span class="sr-only">out of 5 from</span>
+                <span class="text-[#706f6c] dark:text-[#A1A09A]"
+                    >({{ mod.rating.count
+                    }}<span class="sr-only"> reviews</span>)</span
+                >
+            </span>
             <span v-if="mod.version">v{{ mod.version }}</span>
             <span>{{ formatNumber(mod.downloads) }} downloads</span>
             <span>Updated {{ formatDate(mod.updated_at) }}</span>

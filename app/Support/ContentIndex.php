@@ -31,4 +31,12 @@ class ContentIndex
             ->throw()
             ->json());
     }
+
+    /**
+     * Whether the index lists a mod or mod loader with this id.
+     */
+    public static function has(string $id): bool
+    {
+        return in_array($id, array_column(self::snapshot()['listings'], 'id'), true);
+    }
 }

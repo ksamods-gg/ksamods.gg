@@ -44,6 +44,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // The header's bell; Reverb keeps it current between page loads.
+            'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
         ];
     }
 }

@@ -1,13 +1,17 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\DiscordAuthController;
 use App\Http\Controllers\GitHubAuthController;
 use App\Http\Controllers\ListingController;
 use App\Http\Controllers\ModController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReviewController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [ModController::class, 'index'])->name('home');
+Route::get('/', [ModController::class, 'home'])->name('home');
+Route::get('/mods', [ModController::class, 'index'])->name('mods.index');
 Route::get('/mods/{id}', [ModController::class, 'show'])->name('mods.show');
 
 Route::middleware('guest')->group(function () {
@@ -32,4 +36,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/mods/{id}/edit', [ListingController::class, 'edit'])->name('listings.edit');
     Route::put('/mods/{id}', [ListingController::class, 'update'])->name('listings.update');
     Route::post('/logout', [GitHubAuthController::class, 'logout'])->name('logout');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+    Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::get('/notifications/{id}', [NotificationController::class, 'open'])->name('notifications.open');
+
+    Route::middleware('throttle:social')->group(function () {
+        Route::put('/mods/{id}/review', [ReviewController::class, 'save'])->name('reviews.save');
+        Route::delete('/reviews/{review}', [ReviewController::class, 'destroy'])->name('reviews.destroy');
+        Route::post('/mods/{id}/comments', [CommentController::class, 'store'])->name('comments.store');
+        Route::patch('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+        Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+    });
 });

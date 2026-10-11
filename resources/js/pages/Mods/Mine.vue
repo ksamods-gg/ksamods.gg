@@ -41,7 +41,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 :href="create().url"
                 class="rounded-md bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
             >
-                Submit a mod
+                Publish a mod
             </a>
         </div>
 

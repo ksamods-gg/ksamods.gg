@@ -70,7 +70,8 @@ export default defineConfig({
             '.github/**',
             'composer.json',
             'resources/js/components/ui/*',
-            'resources/views/mail/*',
+            // Blade is not HTML: a formatter can drop @if blocks and mangle directives.
+            'resources/views/**',
         ],
         sortTailwindcss: {
             functions: ['clsx', 'cn', 'cva'],

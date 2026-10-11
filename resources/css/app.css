@@ -3,6 +3,34 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* Browser surfaces in the site's own palette: selection, focus, form accents and scrollbars. */
+@layer base {
+    ::selection {
+        background: rgb(245 48 3 / 0.2);
+    }
+    :focus-visible {
+        outline: 2px solid #1b1b18;
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+    html {
+        accent-color: #f53003;
+        scrollbar-color: #c9c8c3 transparent;
+    }
+    @media (prefers-color-scheme: dark) {
+        ::selection {
+            background: rgb(255 68 51 / 0.3);
+        }
+        :focus-visible {
+            outline-color: #ededec;
+        }
+        html {
+            accent-color: #ff4433;
+            scrollbar-color: #3e3e3a transparent;
+        }
+    }
+}
+
 /* Rendered markdown from mod descriptions and changelogs. */
 @layer components {
     .markdown {

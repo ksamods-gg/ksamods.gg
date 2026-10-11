@@ -2,6 +2,9 @@
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
+import CommentsPanel from '@/components/mods/CommentsPanel.vue';
+import ReviewsPanel from '@/components/mods/ReviewsPanel.vue';
+import Stars from '@/components/Stars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
     BOREA_RELEASES_URL,
@@ -12,12 +15,17 @@ import {
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate, formatNumber, tagName } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { home } from '@/routes';
 import { edit } from '@/routes/listings';
-import { show } from '@/routes/mods';
-import type { Mod } from '@/types';
+import { index, show } from '@/routes/mods';
+import type { Comments, Mod, Reviews } from '@/types';
 
-const props = defineProps<{ mod: Mod; tagNames: Record<string, string> }>();
+const props = defineProps<{
+    mod: Mod;
+    tagNames: Record<string, string>;
+    reviews: Reviews;
+    comments: Comments;
+    tab: 'reviews' | 'comments' | null;
+}>();
 
 const latest = computed(
     () =>
@@ -26,7 +34,8 @@ const latest = computed(
 );
 
 // Borea only handles its links on Windows and Linux, so elsewhere its buttons would do nothing.
-const { userAgent } = usePage().props;
+const page = usePage();
+const { userAgent } = page.props;
 // Mods install on a desktop, so phones and tablets get a note instead of download buttons.
 const mobile = isMobileDevice(userAgent);
 const showBorea = !mobile && boreaSupported(userAgent);
@@ -102,8 +111,8 @@ function versionRange(min: string | null, max: string | null): string {
     return max ? `up to ${max}` : 'any version';
 }
 
-// The description, dependencies and releases share one spot; a mod without a description skips that tab.
-type Tab = 'description' | 'dependencies' | 'releases';
+// Everything about the mod shares one spot; a mod without a description skips that tab.
+type Tab = 'description' | 'dependencies' | 'releases' | 'reviews' | 'comments';
 const tabs = computed(() => [
     ...(props.mod.description
         ? [
@@ -124,8 +133,23 @@ const tabs = computed(() => [
         label: 'Releases',
         count: props.mod.releases.length,
     },
+    { id: 'reviews' as const, label: 'Reviews', count: props.reviews.count },
+    { id: 'comments' as const, label: 'Comments', count: props.comments.count },
 ]);
-const activeTab = ref<Tab>(props.mod.description ? 'description' : 'releases');
+// A link can name the tab to open, such as a notification's link to a comment.
+const activeTab = ref<Tab>(
+    props.tab ?? (props.mod.description ? 'description' : 'releases'),
+);
+
+// Then scroll to the comment it names. With server rendering the browser does this itself; this
+// covers a page the browser renders.
+onMounted(() => {
+    if (location.hash.startsWith('#comment-')) {
+        document
+            .getElementById(location.hash.slice(1))
+            ?.scrollIntoView({ block: 'center' });
+    }
+});
 const tabButtons = useTemplateRef<HTMLButtonElement[]>('tabButtons');
 
 // Arrow keys, Home and End move between tabs, per the WAI-ARIA tabs pattern.
@@ -194,7 +218,7 @@ const card =
     <Head :title="mod.name" />
 
     <AppLayout>
-        <Link :href="home()" :class="['text-sm hover:underline', muted]">
+        <Link :href="index()" :class="['text-sm hover:underline', muted]">
             ← All mods
         </Link>
 
@@ -214,6 +238,21 @@ const card =
                     <p :class="['text-sm', muted]">
                         by {{ mod.authors.join(', ') }}
                     </p>
+                    <button
+                        v-if="reviews.average !== null"
+                        type="button"
+                        class="mt-1 flex items-center gap-1.5 text-sm hover:underline"
+                        @click="activeTab = 'reviews'"
+                    >
+                        <Stars :rating="reviews.average" />
+                        <span>{{ reviews.average }}</span>
+                        <span :class="muted"
+                            >· {{ reviews.count }}
+                            {{
+                                reviews.count === 1 ? 'review' : 'reviews'
+                            }}</span
+                        >
+                    </button>
                     <p
                         class="mt-2 max-w-2xl text-[#4a4a46] dark:text-[#c4c3be]"
                     >
@@ -521,6 +560,36 @@ const card =
                             </details>
                         </li>
                     </ul>
+                </section>
+
+                <section
+                    v-show="activeTab === 'reviews'"
+                    id="panel-reviews"
+                    role="tabpanel"
+                    aria-labelledby="tab-reviews"
+                    tabindex="0"
+                    :class="card"
+                >
+                    <ReviewsPanel
+                        :mod-id="mod.id"
+                        :reviews="reviews"
+                        :signed-in="!!page.props.auth.user"
+                    />
+                </section>
+
+                <section
+                    v-show="activeTab === 'comments'"
+                    id="panel-comments"
+                    role="tabpanel"
+                    aria-labelledby="tab-comments"
+                    tabindex="0"
+                    :class="card"
+                >
+                    <CommentsPanel
+                        :mod-id="mod.id"
+                        :comments="comments"
+                        :signed-in="!!page.props.auth.user"
+                    />
                 </section>
             </div>
 

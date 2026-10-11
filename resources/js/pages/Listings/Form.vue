@@ -26,7 +26,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const button =
     'inline-flex rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-60 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white';
 
-const title = props.listing ? `Edit ${props.listing.name}` : 'Submit a mod';
+const title = props.listing ? `Edit ${props.listing.name}` : 'Publish your mod';
 const action = props.listing ? update.form(props.listing.id) : store.form();
 </script>
 

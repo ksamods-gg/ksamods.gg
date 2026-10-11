@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T12:00:00Z",
+  "title": "Design System: ksamods.gg",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Signal Red", "canonical": "#f53003", "tonalRamp": ["#3d0c01", "#661402", "#991e02", "#cc2802", "#f53003", "#ff6a47", "#ffa38e", "#ffdcd4"] },
+      "accent-dark": { "role": "primary", "displayName": "Signal Red (dark mode)", "canonical": "#FF4433" },
+      "accent-wash": { "role": "primary", "displayName": "Signal Wash", "canonical": "#fff2f2" },
+      "accent-wash-dark": { "role": "primary", "displayName": "Signal Wash (dark mode)", "canonical": "#1D0002" },
+      "star": { "role": "secondary", "displayName": "Star Gold", "canonical": "#f5a623", "tonalRamp": ["#3d2903", "#664506", "#996809", "#cc8a0c", "#f5a623", "#f8c066", "#fbd9a3", "#fdf0db"] },
+      "ground": { "role": "neutral", "displayName": "Paper", "canonical": "#FDFDFC" },
+      "ground-dark": { "role": "neutral", "displayName": "Paper (dark mode)", "canonical": "#0a0a0a" },
+      "surface": { "role": "neutral", "displayName": "Card White", "canonical": "#ffffff" },
+      "surface-dark": { "role": "neutral", "displayName": "Card Coal", "canonical": "#161615" },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#1b1b18", "tonalRamp": ["#1b1b18", "#3e3e3a", "#4a4a46", "#706f6c", "#a1a09a", "#c9c8c3", "#ededec", "#fdfdfc"] },
+      "ink-dark": { "role": "neutral", "displayName": "Ink (dark mode)", "canonical": "#EDEDEC" },
+      "muted": { "role": "neutral", "displayName": "Pencil Grey", "canonical": "#706f6c" },
+      "muted-dark": { "role": "neutral", "displayName": "Pencil Grey (dark mode)", "canonical": "#A1A09A" },
+      "fill-subtle": { "role": "neutral", "displayName": "Warm Fill", "canonical": "#f4f3ef" },
+      "fill-subtle-dark": { "role": "neutral", "displayName": "Warm Fill (dark mode)", "canonical": "#232321" },
+      "border": { "role": "neutral", "displayName": "Rule Line", "canonical": "#19140035" },
+      "border-dark": { "role": "neutral", "displayName": "Rule Line (dark mode)", "canonical": "#3E3E3A" },
+      "border-hover": { "role": "neutral", "displayName": "Rule Line Hover", "canonical": "#1915014a" },
+      "border-hover-dark": { "role": "neutral", "displayName": "Rule Line Hover (dark mode)", "canonical": "#62605b" },
+      "divider": { "role": "neutral", "displayName": "Faint Rule", "canonical": "#19140014" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The landing headline only." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles and landing section headings." },
+      "title": { "displayName": "Title", "purpose": "Card titles, mod names, panel headings." },
+      "body": { "displayName": "Body", "purpose": "The working size for nearly all UI text." },
+      "label": { "displayName": "Label", "purpose": "Metadata, counts, hints, errors; sentence case." },
+      "version": { "displayName": "Version", "purpose": "Version strings inside version pills." }
+    },
+    "shadows": [
+      { "name": "hairline", "value": "inset 0 0 0 1px rgba(26,26,0,0.16)", "dark": "inset 0 0 0 1px #fffaed2d", "purpose": "Every card and panel at rest; the hairline is the border." },
+      { "name": "hairline-hover", "value": "inset 0 0 0 1px rgba(26,26,0,0.4)", "dark": "inset 0 0 0 1px #fffaed5a", "purpose": "Hovered link cards and path tiles." },
+      { "name": "float", "value": "0 8px 24px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(26,26,0,0.16)", "dark": "0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 1px #fffaed2d", "purpose": "Dropdown menus and toasts only." },
+      { "name": "base-rule", "value": "inset 0 -1px 0 #19140014", "dark": "inset 0 -1px 0 rgba(62,62,58,0.6)", "purpose": "Tab bar bottom line under the active tab's 2px ink border." }
+    ],
+    "motion": [
+      { "name": "row-enter", "value": "700ms ease-out, translateY(8px) and opacity 0 to rest, 70ms stagger", "purpose": "Release log rows on first paint; none under prefers-reduced-motion." },
+      { "name": "state", "value": "150ms ease (Tailwind default transition-colors / transition-shadow)", "purpose": "Hover changes on cards, chips, tabs and list rows." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink-filled action: Install, Publish your mod, Save.",
+      "html": "<button class=\"ds-btn-primary\">Install with Borea</button>",
+      "css": ".ds-btn-primary { display: inline-flex; background: #1b1b18; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; font: 500 14px/20px 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; cursor: pointer; } .ds-btn-primary:hover { background: #000; } .ds-btn-primary:focus-visible { outline: 2px solid #1b1b18; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; } @media (prefers-color-scheme: dark) { .ds-btn-primary { background: #ededec; color: #0a0a0a; } .ds-btn-primary:hover { background: #fff; } .ds-btn-primary:focus-visible { outline-color: #ededec; } }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Quiet secondary action: Log in, Log out.",
+      "html": "<button class=\"ds-btn-outline\">Log in</button>",
+      "css": ".ds-btn-outline { background: transparent; color: #1b1b18; padding: 6px 12px; border: 1px solid #19140035; border-radius: 6px; font: 400 14px/20px 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; cursor: pointer; } .ds-btn-outline:hover { border-color: #1915014a; } .ds-btn-outline:focus-visible { outline: 2px solid #1b1b18; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-btn-outline { color: #ededec; border-color: #3e3e3a; } .ds-btn-outline:hover { border-color: #62605b; } }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Search and form fields; border turns ink on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search mods\" />",
+      "css": ".ds-input { width: 100%; background: #fff; color: #1b1b18; padding: 8px 12px; border: 1px solid #19140035; border-radius: 6px; font: 400 14px/20px 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; outline: none; } .ds-input:focus { border-color: #1b1b18; } .ds-input[aria-invalid=true] { border-color: #f53003; } @media (prefers-color-scheme: dark) { .ds-input { background: #161615; color: #ededec; border-color: #3e3e3a; } .ds-input:focus { border-color: #ededec; } .ds-input[aria-invalid=true] { border-color: #ff4433; } }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Tag filter on the mod index; aria-pressed fills with ink.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"false\">Parts</button> <button class=\"ds-chip\" aria-pressed=\"true\">Utilities</button>",
+      "css": ".ds-chip { background: transparent; color: #1b1b18; padding: 4px 12px; border: 1px solid #19140035; border-radius: 9999px; font: 400 12px/16px 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background-color 150ms, border-color 150ms, color 150ms; } .ds-chip:hover { border-color: #1915014a; } .ds-chip[aria-pressed=true] { background: #1b1b18; border-color: #1b1b18; color: #fff; } .ds-chip:focus-visible { outline: 2px solid #1b1b18; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-chip { color: #ededec; border-color: #3e3e3a; } .ds-chip:hover { border-color: #62605b; } .ds-chip[aria-pressed=true] { background: #ededec; border-color: #ededec; color: #0a0a0a; } }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Site name left, text links and bell right, hairline below.",
+      "html": "<header class=\"ds-nav\"><a class=\"ds-nav-brand\" href=\"#\">ksamods.gg</a><nav class=\"ds-nav-links\"><a href=\"#\">Mods</a><a href=\"#\">Publish a mod</a><a class=\"ds-nav-bell\" href=\"#\" aria-label=\"Notifications, 3 unread\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" width=\"20\" height=\"20\" aria-hidden=\"true\"><path d=\"M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0\"/></svg><span class=\"ds-nav-badge\">3</span></a></nav></header>",
+      "css": ".ds-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: #fdfdfc; color: #1b1b18; border-bottom: 1px solid #19140014; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; } .ds-nav-brand { font-weight: 600; letter-spacing: -0.025em; color: inherit; text-decoration: none; } .ds-nav-links { display: flex; align-items: center; gap: 12px; font-size: 14px; } .ds-nav-links a { color: inherit; text-decoration: none; } .ds-nav-links a:hover { text-decoration: underline; } .ds-nav-bell { position: relative; display: inline-flex; padding: 4px; border-radius: 6px; } .ds-nav-bell:hover { background: #f4f3ef; text-decoration: none !important; } .ds-nav-badge { position: absolute; top: -4px; right: -4px; min-width: 16px; padding: 0 4px; border-radius: 9999px; background: #f53003; color: #fff; font-size: 10px; line-height: 16px; font-weight: 600; text-align: center; } @media (prefers-color-scheme: dark) { .ds-nav { background: #0a0a0a; color: #ededec; border-color: rgba(62,62,58,0.6); } .ds-nav-bell:hover { background: #1c1c1a; } .ds-nav-badge { background: #ff4433; } }"
+    },
+    {
+      "name": "Mod Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Linked card: icon, name, authors, abstract, metadata row.",
+      "html": "<a class=\"ds-modcard\" href=\"#\"><div class=\"ds-modcard-head\"><div class=\"ds-modcard-icon\">S</div><div><div class=\"ds-modcard-name\">StarMap</div><div class=\"ds-muted ds-xs\">by KSAModding</div></div></div><p class=\"ds-modcard-abstract\">The mod loader most KSA mods depend on.</p><div class=\"ds-modcard-meta ds-xs ds-muted\"><span class=\"ds-accent\">Mod loader</span><span class=\"ds-ink\"><svg viewBox=\"0 0 20 20\" width=\"14\" height=\"14\" fill=\"#f5a623\" aria-hidden=\"true\"><path d=\"M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.9L10 1.5z\"/></svg> 4.8</span><span>v0.4.2</span><span>12,410 downloads</span></div></a>",
+      "css": ".ds-modcard { display: flex; flex-direction: column; padding: 16px; background: #fff; color: #1b1b18; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(26,26,0,0.16); text-decoration: none; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; transition: box-shadow 150ms; max-width: 360px; } .ds-modcard:hover { box-shadow: inset 0 0 0 1px rgba(26,26,0,0.4); } .ds-modcard:focus-visible { outline: 2px solid #1b1b18; outline-offset: 2px; } .ds-modcard-head { display: flex; gap: 12px; } .ds-modcard-icon { width: 48px; height: 48px; border-radius: 8px; background: #f4f3ef; color: #706f6c; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; } .ds-modcard-name { font-weight: 500; } .ds-modcard-abstract { margin: 12px 0 0; font-size: 14px; color: #4a4a46; } .ds-modcard-meta { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; } .ds-modcard-meta span { display: inline-flex; align-items: center; gap: 4px; } .ds-xs { font-size: 12px; } .ds-muted { color: #706f6c; } .ds-ink { color: #1b1b18; } .ds-accent { color: #f53003; font-weight: 500; } @media (prefers-color-scheme: dark) { .ds-modcard { background: #161615; color: #ededec; box-shadow: inset 0 0 0 1px #fffaed2d; } .ds-modcard:hover { box-shadow: inset 0 0 0 1px #fffaed5a; } .ds-modcard-icon { background: #232321; color: #a1a09a; } .ds-modcard-abstract { color: #c4c3be; } .ds-muted { color: #a1a09a; } .ds-ink { color: #ededec; } .ds-accent { color: #ff4433; } }"
+    },
+    {
+      "name": "Version Pill",
+      "kind": "chip",
+      "refersTo": "version-pill",
+      "description": "Mono version string on Warm Fill.",
+      "html": "<span class=\"ds-version\">0.4.2</span>",
+      "css": ".ds-version { display: inline-block; background: #f4f3ef; color: #1b1b18; padding: 2px 6px; border-radius: 4px; font: 400 12px/16px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; } @media (prefers-color-scheme: dark) { .ds-version { background: #232321; color: #ededec; } }"
+    },
+    {
+      "name": "Mod Tabs",
+      "kind": "nav",
+      "refersTo": "tabs",
+      "description": "Mod page tabs: muted inactive, 2px ink underline active, painted over an inset base rule.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">Overview</button><button role=\"tab\" aria-selected=\"false\">Releases <span>12</span></button><button role=\"tab\" aria-selected=\"false\">Reviews <span>4</span></button></div>",
+      "css": ".ds-tabs { display: flex; gap: 4px; box-shadow: inset 0 -1px 0 #19140014; font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif; } .ds-tabs button { background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 12px; font-size: 14px; font-weight: 500; color: #706f6c; cursor: pointer; transition: color 150ms; } .ds-tabs button:hover { color: #1b1b18; } .ds-tabs button[aria-selected=true] { color: #1b1b18; border-bottom-color: #1b1b18; } .ds-tabs button:focus-visible { outline: 2px solid #1b1b18; outline-offset: 2px; } .ds-tabs span { margin-left: 4px; font-size: 12px; font-weight: 400; color: #706f6c; } @media (prefers-color-scheme: dark) { .ds-tabs { box-shadow: inset 0 -1px 0 rgba(62,62,58,0.6); } .ds-tabs button { color: #a1a09a; } .ds-tabs button:hover, .ds-tabs button[aria-selected=true] { color: #ededec; } .ds-tabs button[aria-selected=true] { border-bottom-color: #ededec; } .ds-tabs span { color: #a1a09a; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Index",
+    "overview": "ksamods.gg reads like a well-kept catalogue: warm off-white paper, near-black ink, white cards drawn with a single hairline, and nothing decorative between the reader and the mods. The only imagery is the mods' own icons (and member avatars); every other surface is type, hairline and a little warm grey. The system is light by default and follows the operating system into a near-black dark mode where every value has a hand-picked twin.\n\nDensity is moderate and list-like. Pages are built from cards on a 72rem column, with small type (14px body is the working size) and generous vertical gaps between sections. Hierarchy comes from weight and size inside one family, not from colour. The red-orange accent is rare and means something: today's node on the release rail, the unread badge, the \"Mod loader\" marker, errors, link hover, focus and selection.",
+    "keyCharacteristics": [
+      "Two grounds, two card surfaces, one ink, one muted grey, each with an explicit dark twin.",
+      "Hairline inset borders instead of drop shadows; lift shadows only on floating layers.",
+      "One typeface (Instrument Sans) at weights 400/500/600, tight tracking on headings.",
+      "Accent used for state and signal, never for fills of large areas.",
+      "Mod icons are the only pictures."
+    ],
+    "rules": [
+      { "name": "The Twin Rule", "body": "Every colour is written as a light/dark pair in the same class string. A value without its dark twin is a bug.", "section": "colors" },
+      { "name": "The Signal Rule", "body": "Signal Red marks state or attention (today, unread, error, hover, focus). It never fills a button, a card or a section background.", "section": "colors" },
+      { "name": "The Sentence-Case Rule", "body": "Labels and headings are sentence case at normal tracking; there is no uppercase micro-label tier in this system.", "section": "typography" },
+      { "name": "The Tabular Count Rule", "body": "Counts, download numbers, versions and step numbers use tabular numerals.", "section": "typography" },
+      { "name": "The Drawn-Not-Cast Rule", "body": "Surfaces on the page get a hairline, never a drop shadow. Only something floating over other content casts one.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do write every colour as a light/dark pair (for example ink #1b1b18 with #EDEDEC, card #fff with #161615).",
+      "Do draw card edges with the inset hairline (rgba(26,26,0,0.16) / #fffaed2d) and darken it on hover.",
+      "Do keep body UI at 14px and metadata at 12px muted, with tabular numerals for counts and versions.",
+      "Do use mod icons, with the Warm Fill initial-letter placeholder when a mod has none, as the only imagery.",
+      "Do keep Signal Red to state and signal: today, unread, errors, link hover, focus, selection.",
+      "Do inline stroked SVG for icons (as the bell and star do)."
+    ],
+    "donts": [
+      "Don't fill buttons, cards or sections with Signal Red; primary actions are ink.",
+      "Don't add drop shadows to resting cards; reserve the Float shadow for menus and toasts.",
+      "Don't introduce a second typeface or uppercase tracked labels.",
+      "Don't add stock photography, illustration or gradient decoration; the mods' own icons carry the imagery.",
+      "Don't use unicode arrows or emoji as icons."
+    ]
+  }
+}

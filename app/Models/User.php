@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $email
  * @property string|null $avatar
+ * @property bool $is_admin
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
@@ -34,6 +35,14 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * Whether the user may delete a review or comment: its author, or an admin.
+     */
+    public function canDelete(Review|Comment $post): bool
+    {
+        return $this->is_admin || $post->user_id === $this->id;
+    }
 
     /**
      * Whether the stored token may fork the index and open a pull request from this account.
@@ -56,6 +65,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'github_token' => 'encrypted',
+            'is_admin' => 'boolean',
         ];
     }
 }

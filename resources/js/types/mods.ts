@@ -9,6 +9,39 @@ export type ModSummary = {
     downloads: number;
     updated_at: string;
     version: string | null;
+    // Null until someone reviews the mod.
+    rating?: Rating | null;
+};
+
+export type Rating = { average: number; count: number };
+
+// A review or comment, with what the viewer may do with it.
+export type Post = {
+    id: number;
+    // Null on a review without text, and on a deleted comment.
+    body: string | null;
+    // Null on a deleted comment, which stays only to keep its replies in context.
+    author: { name: string; avatar: string | null } | null;
+    created_at: string;
+    edited: boolean;
+    deleted: boolean;
+    mine: boolean;
+    canDelete: boolean;
+};
+
+// A comment and the replies to it, which nest the same way.
+export type CommentNode = Post & { replies: CommentNode[] };
+
+export type Reviews = {
+    average: number | null;
+    count: number;
+    mine: { rating: number; body: string | null } | null;
+    items: (Post & { rating: number; replies: CommentNode[] })[];
+};
+
+export type Comments = {
+    count: number;
+    items: CommentNode[];
 };
 
 export type Release = {
@@ -58,4 +91,20 @@ export type Mod = Omit<ModSummary, 'version'> & {
     links: Record<string, string>;
     published_at: string;
     releases: Release[];
+};
+
+export type NotificationData = {
+    kind: 'reply' | 'review_reply' | 'mention';
+    actor: { name: string; avatar: string | null };
+    mod: { id: string; name: string };
+    excerpt: string;
+    comment_id: number;
+    tab: 'comments' | 'reviews';
+};
+
+export type AppNotification = {
+    id: string;
+    data: NotificationData;
+    read: boolean;
+    created_at: string;
 };

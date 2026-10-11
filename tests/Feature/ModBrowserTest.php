@@ -1,8 +1,12 @@
 <?php
 
 use App\Support\ContentIndex;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
+
+// The mod pages read ratings, reviews and comments from the database.
+uses(RefreshDatabase::class);
 
 beforeEach(fn () => $this->withoutVite());
 
@@ -52,7 +56,7 @@ function fakeContentIndex(): void
 it('lists every mod from the content index', function () {
     fakeContentIndex();
 
-    $this->get(route('home'))->assertInertia(fn (Assert $page) => $page
+    $this->get(route('mods.index'))->assertInertia(fn (Assert $page) => $page
         ->component('Mods/Index')
         ->has('mods', 2)
         ->where('mods.0.id', 'Rockets')

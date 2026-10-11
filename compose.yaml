@@ -42,6 +42,26 @@ services:
             - '.:/var/www/html'
         networks:
             - sail
+    # Runs queued jobs, such as sending notifications to Reverb.
+    queue:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.5
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: sail-8.5/app
+        command: php artisan queue:work --tries=3
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            REVERB_HOST: reverb
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            - mysql
+            - reverb
     mysql:
         image: 'mysql:8.4'
         ports:
