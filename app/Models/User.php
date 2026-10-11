@@ -14,6 +14,9 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property string|null $github_id
+ * @property string|null $github_login
+ * @property string|null $github_token
+ * @property string|null $github_scopes
  * @property string $name
  * @property string|null $email
  * @property string|null $avatar
@@ -23,12 +26,22 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['github_id', 'name', 'email', 'avatar', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['github_id', 'github_login', 'github_token', 'github_scopes', 'name', 'email', 'avatar', 'password'])]
+#[Hidden(['password', 'remember_token', 'github_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * Whether the stored token may fork the index and open a pull request from this account.
+     */
+    public function canOpenPullRequests(): bool
+    {
+        $scopes = explode(',', (string) $this->github_scopes);
+
+        return $this->github_token !== null && (in_array('public_repo', $scopes) || in_array('repo', $scopes));
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -40,6 +53,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'github_token' => 'encrypted',
         ];
     }
 }

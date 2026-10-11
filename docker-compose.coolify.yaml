@@ -1,17 +1,18 @@
 # Production stack for Coolify. Local dev uses compose.yaml (Sail).
 # Domains come from Coolify's proxy, so nothing publishes ports.
+# Set them in Coolify's Domains UI: app -> https://ksamods.gg, reverb -> https://ws.ksamods.gg
 services:
     app:
         build:
             context: .
             args:
-                VITE_APP_NAME: '${APP_NAME:-Laravel}'
+                VITE_APP_NAME: '${APP_NAME:-ksamods.gg}'
                 VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
                 VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
         environment:
             - SERVICE_URL_APP_8080
             - AUTORUN_ENABLED=true
-            - APP_NAME=${APP_NAME:-Laravel}
+            - APP_NAME=${APP_NAME:-ksamods.gg}
             - APP_ENV=production
             - APP_DEBUG=false
             - APP_KEY=${APP_KEY:?}
@@ -40,7 +41,7 @@ services:
         build:
             context: .
             args:
-                VITE_APP_NAME: '${APP_NAME:-Laravel}'
+                VITE_APP_NAME: '${APP_NAME:-ksamods.gg}'
                 VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
                 VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
         command: ['php', '/var/www/html/artisan', 'queue:work', '--tries=3']
@@ -48,7 +49,7 @@ services:
         healthcheck:
             test: ['CMD', 'healthcheck-queue']
         environment:
-            - APP_NAME=${APP_NAME:-Laravel}
+            - APP_NAME=${APP_NAME:-ksamods.gg}
             - APP_ENV=production
             - APP_DEBUG=false
             - APP_KEY=${APP_KEY:?}
@@ -74,7 +75,7 @@ services:
         build:
             context: .
             args:
-                VITE_APP_NAME: '${APP_NAME:-Laravel}'
+                VITE_APP_NAME: '${APP_NAME:-ksamods.gg}'
                 VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
                 VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
         command: ['php', '/var/www/html/artisan', 'reverb:start']
@@ -102,7 +103,11 @@ services:
         volumes:
             - 'mysql-data:/var/lib/mysql'
         healthcheck:
-            test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD']
+            test:
+                [
+                    'CMD-SHELL',
+                    'mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD',
+                ]
             interval: 5s
             timeout: 5s
             retries: 20

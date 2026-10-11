@@ -3,6 +3,57 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* Rendered markdown from mod descriptions and changelogs. */
+@layer components {
+    .markdown {
+        @apply leading-relaxed break-words;
+    }
+    .markdown > * + * {
+        @apply mt-3;
+    }
+    .markdown h1,
+    .markdown h2,
+    .markdown h3 {
+        @apply mt-6 font-semibold;
+    }
+    .markdown h1 {
+        @apply text-xl;
+    }
+    .markdown h2 {
+        @apply text-lg;
+    }
+    .markdown ul {
+        @apply list-disc pl-5;
+    }
+    .markdown ol {
+        @apply list-decimal pl-5;
+    }
+    .markdown li + li {
+        @apply mt-1;
+    }
+    .markdown a {
+        @apply underline underline-offset-4;
+    }
+    .markdown img {
+        @apply rounded-md;
+    }
+    .markdown code {
+        @apply rounded bg-[#f4f3ef] px-1 py-0.5 text-[0.9em] dark:bg-[#232321];
+    }
+    .markdown pre {
+        @apply overflow-x-auto rounded-md bg-[#f4f3ef] p-3 dark:bg-[#232321];
+    }
+    .markdown pre code {
+        @apply bg-transparent p-0;
+    }
+    .markdown blockquote {
+        @apply border-l-2 border-[#19140035] pl-3 text-[#706f6c] dark:border-[#3E3E3A] dark:text-[#A1A09A];
+    }
+    .markdown table {
+        @apply block overflow-x-auto;
+    }
+}
+
 @theme inline {
     --font-sans:
         Instrument Sans, ui-sans-serif, system-ui, sans-serif,
