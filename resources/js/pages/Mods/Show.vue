@@ -519,7 +519,7 @@ const card =
                                 }}</span>
                                 <span
                                     v-if="release.status !== 'stable'"
-                                    class="rounded bg-[#fff2f2] px-1.5 py-0.5 text-xs text-[#f53003] dark:bg-[#1D0002] dark:text-[#FF4433]"
+                                    class="rounded bg-accent-wash px-1.5 py-0.5 text-xs text-accent"
                                 >
                                     {{ release.status }}
                                 </span>

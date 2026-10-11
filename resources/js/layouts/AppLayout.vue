@@ -49,7 +49,17 @@ if (page.props.auth.user) {
             <div
                 class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6"
             >
-                <Link :href="home()" class="font-semibold tracking-tight">
+                <Link
+                    :href="home()"
+                    class="flex items-center gap-2 font-semibold tracking-tight"
+                >
+                    <img
+                        src="/favicon.svg"
+                        alt=""
+                        width="24"
+                        height="24"
+                        class="size-6"
+                    />
                     {{ page.props.name }}
                 </Link>
 
@@ -92,7 +102,7 @@ if (page.props.auth.user) {
                             <span
                                 v-if="unread"
                                 aria-hidden="true"
-                                class="absolute -top-1 -right-1 min-w-4 rounded-full bg-[#f53003] px-1 text-center text-[10px] leading-4 font-semibold text-white dark:bg-[#FF4433]"
+                                class="absolute -top-1 -right-1 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 font-semibold text-white dark:text-[#0a0a0a]"
                                 >{{ unread > 99 ? '99+' : unread }}</span
                             >
                         </Link>

@@ -36,7 +36,7 @@ defineProps<{ mod: ModSummary }>();
         >
             <span
                 v-if="mod.type === 'mod-loader'"
-                class="font-medium text-[#f53003] dark:text-[#FF4433]"
+                class="font-medium text-accent"
             >
                 Mod loader
             </span>

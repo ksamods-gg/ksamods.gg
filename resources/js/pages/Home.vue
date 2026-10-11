@@ -58,8 +58,7 @@ const pathTile =
     'flex flex-col px-5 py-4 transition-shadow hover:shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.45)] dark:hover:shadow-[inset_0px_0px_0px_1px_#fffaed5a]';
 const button =
     'inline-flex rounded-md bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white';
-const textLink =
-    'text-sm underline underline-offset-4 hover:text-[#f53003] dark:hover:text-[#FF4433]';
+const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
 </script>
 
 <template>
@@ -153,7 +152,7 @@ const textLink =
                                     :class="[
                                         'size-2.5 rounded-full ring-4 ring-white dark:ring-[#161615]',
                                         i === 0
-                                            ? 'bg-[#f53003] dark:bg-[#FF4433]'
+                                            ? 'bg-accent'
                                             : 'bg-[#1b1b18] dark:bg-[#EDEDEC]',
                                     ]"
                                 />

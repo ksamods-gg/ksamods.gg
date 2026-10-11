@@ -19,10 +19,14 @@ function fakeContentIndex(): void
         'download' => ['url' => "https://example.com/{$version}.zip", 'size' => 1024],
         'dependencies' => [['id' => 'Loader', 'kind' => 'required', 'min' => '0.4'], ['id' => 'Unlisted', 'kind' => 'optional']],
         'changelog_text' => '## Changes',
+        'game_min' => '2026.9.22.5482',
+        'game_min_revision' => 5482,
+        'loader' => ['id' => 'StarMap', 'min' => '0.4.5'],
     ];
 
     Http::fake([ContentIndex::URL => Http::response([
         'tags' => ['mod' => [['tag' => 'gameplay', 'name' => 'Gameplay']]],
+        'game_versions' => ['versions' => ['2026.7', '2026.9.22.5482', '2026.10.7.5541']],
         'listings' => [
             [
                 'id' => 'Rockets',
@@ -63,7 +67,17 @@ it('lists every mod from the content index', function () {
         ->where('mods.0.version', '1.0.0')
         ->where('mods.0.downloads', 99)
         ->where('mods.1.version', null)
-        ->where('tagNames.gameplay', 'Gameplay'));
+        ->where('tagNames.gameplay', 'Gameplay')
+        // What the filters need: the newest stable release's loader and game floor.
+        ->where('mods.0.loader', 'StarMap')
+        ->where('mods.0.game_min_revision', 5482)
+        ->where('mods.1.loader', null)
+        ->has('mods.0.updated_ago')
+        // Newest first, and a month form has no revision to compare by.
+        ->where('gameVersions', [
+            ['label' => '2026.10.7.5541', 'revision' => 5541],
+            ['label' => '2026.9.22.5482', 'revision' => 5482],
+        ]));
 });
 
 it('shows a mod with resolved images and stripped html', function () {

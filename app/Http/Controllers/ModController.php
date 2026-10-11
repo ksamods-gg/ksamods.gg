@@ -82,6 +82,12 @@ class ModController extends Controller
                 ->map(fn (array $listing) => [...$this->summary($listing), 'rating' => $ratings[$listing['id']] ?? null])
                 ->values(),
             'tagNames' => $this->tagNames($snapshot),
+            // Builds the game has shipped, newest first, with the revision releases compare by.
+            // Month forms such as 2026.7 carry no revision and are left out.
+            'gameVersions' => collect(array_reverse($snapshot['game_versions']['versions'] ?? []))
+                ->filter(fn (string $version) => preg_match('/^\d{4}\.\d+\.\d+\.\d+$/', $version) === 1)
+                ->map(fn (string $version) => ['label' => $version, 'revision' => (int) Str::afterLast($version, '.')])
+                ->values(),
         ]);
     }
 
@@ -194,6 +200,8 @@ class ModController extends Controller
      */
     private function summary(array $listing): array
     {
+        $latest = $this->latestRelease($listing);
+
         return [
             'id' => $listing['id'],
             'type' => $listing['authored']['type'],
@@ -204,7 +212,13 @@ class ModController extends Controller
             'icon' => $listing['authored']['images']['icon']['url'] ?? null,
             'downloads' => $listing['downloads']['total'] ?? 0,
             'updated_at' => $listing['updated_at'],
-            'version' => $this->latestVersion($listing),
+            // Server-side, so the server render and the browser agree.
+            'updated_ago' => Carbon::parse($listing['updated_at'])->diffForHumans(),
+            'version' => $latest['version'] ?? null,
+            // What the newest release needs, for the mod list's filters.
+            'loader' => $latest['loader']['id'] ?? null,
+            'game_min' => $latest['game_min'] ?? null,
+            'game_min_revision' => $latest['game_min_revision'] ?? null,
         ];
     }
 
@@ -212,12 +226,13 @@ class ModController extends Controller
      * Newest stable release, falling back to the newest of any status.
      *
      * @param  Listing  $listing
+     * @return Release|null
      */
-    private function latestVersion(array $listing): ?string
+    private function latestRelease(array $listing): ?array
     {
         $releases = $this->releases($listing);
 
-        return ($releases->firstWhere('release_status', 'stable') ?? $releases->first())['version'] ?? null;
+        return $releases->firstWhere('release_status', 'stable') ?? $releases->first();
     }
 
     /**

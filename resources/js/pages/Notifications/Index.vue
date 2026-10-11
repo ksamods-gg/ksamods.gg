@@ -85,7 +85,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                         </div>
                         <span
                             v-if="!notification.read"
-                            class="mt-1.5 size-2 shrink-0 rounded-full bg-[#f53003] dark:bg-[#FF4433]"
+                            class="mt-1.5 size-2 shrink-0 rounded-full bg-accent"
                         >
                             <span class="sr-only">Unread</span>
                         </span>

@@ -3,10 +3,22 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+/* The accent: one place to change it. Errors stay red; this is for highlights and links. */
+:root {
+    --accent: #15736d;
+    --accent-wash: #e8f6f4;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --accent: #2aa9a0;
+        --accent-wash: #0a2321;
+    }
+}
+
 /* Browser surfaces in the site's own palette: selection, focus, form accents and scrollbars. */
 @layer base {
     ::selection {
-        background: rgb(245 48 3 / 0.2);
+        background: color-mix(in srgb, var(--accent) 25%, transparent);
     }
     :focus-visible {
         outline: 2px solid #1b1b18;
@@ -14,18 +26,16 @@
         border-radius: 4px;
     }
     html {
-        accent-color: #f53003;
+        /* Native controls (checkboxes, radios, selects) follow the theme instead of staying light. */
+        color-scheme: light dark;
+        accent-color: var(--accent);
         scrollbar-color: #c9c8c3 transparent;
     }
     @media (prefers-color-scheme: dark) {
-        ::selection {
-            background: rgb(255 68 51 / 0.3);
-        }
         :focus-visible {
             outline-color: #ededec;
         }
         html {
-            accent-color: #ff4433;
             scrollbar-color: #3e3e3a transparent;
         }
     }
@@ -83,6 +93,8 @@
 }
 
 @theme inline {
+    --color-accent: var(--accent);
+    --color-accent-wash: var(--accent-wash);
     --font-sans:
         Instrument Sans, ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',

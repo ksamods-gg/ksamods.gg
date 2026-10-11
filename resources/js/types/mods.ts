@@ -8,7 +8,13 @@ export type ModSummary = {
     icon: string | null;
     downloads: number;
     updated_at: string;
+    // "3 days ago", worked out on the server.
+    updated_ago: string;
     version: string | null;
+    // What the newest release needs.
+    loader: string | null;
+    game_min: string | null;
+    game_min_revision: number | null;
     // Null until someone reviews the mod.
     rating?: Rating | null;
 };
