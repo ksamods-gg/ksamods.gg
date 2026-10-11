@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
@@ -10,6 +10,7 @@ import {
     boreaSupported,
 } from '@/lib/borea';
 import { formatBytes, formatDate, formatNumber, tagName } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { home } from '@/routes';
 import { edit } from '@/routes/listings';
 import { show } from '@/routes/mods';
@@ -56,8 +57,33 @@ const linkLabels: Record<string, string> = {
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const primaryButton =
     'rounded-md bg-[#1b1b18] px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white';
-const secondaryButton =
-    'rounded-md border border-[#19140035] px-4 py-1.5 text-center text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
+const menuItem =
+    'block px-3 py-2 hover:bg-[#f4f3ef] focus-visible:bg-[#f4f3ef] focus-visible:outline-none dark:hover:bg-[#232321] dark:focus-visible:bg-[#232321]';
+
+// The install button's menu closes on Escape, which returns focus to its toggle, and on a click outside.
+const installMenu = useTemplateRef<HTMLElement>('installMenu');
+const installMenuToggle =
+    useTemplateRef<HTMLButtonElement>('installMenuToggle');
+const installMenuOpen = ref(false);
+
+function closeInstallMenu(refocus = false) {
+    if (installMenuOpen.value && refocus) {
+        installMenuToggle.value?.focus();
+    }
+
+    installMenuOpen.value = false;
+}
+
+function closeOnOutsideClick(event: PointerEvent) {
+    if (!installMenu.value?.contains(event.target as Node)) {
+        closeInstallMenu();
+    }
+}
+
+onMounted(() => document.addEventListener('pointerdown', closeOnOutsideClick));
+onBeforeUnmount(() =>
+    document.removeEventListener('pointerdown', closeOnOutsideClick),
+);
 const card =
     'rounded-lg bg-white p-5 shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]';
 </script>
@@ -95,47 +121,99 @@ const card =
             </div>
 
             <div v-if="latest" class="flex shrink-0 flex-col sm:items-end">
-                <!-- Borea first where it runs; the direct download stays as the fallback. -->
-                <template v-if="showBorea && boreaInstall">
-                    <a :href="boreaInstall" :class="primaryButton">
+                <!-- Borea first where it runs; the direct download stays in its menu. -->
+                <div
+                    v-if="showBorea && boreaInstall"
+                    ref="installMenu"
+                    class="relative flex"
+                    @keydown.escape="closeInstallMenu(true)"
+                >
+                    <a
+                        :href="boreaInstall"
+                        :class="cn(primaryButton, 'flex-1 rounded-r-none')"
+                    >
                         Install<template v-if="latestStable">
                             v{{ latestStable.version }}</template
                         >
                         with Borea
                     </a>
-                    <p
-                        class="mt-2 flex flex-wrap gap-x-3 text-xs sm:justify-end"
+                    <button
+                        ref="installMenuToggle"
+                        type="button"
+                        :aria-expanded="installMenuOpen"
+                        aria-controls="install-options"
+                        aria-label="Other ways to get this mod"
+                        :class="
+                            cn(
+                                primaryButton,
+                                'rounded-l-none border-l border-white/20 px-2.5 dark:border-black/15',
+                            )
+                        "
+                        @click="installMenuOpen = !installMenuOpen"
                     >
-                        <a
-                            v-if="boreaOpen"
-                            :href="boreaOpen"
-                            class="underline underline-offset-4"
+                        <svg
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                            aria-hidden="true"
+                            :class="[
+                                'size-4 transition-transform',
+                                installMenuOpen && 'rotate-180',
+                            ]"
                         >
-                            Open in Borea
-                        </a>
-                        <a
-                            :href="BOREA_RELEASES_URL"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            :class="['hover:underline', muted]"
-                        >
-                            Don't have Borea?
-                        </a>
-                    </p>
-                </template>
+                            <path
+                                d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
+                            />
+                        </svg>
+                    </button>
 
-                <a
-                    :href="latest.download_url"
-                    :class="
-                        showBorea && boreaInstall
-                            ? [secondaryButton, 'mt-4']
-                            : primaryButton
-                    "
-                >
+                    <ul
+                        v-show="installMenuOpen"
+                        id="install-options"
+                        class="absolute top-full right-0 z-10 mt-1 w-full min-w-64 rounded-md bg-white py-1 text-sm shadow-[0_8px_24px_rgba(0,0,0,0.12),inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0px_0px_0px_1px_#fffaed2d]"
+                    >
+                        <li>
+                            <a :href="latest.download_url" :class="menuItem">
+                                Download v{{ latest.version }}
+                                <span :class="['block text-xs', muted]"
+                                    >Manual install<template
+                                        v-if="latest.download_size"
+                                    >
+                                        ·
+                                        {{
+                                            formatBytes(latest.download_size)
+                                        }}</template
+                                    ></span
+                                >
+                            </a>
+                        </li>
+                        <li v-if="boreaOpen">
+                            <a :href="boreaOpen" :class="menuItem">
+                                Open in Borea
+                            </a>
+                        </li>
+                        <li
+                            class="mt-1 border-t border-[#19140014] pt-1 dark:border-[#3E3E3A]/60"
+                        >
+                            <a
+                                :href="BOREA_RELEASES_URL"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                :class="[menuItem, muted]"
+                            >
+                                Don't have Borea? Get it
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <a v-else :href="latest.download_url" :class="primaryButton">
                     Download v{{ latest.version }}
                 </a>
+
                 <p :class="['mt-2 text-xs', muted]">
-                    <template v-if="latest.download_size"
+                    <template
+                        v-if="
+                            !(showBorea && boreaInstall) && latest.download_size
+                        "
                         >{{ formatBytes(latest.download_size) }} ·
                     </template>
                     <template v-if="latest.game_min"
