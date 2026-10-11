@@ -1,0 +1,111 @@
+# Production stack for Coolify. Local dev uses compose.yaml (Sail).
+# Domains come from Coolify's proxy, so nothing publishes ports.
+services:
+    app:
+        build:
+            context: .
+            args:
+                VITE_APP_NAME: '${APP_NAME:-Laravel}'
+                VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
+                VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
+        environment:
+            - SERVICE_URL_APP_8080
+            - AUTORUN_ENABLED=true
+            - APP_NAME=${APP_NAME:-Laravel}
+            - APP_ENV=production
+            - APP_DEBUG=false
+            - APP_KEY=${APP_KEY:?}
+            - APP_URL=${SERVICE_URL_APP}
+            - LOG_CHANNEL=stderr
+            - DB_CONNECTION=mysql
+            - DB_HOST=mysql
+            - DB_DATABASE=laravel
+            - DB_USERNAME=${SERVICE_USER_MYSQL}
+            - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+            - BROADCAST_CONNECTION=reverb
+            - REVERB_APP_ID=${SERVICE_USER_REVERBID}
+            - REVERB_APP_KEY=${SERVICE_USER_REVERBKEY}
+            - REVERB_APP_SECRET=${SERVICE_PASSWORD_REVERBSECRET}
+            - REVERB_HOST=reverb
+            - REVERB_PORT=8080
+            - REVERB_SCHEME=http
+            - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:?}
+            - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:?}
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+    # Sends queued jobs, including broadcasts to Reverb.
+    queue:
+        build:
+            context: .
+            args:
+                VITE_APP_NAME: '${APP_NAME:-Laravel}'
+                VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
+                VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
+        command: ['php', '/var/www/html/artisan', 'queue:work', '--tries=3']
+        stop_signal: SIGTERM
+        healthcheck:
+            test: ['CMD', 'healthcheck-queue']
+        environment:
+            - APP_NAME=${APP_NAME:-Laravel}
+            - APP_ENV=production
+            - APP_DEBUG=false
+            - APP_KEY=${APP_KEY:?}
+            - APP_URL=${SERVICE_URL_APP}
+            - LOG_CHANNEL=stderr
+            - DB_CONNECTION=mysql
+            - DB_HOST=mysql
+            - DB_DATABASE=laravel
+            - DB_USERNAME=${SERVICE_USER_MYSQL}
+            - DB_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+            - BROADCAST_CONNECTION=reverb
+            - REVERB_APP_ID=${SERVICE_USER_REVERBID}
+            - REVERB_APP_KEY=${SERVICE_USER_REVERBKEY}
+            - REVERB_APP_SECRET=${SERVICE_PASSWORD_REVERBSECRET}
+            - REVERB_HOST=reverb
+            - REVERB_PORT=8080
+            - REVERB_SCHEME=http
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+    reverb:
+        build:
+            context: .
+            args:
+                VITE_APP_NAME: '${APP_NAME:-Laravel}'
+                VITE_REVERB_APP_KEY: '${SERVICE_USER_REVERBKEY}'
+                VITE_REVERB_HOST: '${SERVICE_FQDN_REVERB}'
+        command: ['php', '/var/www/html/artisan', 'reverb:start']
+        stop_signal: SIGTERM
+        healthcheck:
+            test: ['CMD', 'healthcheck-reverb']
+        environment:
+            - SERVICE_URL_REVERB_8080
+            - APP_ENV=production
+            - APP_DEBUG=false
+            - APP_KEY=${APP_KEY:?}
+            - LOG_CHANNEL=stderr
+            - REVERB_APP_ID=${SERVICE_USER_REVERBID}
+            - REVERB_APP_KEY=${SERVICE_USER_REVERBKEY}
+            - REVERB_APP_SECRET=${SERVICE_PASSWORD_REVERBSECRET}
+            - REVERB_HOST=${SERVICE_FQDN_REVERB}
+
+    mysql:
+        image: 'mysql:8.4'
+        environment:
+            - MYSQL_DATABASE=laravel
+            - MYSQL_USER=${SERVICE_USER_MYSQL}
+            - MYSQL_PASSWORD=${SERVICE_PASSWORD_MYSQL}
+            - MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MYSQLROOT}
+        volumes:
+            - 'mysql-data:/var/lib/mysql'
+        healthcheck:
+            test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD']
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+volumes:
+    mysql-data:

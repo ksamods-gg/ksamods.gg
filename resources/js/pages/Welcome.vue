@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { login, logout } from '@/routes';
+
+const page = usePage();
 </script>
 
 <template>
@@ -10,6 +13,33 @@ import { Head } from '@inertiajs/vue3';
     <div
         class="flex min-h-screen flex-col items-center bg-[#FDFDFC] p-6 text-[#1b1b18] lg:justify-center lg:p-8 dark:bg-[#0a0a0a]"
     >
+        <header
+            class="mb-6 flex w-full max-w-[335px] items-center justify-end gap-3 text-sm lg:max-w-4xl dark:text-[#EDEDEC]"
+        >
+            <template v-if="page.props.auth.user">
+                <img
+                    v-if="page.props.auth.user.avatar"
+                    :src="page.props.auth.user.avatar"
+                    alt=""
+                    class="size-7 rounded-full"
+                />
+                <span>{{ page.props.auth.user.name }}</span>
+                <Link
+                    :href="logout()"
+                    as="button"
+                    class="rounded-sm border border-[#19140035] px-5 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                >
+                    Log out
+                </Link>
+            </template>
+            <a
+                v-else
+                :href="login().url"
+                class="rounded-sm border border-[#19140035] px-5 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+            >
+                Log in with GitHub
+            </a>
+        </header>
         <div
             class="flex w-full items-center justify-center opacity-100 transition-opacity duration-750 lg:grow starting:opacity-0"
         >
