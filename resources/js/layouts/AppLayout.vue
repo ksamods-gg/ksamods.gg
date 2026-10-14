@@ -9,6 +9,8 @@ import {
     login,
     logout,
     notifications as notificationsPage,
+    privacy,
+    terms,
 } from '@/routes';
 import { dashboard as adminDashboard } from '@/routes/admin';
 import { create } from '@/routes/listings';
@@ -51,7 +53,7 @@ if (page.props.auth.user) {
 
 <template>
     <div
-        class="min-h-screen bg-[#FDFDFC] text-[#1b1b18] dark:bg-[#0a0a0a] dark:text-[#EDEDEC]"
+        class="flex min-h-screen flex-col bg-[#FDFDFC] text-[#1b1b18] dark:bg-[#0a0a0a] dark:text-[#EDEDEC]"
     >
         <header class="border-b border-[#19140014] dark:border-[#3E3E3A]/60">
             <div
@@ -278,9 +280,18 @@ if (page.props.auth.user) {
             </nav>
         </header>
 
-        <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
             <slot />
         </main>
+
+        <footer class="border-t border-[#19140014] dark:border-[#3E3E3A]/60">
+            <div
+                class="mx-auto flex max-w-6xl flex-wrap gap-x-4 gap-y-2 px-4 py-6 text-sm text-[#706f6c] sm:px-6 dark:text-[#A1A09A]"
+            >
+                <Link :href="privacy()" class="hover:underline">Privacy</Link>
+                <Link :href="terms()" class="hover:underline">Terms</Link>
+            </div>
+        </footer>
 
         <div
             role="status"

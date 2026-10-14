@@ -31,6 +31,8 @@
 #                                             https://ksamods.gg/auth/github/callback
 #   DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET  Discord OAuth2 redirect
 #                                             https://ksamods.gg/auth/discord/callback
+#   LEGAL_OPERATOR_NAME, LEGAL_CONTACT_EMAIL, LEGAL_COUNTRY
+#                                             who runs the site, for /privacy and /terms
 #   and, marked "Build Variable" because they are baked into the JavaScript:
 #   VITE_APP_NAME=ksamods.gg, VITE_REVERB_APP_KEY (same as REVERB_APP_KEY),
 #   VITE_REVERB_HOST=ws.ksamods.gg

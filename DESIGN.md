@@ -185,7 +185,7 @@ A warm, near-neutral paper-and-ink palette with one teal signal colour, a red re
 
 ## Layout
 
-A single centred column (max-width 72rem, 16px side padding, 24px from sm) under a full-width header with a bottom hairline. Content is cards in grids: mod shelves are 1, 2 then 3 columns (sm, lg) with a 16px gap. The mod page puts content beside a sidebar that is sticky at lg (top 24px, scrolls internally when taller than the viewport). The landing first viewport splits 5:7 at lg.
+A single centred column (max-width 72rem, 16px side padding, 24px from sm) under a full-width header with a bottom hairline, above a footer with a top hairline that holds the 14px muted Privacy and Terms links. Content is cards in grids: mod shelves are 1, 2 then 3 columns (sm, lg) with a 16px gap. The mod page puts content beside a sidebar that is sticky at lg (top 24px, scrolls internally when taller than the viewport). The landing first viewport splits 5:7 at lg.
 
 Rhythm: 4/8px steps inside components, 16–24px card padding (32px on large explanatory panels), 24px between heading and content, and 80–96px between landing sections. Headers and toolbars wrap rather than overflow on narrow phones; tab bars scroll horizontally with hidden scrollbars. The release log and similar lists stay single-column on phones and move actions under the text.
 
