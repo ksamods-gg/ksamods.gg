@@ -240,7 +240,7 @@ Plain, inked and compact.
 
 ### Navigation
 
-Header: site name at 600 with tight tracking on the left; right side 14px text links that underline on hover, a 20px stroked bell (1.75 stroke) with a Signal Teal count badge, avatar plus name (name collapses to "Account" on phones), and an outline Log in / Log out button. Tabs on the mod page: 14px/500 text, muted when inactive, 2px ink underline when active, count in 12px muted, arrow-key navigation.
+Header: site name at 600 with tight tracking on the left; right side 14px text links that underline on hover, a 20px stroked bell (1.75 stroke) with a Signal Teal count badge, avatar plus name, and an outline Log in / Log out button. Below sm only the site name, the bell and a 20px stroked hamburger remain; the hamburger (a Signal Teal dot when reports are open) opens a full-width panel under the header rule with the links as stacked rows (Warm Fill hover) and a full-width outline Log in / Log out button. Tabs on the mod page: 14px/500 text, muted when inactive, 2px ink underline when active, count in 12px muted, arrow-key navigation.
 
 ### Mod Card
 
