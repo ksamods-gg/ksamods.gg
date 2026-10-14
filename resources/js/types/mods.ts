@@ -56,6 +56,7 @@ export type Release = {
     status: string;
     date: string;
     game_min: string | null;
+    game_min_revision: number | null;
     download_url: string;
     download_size: number | null;
     mirrors: string[];
@@ -96,9 +97,16 @@ export type Mod = Omit<ModSummary, 'version'> & {
     description: string;
     license: string | null;
     links: Record<string, string>;
+    images: string[];
     published_at: string;
     releases: Release[];
 };
+
+// A game build the player can pick, with the revision releases compare by.
+export type GameVersion = { label: string; revision: number };
+
+// A listing that links to another, small enough for a list.
+export type ModLink = { id: string; name: string; icon: string | null };
 
 export type NotificationData = {
     kind: 'reply' | 'review_reply' | 'mention';

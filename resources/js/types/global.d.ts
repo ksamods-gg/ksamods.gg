@@ -18,6 +18,8 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             name: string;
+            // The site's absolute address without a trailing slash, for link previews.
+            appUrl: string;
             auth: Auth;
             userAgent: string;
             unreadNotifications: number;

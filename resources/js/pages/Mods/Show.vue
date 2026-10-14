@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import CommentsPanel from '@/components/mods/CommentsPanel.vue';
+import Gallery from '@/components/mods/Gallery.vue';
 import ReviewsPanel from '@/components/mods/ReviewsPanel.vue';
+import PageMeta from '@/components/PageMeta.vue';
 import Stars from '@/components/Stars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
@@ -14,10 +16,11 @@ import {
 } from '@/lib/borea';
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate, formatNumber, tagName } from '@/lib/format';
+import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
 import { cn } from '@/lib/utils';
 import { edit } from '@/routes/listings';
 import { index, show } from '@/routes/mods';
-import type { Comments, Mod, Reviews } from '@/types';
+import type { Comments, GameVersion, Mod, ModLink, Reviews } from '@/types';
 
 const props = defineProps<{
     mod: Mod;
@@ -25,6 +28,9 @@ const props = defineProps<{
     reviews: Reviews;
     comments: Comments;
     tab: 'reviews' | 'comments' | null;
+    // Listings whose newest release needs this one.
+    dependents: ModLink[];
+    gameVersions: GameVersion[];
 }>();
 
 const latest = computed(
@@ -56,6 +62,57 @@ const releases = computed(() =>
         ...release,
         boreaInstall: boreaInstallLink(props.mod.id, release.version),
     })),
+);
+
+// The game build the player runs, remembered from the mod list or picked here. Storage exists only
+// in the browser, so it is read after mounting, where the server render cannot differ.
+const gameVersion = ref<string | null>(null);
+onMounted(() => {
+    const remembered = rememberedGameVersion();
+    gameVersion.value = props.gameVersions.some((v) => v.label === remembered)
+        ? remembered
+        : null;
+});
+function pickGameVersion(label: string) {
+    gameVersion.value = label || null;
+    rememberGameVersion(gameVersion.value);
+}
+
+const worksWith = (
+    release: { game_min_revision: number | null },
+    revision: number,
+) =>
+    release.game_min_revision === null || release.game_min_revision <= revision;
+
+// Whether the release the install button gets runs on the player's game, and if not, the newest
+// release that does: stable first, like the install button.
+const compatibility = computed(() => {
+    const game = props.gameVersions.find((v) => v.label === gameVersion.value);
+
+    if (!game || !latest.value || latest.value.game_min_revision === null) {
+        return null;
+    }
+
+    if (worksWith(latest.value, game.revision)) {
+        return { works: true as const, game: game.label };
+    }
+
+    const fits = props.mod.releases.filter((r) => worksWith(r, game.revision));
+
+    return {
+        works: false as const,
+        game: game.label,
+        fallback: fits.find((r) => r.status === 'stable') ?? fits[0] ?? null,
+    };
+});
+
+// Long lists of dependents fold away after the most downloaded few.
+const DEPENDENTS_SHOWN = 6;
+const showAllDependents = ref(false);
+const shownDependents = computed(() =>
+    showAllDependents.value
+        ? props.dependents
+        : props.dependents.slice(0, DEPENDENTS_SHOWN),
 );
 
 // The dependencies of the release the install button gets: its loader first, then by kind.
@@ -215,7 +272,14 @@ const card =
 </script>
 
 <template>
-    <Head :title="mod.name" />
+    <PageMeta
+        :title="mod.name"
+        :description="
+            mod.abstract ??
+            `${mod.name}, a Kitten Space Agency mod${mod.authors.length ? ` by ${mod.authors.join(', ')}` : ''}.`
+        "
+        :image="mod.icon"
+    />
 
     <AppLayout>
         <Link :href="index()" :class="['text-sm hover:underline', muted]">
@@ -379,8 +443,53 @@ const card =
                         >Game {{ latest.game_min }} or newer</template
                     >
                 </p>
+                <p
+                    v-if="compatibility?.works"
+                    class="mt-1 flex items-center gap-1 text-xs text-accent"
+                >
+                    <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                        class="size-3.5"
+                    >
+                        <path d="m3.5 8.5 3 3 6-7" />
+                    </svg>
+                    Works with your game ({{ compatibility.game }})
+                </p>
+                <p
+                    v-else-if="compatibility"
+                    class="mt-1 max-w-64 text-xs sm:text-right"
+                >
+                    <span class="font-medium"
+                        >Needs a newer game than yours ({{
+                            compatibility.game
+                        }}).</span
+                    >
+                    <template v-if="compatibility.fallback">
+                        <button
+                            type="button"
+                            class="underline underline-offset-4"
+                            @click="activeTab = 'releases'"
+                        >
+                            v{{ compatibility.fallback.version }}
+                        </button>
+                        works with it.
+                    </template>
+                </p>
             </div>
         </div>
+
+        <Gallery
+            v-if="mod.images.length"
+            :images="mod.images"
+            :name="mod.name"
+            class="mb-8"
+        />
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div class="min-w-0">
@@ -619,18 +728,46 @@ const card =
                                 >
                             </dd>
                         </template>
+                        <template v-if="gameVersions.length">
+                            <dt :class="muted">
+                                <label for="game-version">Your game</label>
+                            </dt>
+                            <dd>
+                                <select
+                                    id="game-version"
+                                    :value="gameVersion ?? ''"
+                                    class="w-full rounded-md border border-[#19140035] bg-white px-1.5 py-0.5 text-sm dark:border-[#3E3E3A] dark:bg-[#161615]"
+                                    @change="
+                                        pickGameVersion(
+                                            ($event.target as HTMLSelectElement)
+                                                .value,
+                                        )
+                                    "
+                                >
+                                    <option value="">Not set</option>
+                                    <option
+                                        v-for="version in gameVersions"
+                                        :key="version.label"
+                                        :value="version.label"
+                                    >
+                                        {{ version.label }}
+                                    </option>
+                                </select>
+                            </dd>
+                        </template>
                     </dl>
 
                     <ul
                         v-if="mod.tags.length"
                         class="mt-4 flex flex-wrap gap-2"
                     >
-                        <li
-                            v-for="tag in mod.tags"
-                            :key="tag"
-                            class="rounded-full border border-[#19140035] px-2.5 py-0.5 text-xs dark:border-[#3E3E3A]"
-                        >
-                            {{ tagName(tag, tagNames) }}
+                        <li v-for="tag in mod.tags" :key="tag">
+                            <Link
+                                :href="`${index().url}?tag=${encodeURIComponent(tag)}`"
+                                class="block rounded-full border border-[#19140035] px-2.5 py-0.5 text-xs hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                            >
+                                {{ tagName(tag, tagNames) }}
+                            </Link>
                         </li>
                     </ul>
 
@@ -660,6 +797,60 @@ const card =
                             </a>
                         </li>
                     </ul>
+                </section>
+
+                <section v-if="dependents.length" :class="card">
+                    <h2 class="mb-3 font-semibold">
+                        Required by
+                        <span :class="['ml-1 text-xs font-normal', muted]">{{
+                            dependents.length
+                        }}</span>
+                    </h2>
+                    <ul class="flex flex-col gap-2">
+                        <li
+                            v-for="dependent in shownDependents"
+                            :key="dependent.id"
+                        >
+                            <Link
+                                :href="show(dependent.id)"
+                                class="flex items-center gap-2 hover:underline"
+                            >
+                                <ModIcon
+                                    :name="dependent.name"
+                                    :src="dependent.icon"
+                                    class="size-6 rounded-md text-xs"
+                                />
+                                <span class="truncate">{{
+                                    dependent.name
+                                }}</span>
+                            </Link>
+                        </li>
+                    </ul>
+                    <button
+                        v-if="dependents.length > DEPENDENTS_SHOWN"
+                        type="button"
+                        :class="[
+                            'mt-3 text-xs underline underline-offset-4',
+                            muted,
+                        ]"
+                        @click="showAllDependents = !showAllDependents"
+                    >
+                        {{
+                            showAllDependents
+                                ? 'Show fewer'
+                                : `Show all ${dependents.length}`
+                        }}
+                    </button>
+                    <Link
+                        v-if="mod.type === 'mod-loader'"
+                        :href="`${index().url}?loader=${encodeURIComponent(mod.id)}`"
+                        :class="[
+                            'mt-3 block text-xs underline underline-offset-4',
+                            muted,
+                        ]"
+                    >
+                        Browse mods for {{ mod.name }}
+                    </Link>
                 </section>
             </aside>
         </div>

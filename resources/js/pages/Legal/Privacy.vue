@@ -98,10 +98,11 @@ defineProps<{ operator: LegalOperator }>();
         <h2>How long data is kept</h2>
         <p>
             Your account data, posts and reports are kept until you delete them
-            or ask for your account to be deleted. When you delete a comment
-            that has replies, it is hidden but kept so the thread still reads,
-            until your account is deleted. Deleting your account removes your
-            reviews, comments, reports and notifications.
+            or delete your account. When you delete a comment that has replies,
+            it is hidden but kept so the thread still reads, until your account
+            is deleted. Deleting your account removes your reviews, comments,
+            reports and notifications, the replies other people wrote under your
+            comments, and the notifications others got about your comments.
         </p>
 
         <h2>Who else receives data</h2>
@@ -131,8 +132,8 @@ defineProps<{ operator: LegalOperator }>();
         <p>
             You have the right to access your data, to have it corrected or
             deleted, to restrict or object to its processing, and to receive it
-            in a portable format. To use any of these rights, including deleting
-            your account,
+            in a portable format. You can delete your account yourself on your
+            account page. To use any of the other rights,
             <template v-if="operator.email">
                 email
                 <a :href="`mailto:${operator.email}`">{{ operator.email }}</a>

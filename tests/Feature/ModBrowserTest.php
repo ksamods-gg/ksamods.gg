@@ -92,6 +92,33 @@ it('shows a mod with resolved images and stripped html', function () {
         ->where('mod.releases.0.dependencies.1.name', null));
 });
 
+it('shows a mod\'s gallery images and what its release needs from the game', function () {
+    fakeContentIndex();
+
+    $this->get(route('mods.show', 'Rockets'))->assertInertia(fn (Assert $page) => $page
+        ->where('mod.images', ['https://img.example.com/shot.png'])
+        ->where('mod.releases.1.game_min_revision', 5482)
+        ->where('gameVersions.0', ['label' => '2026.10.7.5541', 'revision' => 5541])
+        ->where('dependents', []));
+});
+
+it('lists the mods whose newest release requires a mod', function () {
+    fakeContentIndex();
+
+    $this->get(route('mods.show', 'Loader'))->assertInertia(fn (Assert $page) => $page
+        ->where('dependents', [['id' => 'Rockets', 'name' => 'Rockets', 'icon' => null]]));
+});
+
+it('lists every public page and mod in the sitemap', function () {
+    fakeContentIndex();
+
+    $this->get('/sitemap.xml')
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/xml')
+        ->assertSee('<loc>'.route('mods.show', 'Rockets').'</loc><lastmod>2026-03-01T00:00:00Z</lastmod>', false)
+        ->assertSee('<loc>'.route('privacy').'</loc>', false);
+});
+
 it('returns 404 for an unknown mod', function () {
     fakeContentIndex();
 

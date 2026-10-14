@@ -82,12 +82,7 @@ class ModController extends Controller
                 ->map(fn (array $listing) => [...$this->summary($listing), 'rating' => $ratings[$listing['id']] ?? null])
                 ->values(),
             'tagNames' => $this->tagNames($snapshot),
-            // Builds the game has shipped, newest first, with the revision releases compare by.
-            // Month forms such as 2026.7 carry no revision and are left out.
-            'gameVersions' => collect(array_reverse($snapshot['game_versions']['versions'] ?? []))
-                ->filter(fn (string $version) => preg_match('/^\d{4}\.\d+\.\d+\.\d+$/', $version) === 1)
-                ->map(fn (string $version) => ['label' => $version, 'revision' => (int) Str::afterLast($version, '.')])
-                ->values(),
+            'gameVersions' => $this->gameVersions($snapshot),
         ]);
     }
 
@@ -145,6 +140,8 @@ class ModController extends Controller
                 'tags' => $authored['tags'] ?? [],
                 'icon' => $authored['images']['icon']['url'] ?? null,
                 'links' => $authored['links'] ?? [],
+                // Screenshots and other description images, for the gallery.
+                'images' => $images->filter(fn (string $url) => preg_match('#^https?://#', $url) === 1)->values(),
                 'downloads' => $listing['downloads']['total'] ?? 0,
                 'published_at' => $listing['published_at'],
                 'updated_at' => $listing['updated_at'],
@@ -153,6 +150,7 @@ class ModController extends Controller
                     'status' => $release['release_status'],
                     'date' => $release['release_date'],
                     'game_min' => $release['game_min'] ?? null,
+                    'game_min_revision' => $release['game_min_revision'] ?? null,
                     'download_url' => $release['download']['url'],
                     'download_size' => $release['download']['size'] ?? null,
                     'mirrors' => $release['download']['mirrors'] ?? [],
@@ -175,7 +173,23 @@ class ModController extends Controller
                     'changelog_url' => $release['changelog'] ?? null,
                 ])->values(),
             ],
+            // Listings whose newest release needs this one, as a required dependency or its loader.
+            'dependents' => $listings
+                ->filter(function (array $other) use ($id) {
+                    $latest = $this->latestRelease($other);
+
+                    return ($latest['loader']['id'] ?? null) === $id
+                        || collect($latest['dependencies'] ?? [])->contains(fn (array $dependency) => $dependency['id'] === $id && $dependency['kind'] === 'required');
+                })
+                ->sortByDesc(fn (array $other) => $other['downloads']['total'] ?? 0)
+                ->map(fn (array $other) => [
+                    'id' => $other['id'],
+                    'name' => $other['authored']['name'],
+                    'icon' => $other['authored']['images']['icon']['url'] ?? null,
+                ])
+                ->values(),
             'tagNames' => $this->tagNames($snapshot),
+            'gameVersions' => $this->gameVersions($snapshot),
             // The tab a link opens, such as a notification's link to a comment.
             'tab' => in_array($request->query('tab'), ['releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
             // Adds reviews and comments.
@@ -233,6 +247,21 @@ class ModController extends Controller
         $releases = $this->releases($listing);
 
         return $releases->firstWhere('release_status', 'stable') ?? $releases->first();
+    }
+
+    /**
+     * Builds the game has shipped, newest first, with the revision releases compare by. Month
+     * forms such as 2026.7 carry no revision and are left out.
+     *
+     * @param  Snapshot  $snapshot
+     * @return Collection<int, array{label: string, revision: int}>
+     */
+    private function gameVersions(array $snapshot): Collection
+    {
+        return collect(array_reverse($snapshot['game_versions']['versions'] ?? []))
+            ->filter(fn (string $version) => preg_match('/^\d{4}\.\d+\.\d+\.\d+$/', $version) === 1)
+            ->map(fn (string $version) => ['label' => $version, 'revision' => (int) Str::afterLast($version, '.')])
+            ->values();
     }
 
     /**

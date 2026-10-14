@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { destroy as deleteAccount } from '@/routes/account';
 import { unlink } from '@/routes/accounts';
 import { link as discordLink } from '@/routes/discord';
 import { link as githubLink } from '@/routes/github';
@@ -39,13 +40,16 @@ const linkedCount = computed(
     () => providers.value.filter((p) => p.linkedAs !== null).length,
 );
 
+// Deleting asks twice: the first click only shows what will go.
+const confirmingDelete = ref(false);
+
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const button =
     'shrink-0 rounded-md border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
 </script>
 
 <template>
-    <Head title="Linked accounts" />
+    <Head title="Account" />
 
     <AppLayout>
         <div class="mx-auto max-w-2xl">
@@ -106,6 +110,45 @@ const button =
                     </a>
                 </li>
             </ul>
+
+            <h2 class="mt-10 font-semibold">Delete account</h2>
+            <div
+                class="mt-3 rounded-lg bg-white p-5 text-sm shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
+            >
+                <p>
+                    Deletes your ksamods.gg account with your reviews, comments,
+                    reports and notifications. Replies other people wrote under
+                    your comments go too. Listings you submitted stay in the
+                    content index, and pull requests stay on GitHub.
+                </p>
+                <button
+                    v-if="!confirmingDelete"
+                    type="button"
+                    :class="[button, 'mt-4']"
+                    @click="confirmingDelete = true"
+                >
+                    Delete account…
+                </button>
+                <div v-else class="mt-4 flex flex-wrap items-center gap-3">
+                    <p class="w-full font-medium">
+                        This cannot be undone. Delete your account?
+                    </p>
+                    <Link
+                        :href="deleteAccount()"
+                        as="button"
+                        class="rounded-md bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
+                    >
+                        Yes, delete my account
+                    </Link>
+                    <button
+                        type="button"
+                        :class="button"
+                        @click="confirmingDelete = false"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>

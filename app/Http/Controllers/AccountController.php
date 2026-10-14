@@ -2,8 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Comment;
+use App\Models\Report;
+use App\Models\Review;
+use App\Notifications\CommentActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -50,5 +57,39 @@ class AccountController extends Controller
         $user->forceFill(array_fill_keys(self::COLUMNS[$provider], null))->save();
 
         return back();
+    }
+
+    /**
+     * Deletes the account. Reviews, comments (with the replies under them) and the user's own
+     * reports go with it through the foreign keys, which skip model events; so what those events
+     * would do happens here: open reports about the posts are resolved, and the notifications
+     * other people got about the user's comments, which quote them, are deleted.
+     */
+    public function destroy(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        DB::transaction(function () use ($user) {
+            $commentIds = $user->comments()->withTrashed()->pluck('id');
+            $reviewIds = $user->reviews()->pluck('id');
+
+            Report::open()
+                ->where(fn ($query) => $query
+                    ->where(fn ($query) => $query->where('reportable_type', (new Comment)->getMorphClass())->whereIn('reportable_id', $commentIds))
+                    ->orWhere(fn ($query) => $query->where('reportable_type', (new Review)->getMorphClass())->whereIn('reportable_id', $reviewIds)))
+                ->update(['resolved_at' => now()]);
+            DatabaseNotification::query()
+                ->where('type', CommentActivity::class)
+                ->whereIn('data->comment_id', $commentIds)
+                ->delete();
+            $user->notifications()->delete();
+            $user->delete();
+        });
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('home');
     }
 }

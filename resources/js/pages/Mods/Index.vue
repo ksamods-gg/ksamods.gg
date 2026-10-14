@@ -1,30 +1,52 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import { computed, reactive, ref, useTemplateRef, watch } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
+import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue';
 import ModRow from '@/components/ModRow.vue';
+import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { tagName } from '@/lib/format';
-import type { ModSummary } from '@/types';
+import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
+import type { GameVersion, ModSummary } from '@/types';
 
 const props = defineProps<{
     mods: ModSummary[];
     tagNames: Record<string, string>;
-    gameVersions: { label: string; revision: number }[];
+    gameVersions: GameVersion[];
 }>();
 
 type Sort = 'relevance' | 'downloads' | 'rating' | 'updated' | 'name';
 
-const search = ref('');
-const sort = ref<Sort>('relevance');
-const pageSize = ref(20);
-const page = ref(1);
+const SORTS: Sort[] = ['relevance', 'downloads', 'rating', 'updated', 'name'];
+const PAGE_SIZES = [10, 20, 50];
+
+// The list's state lives in the query string, so a filtered list can be shared and survives Back.
+const params = new URLSearchParams(usePage().url.split('?')[1] ?? '');
+const listParam = (name: string) =>
+    params.get(name)?.split(',').filter(Boolean) ?? [];
+const numberParam = (name: string) => {
+    const value = Number(params.get(name));
+
+    return Number.isInteger(value) && value > 0 ? value : null;
+};
+
+const search = ref(params.get('q') ?? '');
+const sort = ref<Sort>(
+    SORTS.find((value) => value === params.get('sort')) ?? 'relevance',
+);
+const pageSize = ref(
+    PAGE_SIZES.find((value) => value === numberParam('per')) ?? 20,
+);
+const page = ref(numberParam('page') ?? 1);
 
 const filters = reactive({
     // The build the player runs: mods that need a newer one are hidden.
-    gameRevision: null as number | null,
-    loaders: [] as string[],
-    categories: [] as string[],
-    types: [] as string[],
+    gameRevision:
+        props.gameVersions.find(
+            (version) => version.label === params.get('game'),
+        )?.revision ?? null,
+    loaders: listParam('loader'),
+    categories: listParam('tag'),
+    types: listParam('type'),
 });
 const showAllVersions = ref(false);
 // On phones the filters fold away behind one button.
@@ -149,6 +171,9 @@ const pageItems = computed(() =>
     ),
 );
 
+// A shared link can name a page the list no longer has.
+page.value = Math.min(page.value, pageCount.value);
+
 // Page links: the first, the last, and the pages around the current one.
 const pageLinks = computed(() => {
     const links: (number | 'gap')[] = [];
@@ -168,6 +193,54 @@ const pageLinks = computed(() => {
 watch([query, sort, pageSize, filters], () => (page.value = 1), {
     deep: true,
 });
+
+// Defaults stay out of the URL, so the plain list keeps its plain address.
+const listUrl = computed(() => {
+    const game = props.gameVersions.find(
+        (version) => version.revision === filters.gameRevision,
+    );
+    const next = new URLSearchParams(
+        Object.entries({
+            q: search.value.trim(),
+            sort: sort.value === 'relevance' ? '' : sort.value,
+            game: game?.label ?? '',
+            loader: filters.loaders.join(','),
+            tag: filters.categories.join(','),
+            type: filters.types.join(','),
+            per: pageSize.value === 20 ? '' : String(pageSize.value),
+            page: page.value === 1 ? '' : String(page.value),
+        }).filter(([, value]) => value !== ''),
+    ).toString();
+
+    return next ? `/mods?${next}` : '/mods';
+});
+
+// The game version is remembered, so the next visit and each mod page know it. Storage exists
+// only in the browser, so it is read after mounting, where the server render cannot differ.
+onMounted(() => {
+    if (!params.has('game')) {
+        const remembered = props.gameVersions.find(
+            (version) => version.label === rememberedGameVersion(),
+        );
+
+        if (remembered) {
+            filters.gameRevision = remembered.revision;
+        }
+    }
+});
+watch(
+    () => filters.gameRevision,
+    (revision) =>
+        rememberGameVersion(
+            props.gameVersions.find((version) => version.revision === revision)
+                ?.label ?? null,
+        ),
+);
+
+// Client-side, so typing a search never asks the server for anything.
+watch(listUrl, (url) =>
+    router.replace({ url, preserveState: true, preserveScroll: true }),
+);
 
 const resultsTop = useTemplateRef<HTMLElement>('resultsTop');
 
@@ -196,7 +269,10 @@ const pageButton =
 </script>
 
 <template>
-    <Head title="Mods" />
+    <PageMeta
+        title="Mods"
+        description="Search and filter every Kitten Space Agency mod by game version, mod loader and category."
+    />
 
     <AppLayout>
         <div class="mb-6">

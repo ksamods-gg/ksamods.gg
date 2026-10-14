@@ -242,6 +242,10 @@ Plain, inked and compact.
 
 Header: site name at 600 with tight tracking on the left; right side 14px text links that underline on hover, a 20px stroked bell (1.75 stroke) with a Signal Teal count badge, avatar plus name, and an outline Log in / Log out button. Below sm only the site name, the bell and a 20px stroked hamburger remain; the hamburger (a Signal Teal dot when reports are open) opens a full-width panel under the header rule with the links as stacked rows (Warm Fill hover) and a full-width outline Log in / Log out button. Tabs on the mod page: 14px/500 text, muted when inactive, 2px ink underline when active, count in 12px muted, arrow-key navigation.
 
+### Mod Page Extras
+
+Gallery: a horizontally scrolling strip of 144px (176px from sm) image thumbnails on the 1px inset hairline, between the header and the tabs; a thumbnail opens a modal viewer on an 80% black backdrop with round translucent-black close, previous and next buttons and a count pill. Under the install button, a 12px Signal Teal check line reads "Works with your game (version)"; when the release needs a newer game, a 12px ink line says so and links the newest release that fits. Sidebar: "Your game" is a compact select in the Details list, tags are chips that link to the filtered mod list, and a "Required by" card lists dependents as 24px icon plus name rows, folding past six behind a muted "Show all" link.
+
 ### Mod Card
 
 Icon (48px) beside name (500) and "by" authors (12px muted), a three-line abstract, then a 12px metadata row: "Mod loader" in Signal Teal, a gold star with average and count, version, downloads, updated date.

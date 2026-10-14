@@ -11,6 +11,7 @@ use App\Http\Controllers\ModController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ModController::class, 'home'])->name('home');
@@ -18,6 +19,7 @@ Route::get('/mods', [ModController::class, 'index'])->name('mods.index');
 Route::get('/mods/{id}', [ModController::class, 'show'])->name('mods.show');
 Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 
 Route::middleware('guest')->group(function () {
     Route::inertia('/login', 'Auth/Login')->name('login');
@@ -33,6 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/my-mods', [ModController::class, 'mine'])->name('mods.mine');
     Route::get('/settings/accounts', [AccountController::class, 'show'])->name('accounts');
     Route::delete('/settings/accounts/{provider}', [AccountController::class, 'unlink'])->name('accounts.unlink');
+    Route::delete('/settings/account', [AccountController::class, 'destroy'])->name('account.destroy');
     Route::get('/auth/github/link', [GitHubAuthController::class, 'link'])->name('github.link');
     Route::get('/auth/discord/link', [DiscordAuthController::class, 'link'])->name('discord.link');
     Route::get('/auth/github/pull-requests', [GitHubAuthController::class, 'authorizePullRequests'])->name('github.pull-requests');

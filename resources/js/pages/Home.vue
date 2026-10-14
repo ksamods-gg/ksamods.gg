@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import ModCard from '@/components/ModCard.vue';
 import ModIcon from '@/components/ModIcon.vue';
+import PageMeta from '@/components/PageMeta.vue';
 import Stars from '@/components/Stars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
@@ -62,12 +63,10 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
 </script>
 
 <template>
-    <Head title="Kitten Space Agency mods">
-        <meta
-            name="description"
-            content="Find, install and publish Kitten Space Agency mods. Every mod in the KSA content index, with reviews and one-click installs through Borea."
-        />
-    </Head>
+    <PageMeta
+        title="Kitten Space Agency mods"
+        description="Find, install and publish Kitten Space Agency mods. Every mod in the KSA content index, with reviews and one-click installs through Borea."
+    />
 
     <AppLayout>
         <!-- First viewport: two equal paths beside the launch log. -->

@@ -29,9 +29,11 @@ ksamods.gg is its own site, built on top of the KSAModding community's work: the
 
 ## Capabilities and Constraints
 
-- Browse and search mods; mod pages with description, dependencies, releases, reviews (1 to 5 stars) and nested comments.
+- Browse and search mods, with the search and filters kept in the shareable URL; mod pages with an image gallery, description, dependencies, the mods that require it, releases, reviews (1 to 5 stars) and nested comments.
+- The player's game version, remembered in the browser, filters the mod list and tells each mod page whether its release works with it.
 - Install with Borea (Windows, Linux), direct download as fallback, desktop-only notice on phones and tablets.
-- Submit and edit listings as pull requests; My mods; linked GitHub and Discord accounts.
+- Submit and edit listings as pull requests; My mods; linked GitHub and Discord accounts; self-service account deletion.
+- Link previews (Open Graph) and a sitemap, so shared links show the mod and search engines find every mod.
 - Live notifications for replies and @mentions over Laravel Reverb.
 - Stack: Laravel 13, Inertia 3 with SSR, Vue 3, TypeScript, Tailwind 4; deployed with Coolify at ksamods.gg.
 

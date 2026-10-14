@@ -89,7 +89,7 @@ defineProps<{ operator: LegalOperator }>();
         <p>
             ksamods.gg is provided free and as it is. It may change, be
             unavailable at times, or end. You may stop using it at any time, and
-            you can have your account deleted as the privacy policy describes.
+            you can delete your account on your account page.
         </p>
 
         <h2>Liability</h2>
