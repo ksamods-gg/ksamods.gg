@@ -27,7 +27,7 @@ const props = defineProps<{
     tagNames: Record<string, string>;
     reviews: Reviews;
     comments: Comments;
-    tab: 'gallery' | 'releases' | 'reviews' | 'comments' | null;
+    tab: 'gallery' | 'dependents' | 'releases' | 'reviews' | 'comments' | null;
     // Listings whose newest release needs this one.
     dependents: ModLink[];
     gameVersions: GameVersion[];
@@ -106,15 +106,6 @@ const compatibility = computed(() => {
     };
 });
 
-// Long lists of dependents fold away after the most downloaded few.
-const DEPENDENTS_SHOWN = 6;
-const showAllDependents = ref(false);
-const shownDependents = computed(() =>
-    showAllDependents.value
-        ? props.dependents
-        : props.dependents.slice(0, DEPENDENTS_SHOWN),
-);
-
 // The dependencies of the release the install button gets: its loader first, then by kind.
 const dependencyKinds: Record<string, string> = {
     required: 'Required',
@@ -173,6 +164,7 @@ type Tab =
     | 'description'
     | 'gallery'
     | 'dependencies'
+    | 'dependents'
     | 'releases'
     | 'reviews'
     | 'comments';
@@ -200,6 +192,15 @@ const tabs = computed(() => [
         label: 'Dependencies',
         count: dependencyGroups.value.reduce((n, g) => n + g.items.length, 0),
     },
+    ...(props.dependents.length
+        ? [
+              {
+                  id: 'dependents' as const,
+                  label: 'Required by',
+                  count: props.dependents.length,
+              },
+          ]
+        : []),
     {
         id: 'releases' as const,
         label: 'Releases',
@@ -625,6 +626,47 @@ const card =
                 </section>
 
                 <section
+                    v-if="dependents.length"
+                    v-show="activeTab === 'dependents'"
+                    id="panel-dependents"
+                    role="tabpanel"
+                    aria-labelledby="tab-dependents"
+                    tabindex="0"
+                    :class="card"
+                >
+                    <p :class="['mb-4 text-xs', muted]">
+                        Mods that need {{ mod.name }}, most downloaded first.
+                    </p>
+                    <ul class="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                        <li v-for="dependent in dependents" :key="dependent.id">
+                            <Link
+                                :href="show(dependent.id)"
+                                class="-mx-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
+                            >
+                                <ModIcon
+                                    :name="dependent.name"
+                                    :src="dependent.icon"
+                                    class="size-8 shrink-0 rounded-md text-xs"
+                                />
+                                <span class="truncate">{{
+                                    dependent.name
+                                }}</span>
+                            </Link>
+                        </li>
+                    </ul>
+                    <Link
+                        v-if="mod.type === 'mod-loader'"
+                        :href="`${index().url}?loader=${encodeURIComponent(mod.id)}`"
+                        :class="[
+                            'mt-4 inline-block text-xs underline underline-offset-4',
+                            muted,
+                        ]"
+                    >
+                        Browse mods for {{ mod.name }}
+                    </Link>
+                </section>
+
+                <section
                     v-show="activeTab === 'releases'"
                     id="panel-releases"
                     role="tabpanel"
@@ -817,60 +859,6 @@ const card =
                             </a>
                         </li>
                     </ul>
-                </section>
-
-                <section v-if="dependents.length" :class="card">
-                    <h2 class="mb-3 font-semibold">
-                        Required by
-                        <span :class="['ml-1 text-xs font-normal', muted]">{{
-                            dependents.length
-                        }}</span>
-                    </h2>
-                    <ul class="flex flex-col gap-2">
-                        <li
-                            v-for="dependent in shownDependents"
-                            :key="dependent.id"
-                        >
-                            <Link
-                                :href="show(dependent.id)"
-                                class="flex items-center gap-2 hover:underline"
-                            >
-                                <ModIcon
-                                    :name="dependent.name"
-                                    :src="dependent.icon"
-                                    class="size-6 rounded-md text-xs"
-                                />
-                                <span class="truncate">{{
-                                    dependent.name
-                                }}</span>
-                            </Link>
-                        </li>
-                    </ul>
-                    <button
-                        v-if="dependents.length > DEPENDENTS_SHOWN"
-                        type="button"
-                        :class="[
-                            'mt-3 text-xs underline underline-offset-4',
-                            muted,
-                        ]"
-                        @click="showAllDependents = !showAllDependents"
-                    >
-                        {{
-                            showAllDependents
-                                ? 'Show fewer'
-                                : `Show all ${dependents.length}`
-                        }}
-                    </button>
-                    <Link
-                        v-if="mod.type === 'mod-loader'"
-                        :href="`${index().url}?loader=${encodeURIComponent(mod.id)}`"
-                        :class="[
-                            'mt-3 block text-xs underline underline-offset-4',
-                            muted,
-                        ]"
-                    >
-                        Browse mods for {{ mod.name }}
-                    </Link>
                 </section>
             </aside>
         </div>
