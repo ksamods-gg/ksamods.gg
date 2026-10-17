@@ -29,18 +29,11 @@ const control =
 </script>
 
 <template>
-    <ul
-        class="flex snap-x [scrollbar-width:none] gap-3 overflow-x-auto"
-        aria-label="Screenshots"
-    >
-        <li
-            v-for="(image, index) in images"
-            :key="image"
-            class="shrink-0 snap-start"
-        >
+    <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Screenshots">
+        <li v-for="(image, index) in images" :key="image">
             <button
                 type="button"
-                class="block overflow-hidden rounded-lg shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] hover:opacity-90 dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
+                class="block w-full overflow-hidden rounded-lg shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] hover:opacity-90 dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
                 :aria-label="`Open image ${index + 1} of ${images.length}`"
                 @click="open(index)"
             >
@@ -48,7 +41,7 @@ const control =
                     :src="image"
                     alt=""
                     loading="lazy"
-                    class="h-36 w-auto max-w-[80vw] bg-[#f4f3ef] object-cover sm:h-44 dark:bg-[#232321]"
+                    class="aspect-video w-full bg-[#f4f3ef] object-cover dark:bg-[#232321]"
                 />
             </button>
         </li>

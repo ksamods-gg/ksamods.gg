@@ -191,7 +191,7 @@ class ModController extends Controller
             'tagNames' => $this->tagNames($snapshot),
             'gameVersions' => $this->gameVersions($snapshot),
             // The tab a link opens, such as a notification's link to a comment.
-            'tab' => in_array($request->query('tab'), ['releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
+            'tab' => in_array($request->query('tab'), ['gallery', 'releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
             // Adds reviews and comments.
             ...ModSocial::forListing($id, $request->user()),
         ]);

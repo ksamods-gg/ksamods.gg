@@ -27,7 +27,7 @@ const props = defineProps<{
     tagNames: Record<string, string>;
     reviews: Reviews;
     comments: Comments;
-    tab: 'reviews' | 'comments' | null;
+    tab: 'gallery' | 'releases' | 'reviews' | 'comments' | null;
     // Listings whose newest release needs this one.
     dependents: ModLink[];
     gameVersions: GameVersion[];
@@ -169,7 +169,13 @@ function versionRange(min: string | null, max: string | null): string {
 }
 
 // Everything about the mod shares one spot; a mod without a description skips that tab.
-type Tab = 'description' | 'dependencies' | 'releases' | 'reviews' | 'comments';
+type Tab =
+    | 'description'
+    | 'gallery'
+    | 'dependencies'
+    | 'releases'
+    | 'reviews'
+    | 'comments';
 const tabs = computed(() => [
     ...(props.mod.description
         ? [
@@ -177,6 +183,15 @@ const tabs = computed(() => [
                   id: 'description' as const,
                   label: 'Description',
                   count: undefined,
+              },
+          ]
+        : []),
+    ...(props.mod.images.length
+        ? [
+              {
+                  id: 'gallery' as const,
+                  label: 'Gallery',
+                  count: props.mod.images.length,
               },
           ]
         : []),
@@ -195,7 +210,8 @@ const tabs = computed(() => [
 ]);
 // A link can name the tab to open, such as a notification's link to a comment.
 const activeTab = ref<Tab>(
-    props.tab ?? (props.mod.description ? 'description' : 'releases'),
+    tabs.value.find((tab) => tab.id === props.tab)?.id ??
+        (props.mod.description ? 'description' : 'releases'),
 );
 
 // Then scroll to the comment it names. With server rendering the browser does this itself; this
@@ -484,13 +500,6 @@ const card =
             </div>
         </div>
 
-        <Gallery
-            v-if="mod.images.length"
-            :images="mod.images"
-            :name="mod.name"
-            class="mb-8"
-        />
-
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div class="min-w-0">
                 <div
@@ -542,6 +551,17 @@ const card =
                     :class="['markdown', card]"
                     v-html="mod.description"
                 />
+
+                <section
+                    v-if="mod.images.length"
+                    v-show="activeTab === 'gallery'"
+                    id="panel-gallery"
+                    role="tabpanel"
+                    aria-labelledby="tab-gallery"
+                    tabindex="0"
+                >
+                    <Gallery :images="mod.images" :name="mod.name" />
+                </section>
 
                 <section
                     v-show="activeTab === 'dependencies'"
