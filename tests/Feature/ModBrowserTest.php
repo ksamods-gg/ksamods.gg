@@ -88,7 +88,7 @@ it('shows a mod with resolved images and stripped html', function () {
         ->where('mod.description', fn (string $html) => str_contains($html, 'src="https://img.example.com/shot.png"')
             && ! str_contains($html, '<script>'))
         ->where('mod.releases.0.version', '2.0.0-dev')
-        ->where('mod.releases.0.dependencies.0', ['id' => 'Loader', 'name' => 'Loader', 'kind' => 'required', 'min' => '0.4', 'max' => null])
+        ->where('mod.releases.0.dependencies.0', ['id' => 'Loader', 'name' => 'Loader', 'icon' => null, 'kind' => 'required', 'min' => '0.4', 'max' => null])
         ->where('mod.releases.0.dependencies.1.name', null));
 });
 
@@ -106,7 +106,7 @@ it('lists the mods whose newest release requires a mod', function () {
     fakeContentIndex();
 
     $this->get(route('mods.show', 'Loader'))->assertInertia(fn (Assert $page) => $page
-        ->where('dependents', [['id' => 'Rockets', 'name' => 'Rockets', 'icon' => null]]));
+        ->where('dependents', [['id' => 'Rockets', 'name' => 'Rockets', 'icon' => null, 'kind' => 'required', 'min' => '0.4', 'max' => null]]));
 });
 
 it('lists every public page and mod in the sitemap', function () {

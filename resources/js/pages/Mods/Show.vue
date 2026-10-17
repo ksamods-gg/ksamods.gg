@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import CommentsPanel from '@/components/mods/CommentsPanel.vue';
 import Gallery from '@/components/mods/Gallery.vue';
+import ModRelationGroups from '@/components/mods/ModRelationGroups.vue';
 import ReviewsPanel from '@/components/mods/ReviewsPanel.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import Stars from '@/components/Stars.vue';
@@ -20,7 +21,7 @@ import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
 import { cn } from '@/lib/utils';
 import { edit } from '@/routes/listings';
 import { index, show } from '@/routes/mods';
-import type { Comments, GameVersion, Mod, ModLink, Reviews } from '@/types';
+import type { Comments, Dependent, GameVersion, Mod, Reviews } from '@/types';
 
 const props = defineProps<{
     mod: Mod;
@@ -29,7 +30,7 @@ const props = defineProps<{
     comments: Comments;
     tab: 'gallery' | 'dependents' | 'releases' | 'reviews' | 'comments' | null;
     // Listings whose newest release needs this one.
-    dependents: ModLink[];
+    dependents: Dependent[];
     gameVersions: GameVersion[];
 }>();
 
@@ -136,6 +137,7 @@ const dependencyGroups = computed(() => {
                       {
                           id: release.loader.id,
                           name: release.loader.name,
+                          icon: release.loader.icon,
                           kind: 'loader',
                           min: release.loader.min,
                           max: null,
@@ -147,17 +149,19 @@ const dependencyGroups = computed(() => {
         : groups;
 });
 
-function versionRange(min: string | null, max: string | null): string {
-    if (min && max) {
-        return `${min} to ${max}`;
-    }
-
-    if (min) {
-        return `${min} or newer`;
-    }
-
-    return max ? `up to ${max}` : 'any version';
-}
+// The mods that need this one, grouped the same way as its own dependencies.
+const dependentGroups = computed(() =>
+    [
+        {
+            label: 'As their mod loader',
+            items: props.dependents.filter((d) => d.kind === 'loader'),
+        },
+        {
+            label: 'As a required dependency',
+            items: props.dependents.filter((d) => d.kind === 'required'),
+        },
+    ].filter((group) => group.items.length > 0),
+);
 
 // Everything about the mod shares one spot; a mod without a description skips that tab.
 type Tab =
@@ -577,48 +581,7 @@ const card =
                             For v{{ latest.version }}, the release the install
                             button gets.
                         </p>
-                        <div class="flex flex-col gap-5">
-                            <section
-                                v-for="group in dependencyGroups"
-                                :key="group.label"
-                            >
-                                <h3 class="mb-2 text-sm font-semibold">
-                                    {{ group.label }}
-                                </h3>
-                                <ul
-                                    class="divide-y divide-[#19140014] dark:divide-[#3E3E3A]/60"
-                                >
-                                    <li
-                                        v-for="dependency in group.items"
-                                        :key="dependency.id"
-                                        class="flex flex-wrap items-baseline justify-between gap-x-3 py-2 text-sm"
-                                    >
-                                        <span>
-                                            <Link
-                                                v-if="dependency.name"
-                                                :href="show(dependency.id)"
-                                                class="underline underline-offset-4"
-                                            >
-                                                {{ dependency.name }}
-                                            </Link>
-                                            <template v-else>
-                                                {{ dependency.id }}
-                                                <span
-                                                    :class="['text-xs', muted]"
-                                                    >not in the index</span
-                                                >
-                                            </template>
-                                        </span>
-                                        <span :class="['text-xs', muted]">{{
-                                            versionRange(
-                                                dependency.min,
-                                                dependency.max,
-                                            )
-                                        }}</span>
-                                    </li>
-                                </ul>
-                            </section>
-                        </div>
+                        <ModRelationGroups :groups="dependencyGroups" />
                     </template>
                     <p v-else :class="['text-sm', muted]">
                         This mod needs nothing besides the game.
@@ -635,25 +598,10 @@ const card =
                     :class="card"
                 >
                     <p :class="['mb-4 text-xs', muted]">
-                        Mods that need {{ mod.name }}, most downloaded first.
+                        Mods whose newest release needs {{ mod.name }}, most
+                        downloaded first.
                     </p>
-                    <ul class="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                        <li v-for="dependent in dependents" :key="dependent.id">
-                            <Link
-                                :href="show(dependent.id)"
-                                class="-mx-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >
-                                <ModIcon
-                                    :name="dependent.name"
-                                    :src="dependent.icon"
-                                    class="size-8 shrink-0 rounded-md text-xs"
-                                />
-                                <span class="truncate">{{
-                                    dependent.name
-                                }}</span>
-                            </Link>
-                        </li>
-                    </ul>
+                    <ModRelationGroups :groups="dependentGroups" />
                     <Link
                         v-if="mod.type === 'mod-loader'"
                         :href="`${index().url}?loader=${encodeURIComponent(mod.id)}`"

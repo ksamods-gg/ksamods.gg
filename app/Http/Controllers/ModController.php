@@ -6,6 +6,7 @@ use App\Support\ContentIndex;
 use App\Support\ListingOwnership;
 use App\Support\ModSocial;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -127,6 +128,7 @@ class ModController extends Controller
         $authored = $listing['authored'];
         $images = collect($authored['images']['description'] ?? [])->pluck('url', 'id');
         $listingNames = $listings->mapWithKeys(fn (array $listing) => [$listing['id'] => $listing['authored']['name']]);
+        $listingIcons = $listings->mapWithKeys(fn (array $listing) => [$listing['id'] => $listing['authored']['images']['icon']['url'] ?? null]);
 
         return Inertia::render('Mods/Show', [
             'mod' => [
@@ -157,12 +159,14 @@ class ModController extends Controller
                     'loader' => isset($release['loader']) ? [
                         'id' => $release['loader']['id'],
                         'name' => $listingNames[$release['loader']['id']] ?? null,
+                        'icon' => $listingIcons[$release['loader']['id']] ?? null,
                         'min' => $release['loader']['min'] ?? null,
                     ] : null,
                     'dependencies' => collect($release['dependencies'] ?? [])->map(fn (array $dependency) => [
                         'id' => $dependency['id'],
                         // The listed mod's name, or null when the index does not list it.
                         'name' => $listingNames[$dependency['id']] ?? null,
+                        'icon' => $listingIcons[$dependency['id']] ?? null,
                         'kind' => $dependency['kind'],
                         'min' => $dependency['min'] ?? null,
                         'max' => $dependency['max'] ?? null,
@@ -173,20 +177,29 @@ class ModController extends Controller
                     'changelog_url' => $release['changelog'] ?? null,
                 ])->values(),
             ],
-            // Listings whose newest release needs this one, as a required dependency or its loader.
+            // Listings whose newest release needs this one, as its loader or a required dependency,
+            // with the versions of this one they accept.
             'dependents' => $listings
-                ->filter(function (array $other) use ($id) {
+                ->map(function (array $other) use ($id) {
                     $latest = $this->latestRelease($other);
+                    $needs = ($latest['loader']['id'] ?? null) === $id
+                        ? ['kind' => 'loader', 'min' => $latest['loader']['min'] ?? null, 'max' => null]
+                        : collect($latest['dependencies'] ?? [])
+                            ->first(fn (array $dependency) => $dependency['id'] === $id && $dependency['kind'] === 'required');
 
-                    return ($latest['loader']['id'] ?? null) === $id
-                        || collect($latest['dependencies'] ?? [])->contains(fn (array $dependency) => $dependency['id'] === $id && $dependency['kind'] === 'required');
+                    return $needs === null ? null : [
+                        'id' => $other['id'],
+                        'name' => $other['authored']['name'],
+                        'icon' => $other['authored']['images']['icon']['url'] ?? null,
+                        'kind' => $needs['kind'],
+                        'min' => $needs['min'] ?? null,
+                        'max' => $needs['max'] ?? null,
+                        'downloads' => $other['downloads']['total'] ?? 0,
+                    ];
                 })
-                ->sortByDesc(fn (array $other) => $other['downloads']['total'] ?? 0)
-                ->map(fn (array $other) => [
-                    'id' => $other['id'],
-                    'name' => $other['authored']['name'],
-                    'icon' => $other['authored']['images']['icon']['url'] ?? null,
-                ])
+                ->filter()
+                ->sortByDesc('downloads')
+                ->map(fn (array $dependent) => Arr::except($dependent, 'downloads'))
                 ->values(),
             'tagNames' => $this->tagNames($snapshot),
             'gameVersions' => $this->gameVersions($snapshot),

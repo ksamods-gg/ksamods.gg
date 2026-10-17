@@ -60,10 +60,16 @@ export type Release = {
     download_url: string;
     download_size: number | null;
     mirrors: string[];
-    loader: { id: string; name: string | null; min: string | null } | null;
+    loader: {
+        id: string;
+        name: string | null;
+        icon: string | null;
+        min: string | null;
+    } | null;
     dependencies: {
         id: string;
         name: string | null;
+        icon: string | null;
         kind: string;
         min: string | null;
         max: string | null;
@@ -107,6 +113,13 @@ export type GameVersion = { label: string; revision: number };
 
 // A listing that links to another, small enough for a list.
 export type ModLink = { id: string; name: string; icon: string | null };
+
+// A mod that needs this one, as its loader or a required dependency, and the versions it accepts.
+export type Dependent = ModLink & {
+    kind: 'loader' | 'required';
+    min: string | null;
+    max: string | null;
+};
 
 export type NotificationData = {
     kind: 'reply' | 'review_reply' | 'mention';
