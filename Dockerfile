@@ -28,16 +28,16 @@ ENV PHP_OPCACHE_ENABLE=1
 # The image's health check (and Coolify's) asks Laravel, so a container is only live once it serves.
 ENV HEALTHCHECK_PATH=/up
 
-# Mitigations for CVE-2026-109618 and CVE-2026-109619 (PHP RCE, fixed in 8.4.27), recommended
-# by the PHP security advisory of 21 Oct 2026 until the base image ships the fix. The site takes
-# no file uploads, so request bodies stay small. No memory_limit: the container's own memory
-# limit (set in Coolify) bounds a request instead, since PHP's limit failure is the attack path.
-# After moving to 8.4.27, restore the memory limit; the rest can stay.
-ENV PHP_MEMORY_LIMIT=-1 \
-    PHP_POST_MAX_SIZE=8M \
-    PHP_UPLOAD_MAX_FILE_SIZE=2M \
-    PHP_FILE_UPLOADS=Off \
-    NGINX_CLIENT_MAX_BODY_SIZE=8M
+# CVE-2026-109618 and CVE-2026-109619 (PHP RCE, advisory of 21 Oct 2026) are fixed in 8.4.27.
+# Uploads of vehicles and saves depend on that fix, so a build on an older base image fails.
+RUN php -r 'exit(version_compare(PHP_VERSION, "8.4.27", "<") ? 1 : 0);' \
+    || (echo "The base image runs PHP $(php -r 'echo PHP_VERSION;'), older than 8.4.27. Rebuild without cache." && exit 1)
+
+# Vehicles and saves arrive as uploads: the largest is a save of up to 100 MB (SHARE_MAX_SAVE_BYTES).
+ENV PHP_POST_MAX_SIZE=110M \
+    PHP_UPLOAD_MAX_FILE_SIZE=105M \
+    PHP_FILE_UPLOADS=On \
+    NGINX_CLIENT_MAX_BODY_SIZE=110M
 
 # Inertia's SSR server runs beside nginx and PHP-FPM, so it ships and rolls with every deploy.
 # The bundle carries its own dependencies; only the node binary is needed.

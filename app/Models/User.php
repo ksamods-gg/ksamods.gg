@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\Role;
+use App\Support\Share\DataFiles;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Laravel\Passport\Contracts\OAuthenticatable;
+use Laravel\Passport\HasApiTokens;
 
 /**
  * @property int $id
@@ -25,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $email
  * @property string|null $avatar
  * @property Role|null $role
+ * @property string|null $share_account
+ * @property Carbon|null $share_consented_at
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
@@ -32,11 +37,40 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  */
 #[Fillable(['github_id', 'github_login', 'github_token', 'github_scopes', 'discord_id', 'discord_username', 'name', 'email', 'avatar', 'password'])]
-#[Hidden(['password', 'remember_token', 'github_token'])]
-class User extends Authenticatable
+#[Hidden(['password', 'remember_token', 'github_token', 'share_account'])]
+class User extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
+
+    /**
+     * An owner record names the GitHub account its owner signed in with, so it follows a link, an
+     * unlink and an account deletion (an erasure, rule 32).
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (User $user) {
+            if ($user->wasChanged('github_id')) {
+                $user->shares()->get()->each(fn (Share $share) => DataFiles::writeOwnerRecord($share));
+            }
+        });
+
+        static::deleted(function (User $user) {
+            if ($user->share_account !== null) {
+                Share::where('account', $user->share_account)->get()->each(fn (Share $share) => DataFiles::writeOwnerRecord($share));
+            }
+        });
+    }
+
+    /**
+     * The vehicles and saves this user shares on this host.
+     *
+     * @return HasMany<Share, $this>
+     */
+    public function shares(): HasMany
+    {
+        return $this->hasMany(Share::class);
+    }
 
     /**
      * @return HasMany<Review, $this>
@@ -100,6 +134,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'github_token' => 'encrypted',
             'role' => Role::class,
+            'share_consented_at' => 'datetime',
         ];
     }
 }

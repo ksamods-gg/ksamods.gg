@@ -9,6 +9,7 @@ import {
     login,
     logout,
     notifications as notificationsPage,
+    policy,
     privacy,
     terms,
 } from '@/routes';
@@ -16,6 +17,7 @@ import { dashboard as adminDashboard } from '@/routes/admin';
 import { create } from '@/routes/listings';
 import { index, mine } from '@/routes/mods';
 import { open as openNotification } from '@/routes/notifications';
+import { index as sharesIndex } from '@/routes/shares';
 import type { NotificationData } from '@/types';
 
 const page = usePage();
@@ -80,6 +82,11 @@ if (page.props.auth.user) {
                     <div class="hidden sm:contents">
                         <Link :href="index()" class="hover:underline"
                             >Mods</Link
+                        >
+                        <Link
+                            :href="sharesIndex('vehicles')"
+                            class="hover:underline"
+                            >Vehicles &amp; saves</Link
                         >
                         <!-- A plain link: it may go on to GitHub to ask for pull request access. -->
                         <a :href="create().url" class="hover:underline">
@@ -216,6 +223,13 @@ if (page.props.auth.user) {
                         >
                     </li>
                     <li>
+                        <Link
+                            :href="sharesIndex('vehicles')"
+                            class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
+                            >Vehicles &amp; saves</Link
+                        >
+                    </li>
+                    <li>
                         <a
                             :href="create().url"
                             class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
@@ -290,6 +304,9 @@ if (page.props.auth.user) {
             >
                 <Link :href="privacy()" class="hover:underline">Privacy</Link>
                 <Link :href="terms()" class="hover:underline">Terms</Link>
+                <Link :href="policy()" class="hover:underline"
+                    >Host policy</Link
+                >
             </div>
         </footer>
 

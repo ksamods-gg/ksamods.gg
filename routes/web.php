@@ -11,6 +11,7 @@ use App\Http\Controllers\ModController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\ShareController;
 use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,16 @@ Route::get('/mods/{id}', [ModController::class, 'show'])->name('mods.show');
 Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+
+// Vehicles and saves, shared through ksamods.gg as a share host (RFC 0094).
+Route::get('/policy', [ShareController::class, 'policy'])->name('policy');
+Route::get('/{types}', [ShareController::class, 'index'])->whereIn('types', ['vehicles', 'saves'])->name('shares.index');
+Route::get('/{types}/{id}', [ShareController::class, 'show'])->whereIn('types', ['vehicles', 'saves'])->name('shares.show');
+// A release's url in the release list: it never changes, and answers 410 once taken down.
+Route::get('/share/files/{type}/{id}/{version}', [ShareController::class, 'download'])
+    ->whereIn('type', ['vehicle', 'save'])
+    ->where('version', '[0-9A-Za-z.+-]+')
+    ->name('shares.download');
 
 Route::middleware('guest')->group(function () {
     Route::inertia('/login', 'Auth/Login')->name('login');
@@ -47,6 +58,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::get('/notifications/{id}', [NotificationController::class, 'open'])->name('notifications.open');
+    Route::get('/share', [ShareController::class, 'create'])->name('shares.create');
+    Route::post('/share', [ShareController::class, 'upload'])->middleware('throttle:share-uploads')->name('shares.upload');
+    Route::get('/share/uploads/{upload}', [ShareController::class, 'review'])->name('shares.review');
+    Route::post('/share/uploads/{upload}/publish', [ShareController::class, 'publish'])->middleware('throttle:share-uploads')->name('shares.publish');
+    Route::post('/share/releases/{release}/take-down', [ShareController::class, 'takeDown'])->middleware('can:moderate')->name('shares.take-down');
 
     Route::middleware('throttle:social')->group(function () {
         Route::put('/mods/{id}/review', [ReviewController::class, 'save'])->name('reviews.save');

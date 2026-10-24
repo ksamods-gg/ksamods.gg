@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -30,7 +31,7 @@ class ContentIndex
      */
     public static function snapshot(): array
     {
-        return Cache::flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => self::fetch());
+        return self::cache()->flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => self::fetch());
     }
 
     /**
@@ -41,9 +42,9 @@ class ContentIndex
     public static function refresh(): array
     {
         $snapshot = self::fetch();
-        Cache::forget(self::CACHE_KEY);
+        self::cache()->forget(self::CACHE_KEY);
 
-        return Cache::flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => $snapshot);
+        return self::cache()->flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => $snapshot);
     }
 
     /**
@@ -52,6 +53,35 @@ class ContentIndex
     private static function fetch(): array
     {
         return Http::timeout(15)->retry(2, 500)->get(self::URL)->throw()->json();
+    }
+
+    /**
+     * The listings of a vehicle or save snapshot file (RFC 0094, Snapshot size), which hold the
+     * entry shape of `listings`. Empty while the index publishes no such file yet.
+     *
+     * @param  'vehicle'|'save'  $type
+     * @return list<Listing>
+     */
+    public static function shared(string $type): array
+    {
+        $file = $type === 'vehicle' ? 'vehicles' : 'saves';
+
+        return self::cache()->flexible("content-index:v1:{$file}", self::CACHE_TTL, function () use ($file) {
+            $response = Http::timeout(15)->retry(2, 500, throw: false)
+                ->get(str_replace('index.json', "snapshot-{$file}.json", self::URL));
+
+            return $response->notFound() ? [] : ($response->throw()->json($file) ?? []);
+        });
+    }
+
+    /**
+     * Where the snapshots are cached: a store of their own, the file cache unless
+     * CONTENT_INDEX_CACHE_STORE says otherwise. The snapshot is well over a megabyte and growing,
+     * more than a database cache row takes on a server with a small max_allowed_packet.
+     */
+    private static function cache(): Repository
+    {
+        return Cache::store(config('cache.content_index_store'));
     }
 
     /**

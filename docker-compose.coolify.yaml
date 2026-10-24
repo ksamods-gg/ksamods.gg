@@ -1,4 +1,4 @@
-# Background services for ksamods.gg on Coolify: the queue worker and Reverb.
+# Background services for ksamods.gg on Coolify: the queue worker, the scheduler and Reverb.
 #
 # The production stack is three Coolify resources, so the website gets rolling updates
 # (Coolify only does those for single-container applications, never for compose):
@@ -10,7 +10,8 @@
 #    - Migrations run as each new container starts, while the old one still serves,
 #      so a migration must not break the running release (add, then remove in a later deploy).
 #    - SSR runs inside this container.
-# 3. This compose file: Reverb (domain https://ws.ksamods.gg on port 8080) and the queue worker.
+# 3. This compose file: Reverb (domain https://ws.ksamods.gg on port 8080), the queue worker
+#    and the scheduler.
 #    Enable "Connect To Predefined Network" so they can reach the database.
 #
 # Define these once as Shared Variables on the Coolify environment, and reference them from
@@ -22,6 +23,26 @@
 #   REVERB_APP_ID, REVERB_APP_KEY, REVERB_APP_SECRET
 #                                 any random strings; the key is public, the secret is not
 #   REVERB_HOST                   ws.ksamods.gg
+#
+#   The share host for vehicles and saves (RFC 0094, own storage, signed):
+#   SHARE_DISK=s3, and AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_BUCKET,
+#   AWS_DEFAULT_REGION (fsn1), AWS_ENDPOINT (https://fsn1.your-objectstorage.com)
+#                                 a Hetzner Object Storage bucket. Keep the bucket private:
+#                                 each published file is made public on its own, while
+#                                 uploads waiting for checks stay private.
+#   SHARE_PUBLIC_URL              where the bucket serves files, such as
+#                                 https://<bucket>.fsn1.your-objectstorage.com/ ; it is `data`
+#   SHARE_SIGNING_KEY             php artisan share:key ; secret, signs every data file
+#   SHARE_BOT_TOKEN, SHARE_BOT_ID a classic token (public_repo) and the numeric id of the
+#                                 GitHub user that opens listing pull requests, used by
+#                                 this host only
+#   SHARE_AUTHORED_REPOSITORY     a test repository until ksamods is registered in
+#                                 hosts.toml, then KSAModding/content-index
+#   SHARE_ABUSE_EMAIL, SHARE_DISCORD_URL   the contacts on /policy
+#   PASSPORT_PRIVATE_KEY, PASSPORT_PUBLIC_KEY
+#                                 php artisan passport:keys, then the two files' contents;
+#                                 they sign the upload API's tokens
+#   Then print the hosts.toml table to register with: php artisan share:host
 #
 # The Application additionally needs:
 #   APP_ENV=production, APP_DEBUG=false, LOG_CHANNEL=stderr, DB_CONNECTION=mysql,
@@ -36,6 +57,7 @@
 #   and, marked "Build Variable" because they are baked into the JavaScript:
 #   VITE_APP_NAME=ksamods.gg, VITE_REVERB_APP_KEY (same as REVERB_APP_KEY),
 #   VITE_REVERB_HOST=ws.ksamods.gg
+#   and every share host variable above.
 #
 # After the first deploy, make yourself an admin from the Application's terminal:
 #   php artisan ksamods:admin <github login or discord username>
@@ -68,6 +90,43 @@ services:
             - REVERB_HOST=${REVERB_HOST:?}
             - REVERB_PORT=443
             - REVERB_SCHEME=https
+            # Retries a listing pull request that GitHub refused, which writes data files.
+            - SHARE_DISK=${SHARE_DISK:-s3}
+            - SHARE_PUBLIC_URL=${SHARE_PUBLIC_URL:?}
+            - SHARE_SIGNING_KEY=${SHARE_SIGNING_KEY:?}
+            - SHARE_BOT_TOKEN=${SHARE_BOT_TOKEN:?}
+            - SHARE_BOT_ID=${SHARE_BOT_ID:?}
+            - SHARE_AUTHORED_REPOSITORY=${SHARE_AUTHORED_REPOSITORY:?}
+            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
+            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?}
+            - AWS_BUCKET=${AWS_BUCKET:?}
+            - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-fsn1}
+            - AWS_ENDPOINT=${AWS_ENDPOINT:-https://fsn1.your-objectstorage.com}
+
+    # Runs scheduled commands: discarding expired uploads and spent sign-ins.
+    scheduler:
+        build:
+            context: .
+        command: ['php', '/var/www/html/artisan', 'schedule:work']
+        stop_signal: SIGTERM
+        healthcheck:
+            test: ['CMD', 'healthcheck-schedule']
+        environment:
+            - APP_ENV=production
+            - APP_DEBUG=false
+            - APP_KEY=${APP_KEY:?}
+            - LOG_CHANNEL=stderr
+            - DB_CONNECTION=mysql
+            - DB_HOST=${DB_HOST:?}
+            - DB_DATABASE=${DB_DATABASE:?}
+            - DB_USERNAME=${DB_USERNAME:?}
+            - DB_PASSWORD=${DB_PASSWORD:?}
+            - SHARE_DISK=${SHARE_DISK:-s3}
+            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
+            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?}
+            - AWS_BUCKET=${AWS_BUCKET:?}
+            - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-fsn1}
+            - AWS_ENDPOINT=${AWS_ENDPOINT:-https://fsn1.your-objectstorage.com}
 
     reverb:
         build:
