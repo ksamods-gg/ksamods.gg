@@ -17,6 +17,9 @@ return [
 
     'default' => env('CACHE_STORE', 'database'),
 
+    // The content index snapshots (App\Support\ContentIndex), which are too large for a database row.
+    'content_index_store' => env('CONTENT_INDEX_CACHE_STORE', 'file'),
+
     /*
     |--------------------------------------------------------------------------
     | Cache Stores

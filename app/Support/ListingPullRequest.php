@@ -123,7 +123,7 @@ class ListingPullRequest
      * A new fork takes a few seconds to become usable, so this waits for it. A fork whose own
      * main has diverged cannot sync, which is fine: the branch starts from upstream's commit.
      */
-    private static function syncFork(PendingRequest $github, string $fork): void
+    public static function syncFork(PendingRequest $github, string $fork): void
     {
         for ($attempt = 1; $attempt <= 10; $attempt++) {
             $response = $github->post("/repos/{$fork}/merge-upstream", ['branch' => 'main']);

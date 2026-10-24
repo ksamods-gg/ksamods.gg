@@ -13,10 +13,12 @@
         "devium/toml": "^1.1",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/framework": "^13.17",
+        "laravel/passport": "^13.10",
         "laravel/reverb": "^1.0",
         "laravel/socialite": "^5.31",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
+        "league/flysystem-aws-s3-v3": "^3.0",
         "socialiteproviders/discord": "^4.2"
     },
     "require-dev": {
