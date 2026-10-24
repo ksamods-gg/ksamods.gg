@@ -4,6 +4,7 @@ use App\Models\Comment;
 use App\Models\Review;
 use App\Support\ContentIndex;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -76,4 +77,28 @@ it('shows recent posts, linking to each, and rates nothing on one review', funct
 
 it('keeps the full mod list at /mods', function () {
     $this->get('/mods')->assertInertia(fn (Assert $page) => $page->component('Mods/Index')->has('mods', 2));
+});
+
+it('keeps characters whole in a summary, so the page encodes as JSON', function () {
+    // Ņ is C5 85 in UTF-8; matching \R byte by byte splits it at 0x85.
+    Http::swap(new Factory);
+    Http::fake([ContentIndex::URL => Http::response(['tags' => ['mod' => []], 'listings' => [[
+        'id' => 'Latvija',
+        'published_at' => '2026-01-01T00:00:00Z',
+        'updated_at' => '2026-10-01T00:00:00Z',
+        'authored' => ['type' => 'mod', 'name' => 'Latvija'],
+        'releases' => [[
+            'version' => '1.0.0',
+            'release_status' => 'stable',
+            'release_date' => '2026-10-10T12:00:00Z',
+            'download' => ['url' => 'https://example.com/1.0.0.zip'],
+            'changelog_text' => "## 1.0.0\n\n- Pievienota ŅŪ raķete.",
+        ]],
+    ]]])]);
+
+    $this->get(route('home'))->assertInertia(fn (Assert $page) => $page
+        ->where('releases.0.summary', 'Pievienota ŅŪ raķete.'));
+
+    // The page data in the HTML, which was empty when it failed to encode.
+    $this->get(route('home'))->assertSee('"component":"Home"', false);
 });

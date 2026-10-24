@@ -31,9 +31,10 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
-    // The SSR bundle carries its dependencies, so production runs it with Node alone.
+    // The built SSR bundle carries its dependencies, so production runs it with Node alone. Only
+    // for builds: in dev, Vite would then evaluate CommonJS packages such as vue as ES modules.
     ssr: {
-        noExternal: true,
+        noExternal: process.argv.includes('build') ? true : undefined,
     },
     server: {
         watch: {

@@ -309,20 +309,22 @@ class ModController extends Controller
      */
     private function firstLine(?string $markdown): ?string
     {
-        foreach (preg_split('/\R/', (string) $markdown) ?: [] as $line) {
+        // UTF-8 mode throughout: without /u, \R also matches the byte 0x85, which is half of
+        // characters such as Ņ (C5 85), and the cut text then fails to encode as JSON.
+        foreach (preg_split('/\R/u', (string) $markdown) ?: [] as $line) {
             $line = trim($line);
 
-            if ($line === '' || str_starts_with($line, '#') || preg_match('/^\[?v?\d+\.\d+/', $line)) {
+            if ($line === '' || str_starts_with($line, '#') || preg_match('/^\[?v?\d+\.\d+/u', $line)) {
                 continue;
             }
 
             $text = trim((string) preg_replace(
-                ['/^([-*+]|\d+\.)\s+/', '/!\[[^\]]*\]\([^)]*\)/', '/\[([^\]]*)\]\([^)]*\)/', '/[*_`]/'],
+                ['/^([-*+]|\d+\.)\s+/u', '/!\[[^\]]*\]\([^)]*\)/u', '/\[([^\]]*)\]\([^)]*\)/u', '/[*_`]/u'],
                 ['', '', '$1', ''],
                 $line,
             ));
 
-            if ($text !== '' && ! preg_match('/^(requires|tested on|compatible with)\s*:/i', $text)) {
+            if ($text !== '' && ! preg_match('/^(requires|tested on|compatible with)\s*:/iu', $text)) {
                 return Str::limit($text, 200);
             }
         }
