@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatBytes, formatDate } from '@/lib/format';
 import { show as modPage } from '@/routes/mods';
@@ -14,6 +16,51 @@ const props = defineProps<{
 
 const page = usePage();
 const listing = props.share.type === 'vehicle' ? 'vehicles' : 'saves';
+
+// What search engines read: a player's creation for the game, and where it sits on the site.
+const jsonLd = computed(() => {
+    const url = `${page.props.appUrl}/${listing}/${encodeURIComponent(props.share.id)}`;
+
+    return {
+        '@graph': [
+            {
+                '@type': 'CreativeWork',
+                '@id': url,
+                name: props.share.name,
+                description: props.share.abstract,
+                url,
+                genre:
+                    props.share.type === 'vehicle'
+                        ? 'Kitten Space Agency vehicle'
+                        : 'Kitten Space Agency save game',
+                author: props.share.authors.map((name) => ({
+                    '@type': 'Person',
+                    name,
+                })),
+                license: props.share.license,
+                keywords: props.share.tags.join(', ') || undefined,
+                version: props.share.version ?? undefined,
+                dateModified: props.share.updated_at,
+            },
+            {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                    {
+                        '@type': 'ListItem',
+                        position: 1,
+                        name: listing === 'vehicles' ? 'Vehicles' : 'Saves',
+                        item: `${page.props.appUrl}/${listing}`,
+                    },
+                    {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: props.share.name,
+                    },
+                ],
+            },
+        ],
+    };
+});
 
 const kinds: Record<string, string> = {
     required: 'Required',
@@ -39,7 +86,11 @@ const card =
 </script>
 
 <template>
-    <Head :title="share.name" />
+    <PageMeta
+        :title="`${share.name} - KSA ${share.type}`"
+        :description="share.abstract"
+        :json-ld="jsonLd"
+    />
 
     <AppLayout>
         <Link

@@ -39,7 +39,7 @@ const control =
             >
                 <img
                     :src="image"
-                    alt=""
+                    :alt="`${name}, screenshot ${index + 1}`"
                     loading="lazy"
                     class="aspect-video w-full bg-[#f4f3ef] object-cover dark:bg-[#232321]"
                 />

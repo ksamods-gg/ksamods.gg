@@ -8,7 +8,11 @@ defineProps<{ operator: LegalOperator }>();
 </script>
 
 <template>
-    <LegalPage title="Privacy policy" updated="14 October 2026">
+    <LegalPage
+        title="Privacy policy"
+        updated="14 October 2026"
+        description="What ksamods.gg stores about you, why, and how to have it deleted."
+    >
         <p>
             This policy explains what personal data ksamods.gg processes, why,
             and what rights you have. ksamods.gg has no advertising, analytics

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 
-defineProps<{ title: string; updated: string }>();
+defineProps<{ title: string; updated: string; description: string }>();
 </script>
 
 <template>
-    <Head :title="title" />
+    <PageMeta :title="title" :description="description" />
 
     <AppLayout>
         <article class="mx-auto max-w-3xl">

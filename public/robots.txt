@@ -1,4 +1,6 @@
 User-agent: *
-Disallow:
+# The upload API, and release downloads, which are archives rather than pages.
+Disallow: /api/
+Disallow: /share/files/
 
 Sitemap: https://ksamods.gg/sitemap.xml

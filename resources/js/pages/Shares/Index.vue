@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Pager from '@/components/admin/Pager.vue';
+import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { create, index, show } from '@/routes/shares';
 import type { Paginated, ShareSummary } from '@/types';
@@ -33,7 +34,18 @@ const card =
 </script>
 
 <template>
-    <Head :title="types === 'vehicles' ? 'Vehicles' : 'Saves'" />
+    <PageMeta
+        :title="
+            types === 'vehicles'
+                ? 'Kitten Space Agency vehicles'
+                : 'Kitten Space Agency save games'
+        "
+        :description="
+            types === 'vehicles'
+                ? 'Rovers, rockets and landers shared by Kitten Space Agency players, with the mods each one needs.'
+                : 'Save games shared by Kitten Space Agency players, with the mods each one needs.'
+        "
+    />
 
     <AppLayout>
         <div class="flex flex-wrap items-end justify-between gap-4">

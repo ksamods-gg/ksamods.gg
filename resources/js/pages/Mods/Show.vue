@@ -40,8 +40,61 @@ const latest = computed(
         props.mod.releases[0],
 );
 
-// Borea only handles its links on Windows and Linux, so elsewhere its buttons would do nothing.
+// What search engines read about the mod: a free application for the game, with its rating and
+// where it sits on the site.
 const page = usePage();
+const jsonLd = computed(() => {
+    const url = `${page.props.appUrl}/mods/${encodeURIComponent(props.mod.id)}`;
+
+    return {
+        '@graph': [
+            {
+                '@type': 'SoftwareApplication',
+                '@id': url,
+                name: props.mod.name,
+                description: props.mod.abstract ?? undefined,
+                url,
+                image: props.mod.icon ?? undefined,
+                applicationCategory: 'GameApplication',
+                applicationSubCategory: 'Kitten Space Agency mod',
+                operatingSystem: 'Windows',
+                softwareVersion: latest.value?.version,
+                license: props.mod.license ?? undefined,
+                author: props.mod.authors.map((name) => ({
+                    '@type': 'Person',
+                    name,
+                })),
+                datePublished: props.mod.published_at,
+                dateModified: props.mod.updated_at,
+                offers: { '@type': 'Offer', price: 0, priceCurrency: 'USD' },
+                aggregateRating:
+                    props.reviews.count && props.reviews.average
+                        ? {
+                              '@type': 'AggregateRating',
+                              ratingValue: props.reviews.average,
+                              ratingCount: props.reviews.count,
+                              bestRating: 5,
+                              worstRating: 1,
+                          }
+                        : undefined,
+            },
+            {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                    {
+                        '@type': 'ListItem',
+                        position: 1,
+                        name: 'Mods',
+                        item: `${page.props.appUrl}/mods`,
+                    },
+                    { '@type': 'ListItem', position: 2, name: props.mod.name },
+                ],
+            },
+        ],
+    };
+});
+
+// Borea only handles its links on Windows and Linux, so elsewhere its buttons would do nothing.
 const { userAgent } = page.props;
 // Mods install on a desktop, so phones and tablets get a note instead of download buttons.
 const mobile = isMobileDevice(userAgent);
@@ -294,7 +347,8 @@ const card =
 
 <template>
     <PageMeta
-        :title="mod.name"
+        :title="`${mod.name} - KSA mod`"
+        :json-ld="jsonLd"
         :description="
             mod.abstract ??
             `${mod.name}, a Kitten Space Agency mod${mod.authors.length ? ` by ${mod.authors.join(', ')}` : ''}.`

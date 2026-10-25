@@ -45,7 +45,8 @@ defineProps<{
     community: CommunityPost[];
 }>();
 
-const { userAgent } = usePage().props;
+const page = usePage();
+const { userAgent } = page.props;
 // Installing happens on a desktop; Borea runs on Windows and Linux.
 const mobile = isMobileDevice(userAgent);
 const borea = !mobile && boreaSupported(userAgent);
@@ -66,6 +67,16 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
     <PageMeta
         title="Kitten Space Agency mods"
         description="Find, install and publish Kitten Space Agency mods. Every mod in the KSA content index, with reviews and one-click installs through Borea."
+        :json-ld="{
+            '@type': 'WebSite',
+            name: page.props.name,
+            url: `${page.props.appUrl}/`,
+            potentialAction: {
+                '@type': 'SearchAction',
+                target: `${page.props.appUrl}/mods?q={search_term_string}`,
+                'query-input': 'required name=search_term_string',
+            },
+        }"
     />
 
     <AppLayout>

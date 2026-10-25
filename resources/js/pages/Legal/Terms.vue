@@ -8,7 +8,11 @@ defineProps<{ operator: LegalOperator }>();
 </script>
 
 <template>
-    <LegalPage title="Terms of use" updated="14 October 2026">
+    <LegalPage
+        title="Terms of use"
+        updated="14 October 2026"
+        description="The terms for using ksamods.gg, the Kitten Space Agency mod site."
+    >
         <p>
             These terms apply when you use ksamods.gg, a free, community-run
             site for finding and discussing mods for Kitten Space Agency. By

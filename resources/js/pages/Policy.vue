@@ -15,7 +15,11 @@ defineProps<{
 </script>
 
 <template>
-    <LegalPage title="Host policy" updated="23 October 2026">
+    <LegalPage
+        title="Host policy"
+        updated="23 October 2026"
+        description="How ksamods.gg handles takedowns, abuse reports and privacy for the vehicles and saves it hosts."
+    >
         <p>
             ksamods.gg hosts vehicles and save games for the KSA content index,
             as a share host under RFC 0094 of KSAModding. This page says how we

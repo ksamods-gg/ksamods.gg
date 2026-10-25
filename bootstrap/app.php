@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\KeepPrivatePagesOutOfSearch;
 use App\Support\Share\ShareError;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            KeepPrivatePagesOutOfSearch::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
