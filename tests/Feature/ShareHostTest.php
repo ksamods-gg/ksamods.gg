@@ -306,6 +306,27 @@ describe('the device sign-in', function () {
             ->assertStatus(400)->assertJson(['error' => 'invalid_client']);
     });
 
+    it('signs a client in after the player approves, and lets it refresh its token by its name', function () {
+        $start = $this->post('/api/share/v1/oauth/device_authorization', ['client_id' => 'borea'])->json();
+        $grant = ['grant_type' => 'urn:ietf:params:oauth:grant-type:device_code', 'client_id' => 'borea', 'device_code' => $start['device_code']];
+
+        expect($start['interval'])->toBe(5)
+            ->and($start['verification_uri_complete'])->toContain($start['user_code']);
+        $this->post('/api/share/v1/oauth/token', $grant)->assertStatus(400)->assertJson(['error' => 'authorization_pending']);
+
+        $user = User::factory()->create();
+        $this->actingAs($user)->get('/oauth/device/authorize?user_code='.$start['user_code']);
+        $this->actingAs($user)->post('/oauth/device/authorize', ['auth_token' => session('authToken')])->assertRedirect();
+
+        $this->travel(6)->seconds();
+        $tokens = $this->post('/api/share/v1/oauth/token', $grant)->assertOk()->json();
+        expect($tokens)->toHaveKeys(['access_token', 'refresh_token', 'expires_in'])
+            ->and($user->fresh()->share_consented_at)->not->toBeNull();
+
+        $this->post('/api/share/v1/oauth/token', ['grant_type' => 'refresh_token', 'client_id' => 'borea', 'refresh_token' => $tokens['refresh_token']])
+            ->assertOk()->assertJsonStructure(['access_token', 'refresh_token']);
+    });
+
     it('shows the client\'s name when the player approves it', function () {
         $code = $this->post('/api/share/v1/oauth/device_authorization', ['client_id' => 'borea'])->json('user_code');
 

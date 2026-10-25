@@ -30,7 +30,8 @@ class ShareDeviceController extends Controller
 
     public function token(Request $request): Response
     {
-        if ($request->input('grant_type') === 'urn:ietf:params:oauth:grant-type:device_code') {
+        // A refresh names the client by the same name as the sign-in it continues.
+        if (in_array($request->input('grant_type'), ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'], true)) {
             $this->asPassportClient($request);
         }
 
