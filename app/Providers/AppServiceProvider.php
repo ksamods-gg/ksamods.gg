@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Inertia\ExceptionResponse;
 use Inertia\Inertia;
 use Laravel\Passport\Events\AccessTokenCreated;
 use Laravel\Passport\Passport;
@@ -48,6 +49,39 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('social', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ?: $request->ip()));
 
         $this->configureShareHost();
+        $this->configureErrorPages();
+    }
+
+    /**
+     * Errors as pages of the site rather than Laravel's own. The upload API and other JSON
+     * requests keep their JSON errors, and with debug on a server error keeps Laravel's page.
+     */
+    protected function configureErrorPages(): void
+    {
+        Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
+            $status = $response->statusCode();
+            $request = $response->request;
+
+            if (! in_array($status, [403, 404, 419, 429, 500, 503], true) || $request->is('api/*') || $request->expectsJson()) {
+                return null;
+            }
+
+            if ($status >= 500 && config('app.debug')) {
+                return null;
+            }
+
+            $response->render('Error', ['status' => $status]);
+
+            // A server error may be the database itself, which the shared data reads, so those
+            // pages render with nothing but their status. The request may have shared it already.
+            if ($status >= 500) {
+                Inertia::flushShared();
+
+                return $response;
+            }
+
+            return $response->withSharedData();
+        });
     }
 
     /**

@@ -66,14 +66,7 @@ export type Release = {
         icon: string | null;
         min: string | null;
     } | null;
-    dependencies: {
-        id: string;
-        name: string | null;
-        icon: string | null;
-        kind: string;
-        min: string | null;
-        max: string | null;
-    }[];
+    dependencies: (RelatedMod & { kind: string })[];
     changelog: string | null;
     changelog_url: string | null;
 };
@@ -135,4 +128,15 @@ export type AppNotification = {
     data: NotificationData;
     read: boolean;
     created_at: string;
+};
+
+// A mod another one names, with its name and icon when the index lists it. An entry with any_of
+// names no mod itself, only alternatives, any one of which will do (RFC 0031).
+export type RelatedMod = {
+    id: string | null;
+    name: string | null;
+    icon: string | null;
+    min: string | null;
+    max: string | null;
+    any_of?: RelatedMod[] | null;
 };

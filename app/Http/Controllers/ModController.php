@@ -162,14 +162,13 @@ class ModController extends Controller
                         'icon' => $listingIcons[$release['loader']['id']] ?? null,
                         'min' => $release['loader']['min'] ?? null,
                     ] : null,
+                    // An entry names one mod, or with any_of several, any one of which will do (RFC 0031).
                     'dependencies' => collect($release['dependencies'] ?? [])->map(fn (array $dependency) => [
-                        'id' => $dependency['id'],
-                        // The listed mod's name, or null when the index does not list it.
-                        'name' => $listingNames[$dependency['id']] ?? null,
-                        'icon' => $listingIcons[$dependency['id']] ?? null,
+                        ...$this->relatedMod($dependency['id'] ?? null, $dependency, $listingNames, $listingIcons),
                         'kind' => $dependency['kind'],
-                        'min' => $dependency['min'] ?? null,
-                        'max' => $dependency['max'] ?? null,
+                        'any_of' => isset($dependency['any_of'])
+                            ? array_map(fn (array $alternative) => $this->relatedMod($alternative['id'], $alternative, $listingNames, $listingIcons), $dependency['any_of'])
+                            : null,
                     ]),
                     'changelog' => isset($release['changelog_text'])
                         ? $this->markdown($release['changelog_text'], $images)
@@ -185,7 +184,19 @@ class ModController extends Controller
                     $needs = ($latest['loader']['id'] ?? null) === $id
                         ? ['kind' => 'loader', 'min' => $latest['loader']['min'] ?? null, 'max' => null]
                         : collect($latest['dependencies'] ?? [])
-                            ->first(fn (array $dependency) => $dependency['id'] === $id && $dependency['kind'] === 'required');
+                            ->where('kind', 'required')
+                            // This mod itself, or one of its alternatives, with the bounds that name it.
+                            ->map(function (array $dependency) use ($id) {
+                                $alternative = collect($dependency['any_of'] ?? [])->firstWhere('id', $id);
+
+                                return match (true) {
+                                    ($dependency['id'] ?? null) === $id => $dependency,
+                                    $alternative !== null => [...$alternative, 'kind' => $dependency['kind']],
+                                    default => null,
+                                };
+                            })
+                            ->filter()
+                            ->first();
 
                     return $needs === null ? null : [
                         'id' => $other['id'],
@@ -246,6 +257,26 @@ class ModController extends Controller
             'loader' => $latest['loader']['id'] ?? null,
             'game_min' => $latest['game_min'] ?? null,
             'game_min_revision' => $latest['game_min_revision'] ?? null,
+        ];
+    }
+
+    /**
+     * A mod another one names, with its name and icon when the index lists it.
+     *
+     * @param  array{min?: string, max?: string}  $bounds
+     * @param  Collection<string, string>  $names
+     * @param  Collection<string, string|null>  $icons
+     * @return array{id: string|null, name: string|null, icon: string|null, min: string|null, max: string|null}
+     */
+    private function relatedMod(?string $id, array $bounds, Collection $names, Collection $icons): array
+    {
+        return [
+            'id' => $id,
+            // The listed mod's name, or null when the index does not list it.
+            'name' => $id === null ? null : ($names[$id] ?? null),
+            'icon' => $id === null ? null : ($icons[$id] ?? null),
+            'min' => $bounds['min'] ?? null,
+            'max' => $bounds['max'] ?? null,
         ];
     }
 

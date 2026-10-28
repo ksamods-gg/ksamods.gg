@@ -2,6 +2,7 @@
 
 use App\Support\ContentIndex;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -88,7 +89,7 @@ it('shows a mod with resolved images and stripped html', function () {
         ->where('mod.description', fn (string $html) => str_contains($html, 'src="https://img.example.com/shot.png"')
             && ! str_contains($html, '<script>'))
         ->where('mod.releases.0.version', '2.0.0-dev')
-        ->where('mod.releases.0.dependencies.0', ['id' => 'Loader', 'name' => 'Loader', 'icon' => null, 'kind' => 'required', 'min' => '0.4', 'max' => null])
+        ->where('mod.releases.0.dependencies.0', ['id' => 'Loader', 'name' => 'Loader', 'icon' => null, 'kind' => 'required', 'min' => '0.4', 'max' => null, 'any_of' => null])
         ->where('mod.releases.0.dependencies.1.name', null));
 });
 
@@ -140,4 +141,35 @@ it('serves the cached index when the source is down', function () {
     Http::fake([ContentIndex::URL => Http::response(status: 500)]);
 
     $this->get(route('home'))->assertOk();
+});
+
+it('handles a dependency on any one of several mods, on both sides', function () {
+    // An any_of entry names no mod itself, only alternatives (RFC 0031).
+    Http::swap(new Factory);
+    Http::fake([ContentIndex::URL => Http::response(['tags' => ['mod' => []], 'listings' => [
+        [
+            'id' => 'Rover', 'published_at' => '2026-01-01T00:00:00Z', 'updated_at' => '2026-01-01T00:00:00Z',
+            'authored' => ['type' => 'mod', 'name' => 'Rover'],
+            'releases' => [[
+                'version' => '1.0.0', 'release_status' => 'stable', 'release_date' => '2026-01-01T00:00:00Z',
+                'download' => ['url' => 'https://example.com/1.0.0.zip'],
+                'dependencies' => [['any_of' => [['id' => 'Wheels', 'min' => '0.5.0'], ['id' => 'Unlisted']], 'kind' => 'required']],
+            ]],
+        ],
+        [
+            'id' => 'Wheels', 'published_at' => '2026-01-01T00:00:00Z', 'updated_at' => '2026-01-01T00:00:00Z',
+            'authored' => ['type' => 'mod', 'name' => 'Wheels'], 'releases' => [],
+        ],
+    ]])]);
+
+    $this->get(route('mods.show', 'Rover'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('mod.releases.0.dependencies.0.id', null)
+        ->where('mod.releases.0.dependencies.0.kind', 'required')
+        ->where('mod.releases.0.dependencies.0.any_of', [
+            ['id' => 'Wheels', 'name' => 'Wheels', 'icon' => null, 'min' => '0.5.0', 'max' => null],
+            ['id' => 'Unlisted', 'name' => null, 'icon' => null, 'min' => null, 'max' => null],
+        ]));
+
+    $this->get(route('mods.show', 'Wheels'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('dependents', [['id' => 'Rover', 'name' => 'Rover', 'icon' => null, 'kind' => 'required', 'min' => '0.5.0', 'max' => null]]));
 });
