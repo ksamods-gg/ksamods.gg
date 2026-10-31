@@ -318,10 +318,10 @@ class ModController extends Controller
                     'repeat' => $repeat,
                     'children' => $repeat ? [] : $expand($need['id'], $depth + 1),
                 ];
-            })->values()->all();
+            })->all();
         };
 
-        $nodes = $expand($id, 1);
+        $nodes = array_values($expand($id, 1));
         $conflicts = [];
 
         foreach (array_keys($seen) as $member) {
