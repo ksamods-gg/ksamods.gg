@@ -107,6 +107,13 @@ class ModController extends Controller
 
         $ratings = ModSocial::ratings();
 
+        // Kept for the public profile, which cannot ask GitHub on a visitor's behalf.
+        $ids = array_map('strval', array_keys($roles));
+
+        if ($ids !== ($user->mod_ids ?? [])) {
+            $user->forceFill(['mod_ids' => $ids])->save();
+        }
+
         return Inertia::render('Mods/Mine', [
             'mods' => collect($snapshot['listings'])
                 ->filter(fn (array $listing) => isset($roles[$listing['id']]))
@@ -237,7 +244,7 @@ class ModController extends Controller
      * @param  Listing  $listing
      * @return array<string, mixed>
      */
-    private function summary(array $listing): array
+    public function summary(array $listing): array
     {
         $latest = $this->latestRelease($listing);
 
@@ -313,7 +320,7 @@ class ModController extends Controller
      * @param  Snapshot  $snapshot
      * @return array<string, string>
      */
-    private function tagNames(array $snapshot): array
+    public function tagNames(array $snapshot): array
     {
         return collect($snapshot['tags']['mod'] ?? [])->pluck('name', 'tag')->all();
     }

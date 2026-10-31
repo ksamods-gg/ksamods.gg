@@ -27,7 +27,12 @@ export type Post = {
     // Null on a review without text, and on a deleted comment.
     body: string | null;
     // Null on a deleted comment, which stays only to keep its replies in context.
-    author: { name: string; avatar: string | null } | null;
+    // profile: the author's public profile, when they turned it on.
+    author: {
+        name: string;
+        avatar: string | null;
+        profile: string | null;
+    } | null;
     created_at: string;
     edited: boolean;
     deleted: boolean;

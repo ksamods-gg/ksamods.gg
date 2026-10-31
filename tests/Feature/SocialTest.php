@@ -245,7 +245,8 @@ it('shows the reviews and comments on the mod page, with only public author deta
         ->where('reviews.average', 3.5)
         ->where('reviews.count', 2)
         ->where('reviews.mine', ['rating' => 2, 'body' => null])
-        ->where('reviews.items.1.author', ['name' => 'Jeb', 'avatar' => 'https://example.com/jeb.png'])
+        // A profile link only once Jeb turns a profile on.
+        ->where('reviews.items.1.author', ['name' => 'Jeb', 'avatar' => 'https://example.com/jeb.png', 'profile' => null])
         ->where('reviews.items.1.canDelete', false)
         ->where('reviews.items.0.mine', true)
         ->where('comments.count', 1)

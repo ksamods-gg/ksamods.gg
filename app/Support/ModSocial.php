@@ -42,8 +42,8 @@ class ModSocial
      */
     public static function recent(int $limit, array $modNames): array
     {
-        $reviews = Review::with('user:id,name,avatar')->whereNotNull('body')->latest()->limit($limit)->get();
-        $comments = Comment::with('user:id,name,avatar')->latest()->limit($limit)->get();
+        $reviews = Review::with('user:id,name,avatar,username,profile_enabled')->whereNotNull('body')->latest()->limit($limit)->get();
+        $comments = Comment::with('user:id,name,avatar,username,profile_enabled')->latest()->limit($limit)->get();
 
         return array_values($reviews->toBase()->merge($comments)
             ->filter(fn (Review|Comment $post) => isset($modNames[$post->listing_id]))
@@ -53,7 +53,7 @@ class ModSocial
                 'key' => ($post instanceof Review ? 'review-' : 'comment-').$post->id,
                 'rating' => $post instanceof Review ? $post->rating : null,
                 'excerpt' => Str::limit((string) $post->body, 160),
-                'author' => ['name' => $post->user->name, 'avatar' => $post->user->avatar],
+                'author' => ['name' => $post->user->name, 'avatar' => $post->user->avatar, 'profile' => $post->user->profileUrl()],
                 'mod' => ['id' => $post->listing_id, 'name' => $modNames[$post->listing_id]],
                 'ago' => $post->created_at->diffForHumans(),
                 'url' => route('mods.show', [
@@ -74,11 +74,11 @@ class ModSocial
      */
     public static function forListing(string $listingId, ?User $viewer): array
     {
-        $reviews = Review::with('user:id,name,avatar')->where('listing_id', $listingId)->latest()->get();
+        $reviews = Review::with('user:id,name,avatar,username,profile_enabled')->where('listing_id', $listingId)->latest()->get();
         $mine = $viewer === null ? null : $reviews->firstWhere('user_id', $viewer->id);
 
         // Oldest first, so replies read as a conversation.
-        $comments = Comment::withTrashed()->with('user:id,name,avatar')->where('listing_id', $listingId)->oldest()->get();
+        $comments = Comment::withTrashed()->with('user:id,name,avatar,username,profile_enabled')->where('listing_id', $listingId)->oldest()->get();
         $tops = $comments->whereNull('parent_id');
         $repliesTo = [];
 
@@ -156,7 +156,7 @@ class ModSocial
             'id' => $post->id,
             'body' => $post->body,
             // Only a public name and picture; nothing else about the author leaves the server.
-            'author' => ['name' => $post->user->name, 'avatar' => $post->user->avatar],
+            'author' => ['name' => $post->user->name, 'avatar' => $post->user->avatar, 'profile' => $post->user->profileUrl()],
             'created_at' => $post->created_at->toIso8601String(),
             'edited' => $post->updated_at->gt($post->created_at),
             'deleted' => false,

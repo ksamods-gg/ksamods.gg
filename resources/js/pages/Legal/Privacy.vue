@@ -86,6 +86,13 @@ defineProps<{ operator: LegalOperator }>();
                 What you follow is visible only to you.
             </li>
             <li>
+                <strong>Public profile</strong>, only if you turn it on: your
+                username, bio and links, your GitHub and Discord names if you
+                choose to show them, and the mods, shared vehicles and saves,
+                reviews and comments you leave visible. Turn it off any time in
+                your settings.
+            </li>
+            <li>
                 <strong>Email digest:</strong> if you turn it on, the email
                 address you give for it, whether you confirmed it, how often you
                 want it and when the last one went out. It is used only to send

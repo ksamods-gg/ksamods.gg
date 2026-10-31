@@ -34,6 +34,13 @@ use Laravel\Passport\HasApiTokens;
  * @property Carbon|null $digest_email_verified_at
  * @property 'off'|'daily'|'weekly'|'monthly' $digest_frequency
  * @property Carbon|null $digest_sent_at
+ * @property string|null $username
+ * @property bool $profile_enabled
+ * @property string|null $bio
+ * @property list<string>|null $profile_links
+ * @property bool $profile_show_accounts
+ * @property array<string, bool>|null $profile_sections
+ * @property list<string>|null $mod_ids
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
@@ -41,7 +48,7 @@ use Laravel\Passport\HasApiTokens;
  * @property Carbon|null $updated_at
  */
 #[Fillable(['github_id', 'github_login', 'github_token', 'github_scopes', 'discord_id', 'discord_username', 'name', 'email', 'avatar', 'password'])]
-#[Hidden(['password', 'remember_token', 'github_token', 'share_account'])]
+#[Hidden(['password', 'remember_token', 'github_token', 'share_account', 'mod_ids'])]
 class User extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -74,6 +81,24 @@ class User extends Authenticatable implements OAuthenticatable
     public function shares(): HasMany
     {
         return $this->hasMany(Share::class);
+    }
+
+    /**
+     * What a public profile can show; each is on until the player turns it off.
+     */
+    public const PROFILE_SECTIONS = ['vehicles', 'saves', 'mods', 'reviews', 'comments'];
+
+    /**
+     * The public profile's address, while it is turned on.
+     */
+    public function profileUrl(): ?string
+    {
+        return $this->profile_enabled && $this->username !== null ? route('profiles.show', $this->username) : null;
+    }
+
+    public function showsOnProfile(string $section): bool
+    {
+        return $this->profile_sections[$section] ?? true;
     }
 
     /**
@@ -157,6 +182,11 @@ class User extends Authenticatable implements OAuthenticatable
             'share_consented_at' => 'datetime',
             'digest_email_verified_at' => 'datetime',
             'digest_sent_at' => 'datetime',
+            'profile_enabled' => 'boolean',
+            'profile_links' => 'array',
+            'profile_show_accounts' => 'boolean',
+            'profile_sections' => 'array',
+            'mod_ids' => 'array',
         ];
     }
 }

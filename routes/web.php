@@ -14,6 +14,7 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\ListingController;
 use App\Http\Controllers\ModController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\ShareController;
@@ -38,6 +39,8 @@ Route::prefix('feeds')->name('feeds.')->whereIn('format', ['atom', 'rss'])->grou
 Route::get('/policy', [ShareController::class, 'policy'])->name('policy');
 Route::get('/{types}', [ShareController::class, 'index'])->whereIn('types', ['vehicles', 'saves'])->name('shares.index');
 Route::get('/{types}/{id}', [ShareController::class, 'show'])->whereIn('types', ['vehicles', 'saves'])->name('shares.show');
+// Public profiles, for players who turned theirs on.
+Route::get('/u/{username}', [ProfileController::class, 'show'])->name('profiles.show');
 // From emails, so without signing in: signed links instead.
 Route::get('/digest/confirm/{user}', [DigestController::class, 'confirm'])->middleware('signed')->name('digest.confirm');
 Route::match(['get', 'post'], '/digest/unsubscribe/{user}', [DigestController::class, 'unsubscribe'])->middleware('signed')->name('digest.unsubscribe');
@@ -62,6 +65,8 @@ Route::get('/auth/discord/callback', [DiscordAuthController::class, 'callback'])
 Route::middleware('auth')->group(function () {
     Route::get('/my-mods', [ModController::class, 'mine'])->name('mods.mine');
     Route::get('/settings/accounts', [AccountController::class, 'show'])->name('accounts');
+    Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
+    Route::put('/settings/profile', [ProfileController::class, 'update'])->middleware('throttle:social')->name('settings.profile.update');
     Route::get('/settings/notifications', [DigestController::class, 'show'])->name('settings.notifications');
     Route::put('/settings/notifications', [DigestController::class, 'update'])->middleware('throttle:social')->name('settings.notifications.update');
     Route::post('/follows', [FollowController::class, 'toggle'])->middleware('throttle:social')->name('follows.toggle');

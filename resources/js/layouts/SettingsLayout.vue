@@ -5,7 +5,7 @@ import ModIcon from '@/components/ModIcon.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { accounts } from '@/routes';
 import { mine } from '@/routes/mods';
-import { notifications } from '@/routes/settings';
+import { notifications, profile } from '@/routes/settings';
 import { create as shareCreate } from '@/routes/shares';
 
 /**
@@ -19,6 +19,7 @@ const groups = [
     {
         title: null,
         items: [
+            { label: 'Public profile', href: profile().url, icon: 'card' },
             { label: 'Account', href: accounts().url, icon: 'person' },
             { label: 'Notifications', href: notifications().url, icon: 'bell' },
         ],
@@ -100,7 +101,22 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                                         aria-hidden="true"
                                         :class="['size-4 shrink-0', muted]"
                                     >
-                                        <template v-if="item.icon === 'person'">
+                                        <template v-if="item.icon === 'card'">
+                                            <rect
+                                                x="3"
+                                                y="5"
+                                                width="18"
+                                                height="14"
+                                                rx="2"
+                                            />
+                                            <circle cx="9" cy="11" r="2" />
+                                            <path
+                                                d="M6 16a3 3 0 0 1 6 0M15 10h3M15 14h3"
+                                            />
+                                        </template>
+                                        <template
+                                            v-else-if="item.icon === 'person'"
+                                        >
                                             <circle cx="12" cy="8" r="4" />
                                             <path d="M4 21a8 8 0 0 1 16 0" />
                                         </template>

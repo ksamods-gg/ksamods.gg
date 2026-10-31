@@ -296,7 +296,7 @@ class ShareController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function summary(Share $share): array
+    public function summary(Share $share): array
     {
         $latest = $share->releases->whereNull('taken_down_at')->last();
 

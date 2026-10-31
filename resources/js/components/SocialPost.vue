@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import { formatDate } from '@/lib/format';
@@ -73,7 +73,13 @@ const control =
             <header
                 class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm"
             >
-                <span v-if="post.author" class="font-medium">{{
+                <Link
+                    v-if="post.author?.profile"
+                    :href="post.author.profile"
+                    class="font-medium hover:underline"
+                    >{{ post.author.name }}</Link
+                >
+                <span v-else-if="post.author" class="font-medium">{{
                     post.author.name
                 }}</span>
                 <span v-else :class="['italic', muted]">Deleted</span>
