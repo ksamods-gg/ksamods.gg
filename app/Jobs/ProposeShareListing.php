@@ -47,9 +47,9 @@ class ProposeShareListing implements ShouldQueue
 
         DataFiles::writeAttestation($digest, [$name => $share->account]);
 
-        $title = $new ? "Add the {$share->type} {$share->listing_id}" : "Update the dependencies of the {$share->type} {$share->listing_id}";
+        $title = $new ? "Add the {$share->type} {$share->listing_id}" : "Update the {$share->type} {$share->listing_id}";
         $body = implode("\n\n", [
-            ($new ? 'A new listing' : 'A new dependency list').", published on ksamods.gg as a share host (RFC 0094): {$share->url()}",
+            ($new ? 'A new listing' : 'An update of its owner to the listing').", published on ksamods.gg as a share host (RFC 0094): {$share->url()}",
             'Ownership is proven by attestation: the host attests this exact change, for the account that owns the listing, in '
                 .DataFiles::url("attestations/{$digest}.json").' (signed, with its signature at the same path with .sig appended), '
                 .'and the owner record is '.DataFiles::url("owners/{$name}.json").'.',

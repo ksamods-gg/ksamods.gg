@@ -65,7 +65,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/share', [ShareController::class, 'upload'])->middleware('throttle:share-uploads')->name('shares.upload');
     Route::get('/share/uploads/{upload}', [ShareController::class, 'review'])->name('shares.review');
     Route::post('/share/uploads/{upload}/publish', [ShareController::class, 'publish'])->middleware('throttle:share-uploads')->name('shares.publish');
-    Route::post('/share/releases/{release}/take-down', [ShareController::class, 'takeDown'])->middleware('can:moderate')->name('shares.take-down');
+    Route::post('/share/releases/{release}/take-down', [ShareController::class, 'takeDown'])->name('shares.take-down');
+    Route::get('/{types}/{id}/edit', [ShareController::class, 'edit'])->whereIn('types', ['vehicles', 'saves'])->name('shares.edit');
+    Route::put('/{types}/{id}', [ShareController::class, 'update'])->whereIn('types', ['vehicles', 'saves'])->name('shares.update');
+    Route::delete('/{types}/{id}', [ShareController::class, 'destroy'])->whereIn('types', ['vehicles', 'saves'])->name('shares.destroy');
 
     Route::middleware('throttle:social')->group(function () {
         Route::put('/mods/{id}/review', [ReviewController::class, 'save'])->name('reviews.save');

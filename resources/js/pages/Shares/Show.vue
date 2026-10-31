@@ -7,13 +7,14 @@ import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate } from '@/lib/format';
-import { create, index, takeDown } from '@/routes/shares';
+import { create, destroy, edit, index, takeDown } from '@/routes/shares';
 import type { ShareDetail } from '@/types';
 
 const props = defineProps<{
     share: ShareDetail;
     owns: boolean;
     canTakeDown: boolean;
+    canDelete: boolean;
 }>();
 
 const page = usePage();
@@ -146,9 +147,21 @@ function takeDownRelease(id: number, version: string) {
     }
 }
 
+function deleteListing() {
+    if (
+        confirm(
+            `Delete ${props.share.name} for good? Its releases, files and pull request go, and its id becomes free again.`,
+        )
+    ) {
+        router.delete(destroy({ types: listing, id: props.share.id }).url);
+    }
+}
+
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const primaryButton =
     'rounded-md bg-[#1b1b18] px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white';
+const secondaryButton =
+    'rounded-md border border-[#19140035] px-5 py-2.5 text-center text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
 const card =
     'rounded-lg bg-white p-5 shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]';
 </script>
@@ -174,6 +187,13 @@ const card =
             class="mt-4 rounded-md bg-accent-wash p-3 text-sm text-accent"
         >
             {{ page.flash.status }}
+        </p>
+        <p
+            v-if="page.props.errors.listing"
+            role="alert"
+            class="mt-4 rounded-md bg-[#fff2f2] p-3 text-sm text-[#f53003] dark:bg-[#1D0002] dark:text-[#FF4433]"
+        >
+            {{ page.props.errors.listing }}
         </p>
 
         <div
@@ -415,12 +435,32 @@ const card =
                     >
                 </section>
 
-                <Link
-                    v-if="owns"
-                    :href="create({ query: { listing: share.id } })"
-                    :class="primaryButton"
-                    >Upload a new version</Link
-                >
+                <section v-if="owns" :class="[card, 'flex flex-col gap-3']">
+                    <h2 class="font-semibold">Your listing</h2>
+                    <Link
+                        :href="create({ query: { listing: share.id } })"
+                        :class="primaryButton"
+                        >Upload a new version</Link
+                    >
+                    <Link
+                        :href="edit({ types: listing, id: share.id })"
+                        :class="secondaryButton"
+                        >Edit the listing</Link
+                    >
+                    <template v-if="canDelete">
+                        <button
+                            type="button"
+                            class="text-left text-xs text-[#f53003] hover:underline dark:text-[#FF4433]"
+                            @click="deleteListing"
+                        >
+                            Delete this {{ kind }}
+                        </button>
+                        <p :class="['text-xs', muted]">
+                            Possible until the index takes it. After that, take
+                            its releases down instead.
+                        </p>
+                    </template>
+                </section>
             </aside>
         </div>
     </AppLayout>

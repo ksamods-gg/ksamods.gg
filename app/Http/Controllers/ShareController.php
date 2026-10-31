@@ -70,8 +70,76 @@ class ShareController extends Controller
                 ])->filter(fn (array $release) => ! $release['taken_down'] || $owns || $user?->canModerate()),
             ],
             'owns' => $owns,
-            'canTakeDown' => $user?->canModerate() ?? false,
+            'canTakeDown' => $owns || ($user?->canModerate() ?? false),
+            // Without asking GitHub: a merged pull request or the snapshot says it is listed.
+            'canDelete' => $owns && $share->pull_request_state !== 'merged'
+                && ! in_array($share->listing_id, array_column(ContentIndex::shared($share->type), 'id'), true),
         ]);
+    }
+
+    /**
+     * The owner's form for the listing text: name, summary, description, license and tags.
+     */
+    public function edit(Request $request, string $types, string $id): Response
+    {
+        $share = $this->owned($request, $types, $id);
+
+        return Inertia::render('Shares/Edit', [
+            'share' => [
+                'id' => $share->listing_id,
+                'type' => $share->type,
+                'name' => $share->name,
+                'abstract' => $share->abstract,
+                'description' => $share->description,
+                'license' => $share->license,
+                'tags' => implode(', ', $share->tags),
+            ],
+        ]);
+    }
+
+    /**
+     * Saves the listing text and proposes it to the index, which takes it once its checks pass.
+     */
+    public function update(Request $request, string $types, string $id): RedirectResponse
+    {
+        $share = $this->owned($request, $types, $id);
+
+        try {
+            $pullRequest = ShareHost::amend($share, $request->only(['name', 'abstract', 'description', 'license', 'tags']));
+        } catch (ShareError $error) {
+            throw ValidationException::withMessages(['listing' => $error->getMessage()]);
+        }
+
+        Inertia::flash('status', $pullRequest
+            ? 'Saved. The change is in the listing pull request; the index takes it once its checks pass.'
+            : 'Saved here. GitHub could not be reached, so the pull request follows shortly.');
+
+        return to_route('shares.show', ['types' => $types, 'id' => $id]);
+    }
+
+    /**
+     * Deletes the owner's listing for good, while it has not reached the index.
+     */
+    public function destroy(Request $request, string $types, string $id): RedirectResponse
+    {
+        $share = $this->owned($request, $types, $id);
+
+        if (ShareHost::listed($share)) {
+            throw ValidationException::withMessages(['listing' => 'This listing is in the index, so it cannot be deleted. Take its releases down instead.']);
+        }
+
+        ShareHost::purge($share);
+        Inertia::flash('status', "Deleted {$share->name}.");
+
+        return to_route('shares.index', $types);
+    }
+
+    private function owned(Request $request, string $types, string $id): Share
+    {
+        $share = Share::where('listing_id', $id)->where('type', array_search($types, Share::FOLDERS, true))->firstOrFail();
+        abort_unless($share->user_id === $request->user()->id, 403);
+
+        return $share;
     }
 
     /**
@@ -192,7 +260,8 @@ class ShareController extends Controller
      */
     public function takeDown(Request $request, ShareRelease $release): RedirectResponse
     {
-        abort_unless($request->user()->canModerate(), 403);
+        // Moderators, and the owner for their own releases.
+        abort_unless($request->user()->canModerate() || $release->share->user_id === $request->user()->id, 403);
 
         if ($release->taken_down_at === null) {
             $release->forceFill(['taken_down_at' => now()])->save();

@@ -67,6 +67,14 @@ const control =
             >
         </div>
 
+        <p
+            v-if="$page.flash.status"
+            role="status"
+            class="mt-4 rounded-md bg-accent-wash p-3 text-sm text-accent"
+        >
+            {{ $page.flash.status }}
+        </p>
+
         <nav
             class="mt-6 flex gap-6 text-sm shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_#3E3E3A]"
             aria-label="Type"

@@ -297,30 +297,15 @@ class ShareHost
     {
         $id = (string) ($input['id'] ?? '');
         $authors = self::list($input['authors'] ?? null);
-        $tags = self::list($input['tags'] ?? null);
 
         if (preg_match(self::ID, $id) !== 1) {
             throw new ShareError('invalid_request', 'The id must be 1 to 64 letters, digits, ., _ or -, starting and ending with a letter or digit, such as ExampleRover.');
         }
 
-        foreach (['name' => 'a name', 'abstract' => 'a one-line summary', 'license' => 'a license, such as CC-BY-4.0'] as $field => $what) {
-            if (trim((string) ($input[$field] ?? '')) === '') {
-                throw new ShareError('invalid_request', "The listing needs {$what}.");
-            }
-        }
+        $fields = self::listingFields($input);
 
         if ($authors === []) {
             throw new ShareError('invalid_request', 'The listing needs at least one author.');
-        }
-
-        if (preg_match('/^[A-Za-z0-9.:+()-]+(?: (?:AND|OR|WITH) [A-Za-z0-9.:+()-]+)*$/', (string) $input['license']) !== 1) {
-            throw new ShareError('invalid_request', 'The license must be an SPDX expression, such as CC-BY-4.0 or MIT.');
-        }
-
-        foreach ($tags as $tag) {
-            if (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $tag) !== 1) {
-                throw new ShareError('invalid_request', "The tag \"{$tag}\" must be lowercase words joined by -, such as rover.");
-            }
         }
 
         self::checkId($id);
@@ -336,20 +321,104 @@ class ShareHost
         }
 
         $share = new Share([
+            ...$fields,
             'type' => $type,
             'listing_id' => $id,
             'account' => $account,
-            'name' => Str::limit(trim((string) $input['name']), 200, ''),
             'authors' => $authors,
-            'abstract' => Str::limit(trim((string) $input['abstract']), 300, ''),
-            'description' => trim((string) ($input['description'] ?? '')) ?: null,
-            'license' => (string) $input['license'],
-            'tags' => $tags,
             'dependencies' => [],
         ]);
         $share->user()->associate($user)->save();
 
         return $share;
+    }
+
+    /**
+     * The listing text an owner writes and may change later: name, summary, description, license
+     * and tags, checked and trimmed.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array{name: string, abstract: string, description: string|null, license: string, tags: list<string>}
+     *
+     * @throws ShareError
+     */
+    public static function listingFields(array $input): array
+    {
+        $tags = self::list($input['tags'] ?? null);
+
+        foreach (['name' => 'a name', 'abstract' => 'a one-line summary', 'license' => 'a license, such as CC-BY-4.0'] as $field => $what) {
+            if (trim((string) ($input[$field] ?? '')) === '') {
+                throw new ShareError('invalid_request', "The listing needs {$what}.");
+            }
+        }
+
+        if (preg_match('/^[A-Za-z0-9.:+()-]+(?: (?:AND|OR|WITH) [A-Za-z0-9.:+()-]+)*$/', (string) $input['license']) !== 1) {
+            throw new ShareError('invalid_request', 'The license must be an SPDX expression, such as CC-BY-4.0 or MIT.');
+        }
+
+        foreach ($tags as $tag) {
+            if (preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $tag) !== 1) {
+                throw new ShareError('invalid_request', "The tag \"{$tag}\" must be lowercase words joined by -, such as rover.");
+            }
+        }
+
+        return [
+            'name' => Str::limit(trim((string) $input['name']), 200, ''),
+            'abstract' => Str::limit(trim((string) $input['abstract']), 300, ''),
+            'description' => trim((string) ($input['description'] ?? '')) ?: null,
+            'license' => (string) $input['license'],
+            'tags' => $tags,
+        ];
+    }
+
+    /**
+     * Changes a listing's text and proposes the change to the index, as an amendment pull request
+     * or a push to the listing's open one.
+     *
+     * @param  array<string, mixed>  $input
+     *
+     * @throws ShareError
+     */
+    public static function amend(Share $share, array $input): ?string
+    {
+        $share->forceFill(self::listingFields($input))->save();
+
+        // Until the listing is in the index, its pull request still adds it.
+        return self::propose($share, ! self::listed($share));
+    }
+
+    /**
+     * Whether the listing reached the index: in its snapshot, or its pull request merged. Such a
+     * listing can only lose releases by takedown (rule 18), never be deleted.
+     */
+    public static function listed(Share $share): bool
+    {
+        return $share->pull_request_state === 'merged'
+            || in_array($share->listing_id, array_column(ContentIndex::shared($share->type), 'id'), true)
+            || ShareBot::merged($share);
+    }
+
+    /**
+     * Deletes a listing that never reached the index, with everything it left: its pull request
+     * and branch, archives, Internet Archive mirrors, data files and records. Its id is free again.
+     */
+    public static function purge(Share $share): void
+    {
+        ShareBot::withdraw($share);
+
+        foreach ($share->releases as $release) {
+            DataFiles::disk()->delete($release->path);
+
+            if ($release->mirror_url !== null) {
+                ArchiveMirror::delete($release);
+            }
+        }
+
+        foreach (["releases/{$share->type}/{$share->listing_id}.json", "owners/{$share->type}/{$share->listing_id}.json"] as $path) {
+            DataFiles::disk()->delete([$path, "{$path}.sig"]);
+        }
+
+        $share->delete();
     }
 
     /**

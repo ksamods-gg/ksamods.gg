@@ -4,10 +4,8 @@ use App\Enums\Role;
 use App\Models\Share;
 use App\Models\ShareUpload;
 use App\Models\User;
-use App\Support\ContentIndex;
-use App\Support\Share\ArchiveMirror;
 use App\Support\Share\DataFiles;
-use App\Support\Share\ShareBot;
+use App\Support\Share\ShareHost;
 use App\Support\Share\Signer;
 use App\Support\Toml;
 use Illuminate\Foundation\Inspiring;
@@ -133,7 +131,7 @@ Artisan::command('share:purge {type : vehicle or save} {id : The listing id} {--
     }
 
     // Only a listing that never reached the index: once it did, a release can only be taken down (rule 18).
-    if (in_array($id, array_column(ContentIndex::shared($share->type), 'id'), true) || ShareBot::merged($share)) {
+    if (ShareHost::listed($share)) {
         $this->error("The {$type} {$id} is in the index, or its pull request was merged. Take its releases down instead.");
 
         return 1;
@@ -143,21 +141,7 @@ Artisan::command('share:purge {type : vehicle or save} {id : The listing id} {--
         return 1;
     }
 
-    ShareBot::withdraw($share);
-
-    foreach ($share->releases as $release) {
-        DataFiles::disk()->delete($release->path);
-
-        if ($release->mirror_url !== null) {
-            ArchiveMirror::delete($release);
-        }
-    }
-
-    foreach (["releases/{$type}/{$id}.json", "owners/{$type}/{$id}.json"] as $path) {
-        DataFiles::disk()->delete([$path, "{$path}.sig"]);
-    }
-
-    $share->delete();
+    ShareHost::purge($share);
     $this->info("Deleted the {$type} {$id}. Its id is free again.");
 
     return 0;

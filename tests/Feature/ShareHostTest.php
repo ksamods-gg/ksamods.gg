@@ -661,3 +661,56 @@ describe('owner notifications', function () {
         expect($owner->notifications()->sole()->data)->toMatchArray(['kind' => 'share_taken_down', 'version' => '1.0.0']);
     });
 });
+
+describe('owner tools', function () {
+    it('lets the owner edit the listing text, and pushes it to the listing pull request', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+
+        $this->actingAs($owner)->put('/vehicles/ExampleRover', [
+            'name' => 'Example Rover Mk2', 'abstract' => 'A sturdier rover.', 'description' => 'Six wheels.',
+            'license' => 'CC-BY-SA-4.0', 'tags' => 'rover, six-wheels',
+        ])->assertRedirect('/vehicles/ExampleRover');
+
+        $share = Share::sole();
+        expect($share->name)->toBe('Example Rover Mk2')->and($share->tags)->toBe(['rover', 'six-wheels'])
+            // Into the open pull request, not a second one.
+            ->and($this->pulls)->toHaveCount(1)
+            ->and(collect(end($this->trees))->firstWhere('path', 'vehicles/ExampleRover.toml')['content'])->toContain('Example Rover Mk2');
+    });
+
+    it('refuses edits from anyone but the owner, and bad listing text', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+
+        $this->actingAs(User::factory()->create())->get('/vehicles/ExampleRover/edit')->assertForbidden();
+        $this->actingAs($owner)->put('/vehicles/ExampleRover', ['name' => 'X', 'abstract' => 'Y', 'license' => 'not a license!'])
+            ->assertSessionHasErrors('listing');
+    });
+
+    it('lets the owner take down their own release', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+
+        $this->actingAs($owner)->post(route('shares.take-down', ShareRelease::sole()))->assertRedirect();
+        $this->actingAs(User::factory()->create())->post(route('shares.take-down', ShareRelease::sole()))->assertForbidden();
+
+        expect(ShareRelease::sole()->taken_down_at)->not->toBeNull()
+            // Nobody to tell: the owner did it.
+            ->and($owner->notifications()->count())->toBe(0);
+    });
+
+    it('lets the owner delete a listing that never reached the index, and not one that did', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        Share::sole()->forceFill(['pull_request_state' => 'merged'])->save();
+
+        $this->actingAs($owner)->delete('/vehicles/ExampleRover')->assertSessionHasErrors('listing');
+        expect(Share::count())->toBe(1);
+
+        Share::sole()->forceFill(['pull_request_state' => 'open'])->save();
+        $this->actingAs($owner)->delete('/vehicles/ExampleRover')->assertRedirect('/vehicles');
+
+        expect(Share::count())->toBe(0)->and($this->closed)->toBe(['closed']);
+    });
+});
