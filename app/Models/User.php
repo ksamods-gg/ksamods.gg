@@ -41,6 +41,7 @@ use Laravel\Passport\HasApiTokens;
  * @property bool $profile_show_accounts
  * @property array<string, bool>|null $profile_sections
  * @property list<string>|null $mod_ids
+ * @property list<string>|null $known_devices
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
@@ -48,7 +49,7 @@ use Laravel\Passport\HasApiTokens;
  * @property Carbon|null $updated_at
  */
 #[Fillable(['github_id', 'github_login', 'github_token', 'github_scopes', 'discord_id', 'discord_username', 'name', 'email', 'avatar', 'password'])]
-#[Hidden(['password', 'remember_token', 'github_token', 'share_account', 'mod_ids'])]
+#[Hidden(['password', 'remember_token', 'github_token', 'share_account', 'mod_ids', 'known_devices'])]
 class User extends Authenticatable implements OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -187,6 +188,7 @@ class User extends Authenticatable implements OAuthenticatable
             'profile_show_accounts' => 'boolean',
             'profile_sections' => 'array',
             'mod_ids' => 'array',
+            'known_devices' => 'array',
         ];
     }
 }

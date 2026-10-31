@@ -3,14 +3,18 @@
 namespace App\Providers;
 
 use App\Http\Controllers\Api\ShareDeviceController;
+use App\Mail\NewSignIn;
 use App\Models\User;
+use App\Support\Device;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -40,6 +44,30 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
 
         Event::listen(SocialiteWasCalled::class, [DiscordExtendSocialite::class, 'handle']);
+
+        // A sign-in from a browser the account has not used before is emailed to its confirmed
+        // digest address. The first sign-in only notes its browser.
+        Event::listen(function (Login $event) {
+            $user = $event->user;
+
+            if (! $user instanceof User) {
+                return;
+            }
+
+            $agent = request()->userAgent();
+            $known = $user->known_devices ?? [];
+            $device = Device::fingerprint($agent);
+
+            if (in_array($device, $known, true)) {
+                return;
+            }
+
+            if ($known !== [] && $user->digest_email !== null && $user->digest_email_verified_at !== null) {
+                Mail::to($user->digest_email)->queue(new NewSignIn($user, Device::describe($agent), request()->ip()));
+            }
+
+            $user->forceFill(['known_devices' => array_slice([$device, ...$known], 0, 20)])->saveQuietly();
+        });
 
         // The admin panel, and the part of it only admins use.
         Gate::define('moderate', fn (User $user) => $user->canModerate());

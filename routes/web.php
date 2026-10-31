@@ -17,6 +17,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SessionController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
@@ -65,6 +66,9 @@ Route::get('/auth/discord/callback', [DiscordAuthController::class, 'callback'])
 Route::middleware('auth')->group(function () {
     Route::get('/my-mods', [ModController::class, 'mine'])->name('mods.mine');
     Route::get('/settings/accounts', [AccountController::class, 'show'])->name('accounts');
+    Route::get('/settings/sessions', [SessionController::class, 'index'])->name('settings.sessions');
+    Route::delete('/settings/sessions', [SessionController::class, 'destroyOthers'])->name('settings.sessions.destroy-others');
+    Route::delete('/settings/sessions/{id}', [SessionController::class, 'destroy'])->name('settings.sessions.destroy');
     Route::get('/settings/profile', [ProfileController::class, 'edit'])->name('settings.profile');
     Route::put('/settings/profile', [ProfileController::class, 'update'])->middleware('throttle:social')->name('settings.profile.update');
     Route::get('/settings/notifications', [DigestController::class, 'show'])->name('settings.notifications');

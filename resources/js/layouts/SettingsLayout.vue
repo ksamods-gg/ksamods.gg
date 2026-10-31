@@ -5,7 +5,7 @@ import ModIcon from '@/components/ModIcon.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { accounts } from '@/routes';
 import { mine } from '@/routes/mods';
-import { notifications, profile } from '@/routes/settings';
+import { notifications, profile, sessions } from '@/routes/settings';
 import { create as shareCreate } from '@/routes/shares';
 
 /**
@@ -22,6 +22,7 @@ const groups = [
             { label: 'Public profile', href: profile().url, icon: 'card' },
             { label: 'Account', href: accounts().url, icon: 'person' },
             { label: 'Notifications', href: notifications().url, icon: 'bell' },
+            { label: 'Sessions', href: sessions().url, icon: 'shield' },
         ],
     },
     {
@@ -120,6 +121,10 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                                             <circle cx="12" cy="8" r="4" />
                                             <path d="M4 21a8 8 0 0 1 16 0" />
                                         </template>
+                                        <path
+                                            v-else-if="item.icon === 'shield'"
+                                            d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"
+                                        />
                                         <path
                                             v-else-if="item.icon === 'bell'"
                                             d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"
