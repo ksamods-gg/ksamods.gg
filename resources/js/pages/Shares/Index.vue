@@ -3,8 +3,9 @@ import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Pager from '@/components/admin/Pager.vue';
 import PageMeta from '@/components/PageMeta.vue';
+import ShareRow from '@/components/ShareRow.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { create, index, show } from '@/routes/shares';
+import { create, index } from '@/routes/shares';
 import type { Paginated, ShareSummary } from '@/types';
 
 const props = defineProps<{
@@ -29,8 +30,8 @@ const tabs = [
 ] as const;
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
-const card =
-    'relative flex flex-col rounded-lg bg-white p-4 shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] hover:shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.4)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d] dark:hover:shadow-[inset_0px_0px_0px_1px_#fffaed5a]';
+const control =
+    'rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus:border-[#EDEDEC]';
 </script>
 
 <template>
@@ -51,11 +52,12 @@ const card =
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">
-                    Vehicles and saves
+                    {{ types === 'vehicles' ? 'Vehicles' : 'Save games' }} for
+                    Kitten Space Agency
                 </h1>
                 <p :class="['mt-1 text-sm', muted]">
-                    Shared by players, with the mods each one needs. Your client
-                    installs those mods first.
+                    {{ shares.total }} shared by players, with the mods each one
+                    needs. Your mod manager installs those mods first.
                 </p>
             </div>
             <Link
@@ -87,51 +89,37 @@ const card =
             >
         </nav>
 
-        <form role="search" class="mt-4 mb-6" @submit.prevent="apply">
-            <label>
+        <form role="search" class="mt-4" @submit.prevent="apply">
+            <label class="block">
                 <span class="sr-only">Search {{ types }}</span>
                 <input
                     v-model="query"
                     type="search"
                     :placeholder="`Search ${types} by name`"
-                    class="w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] sm:max-w-md dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus:border-[#EDEDEC]"
+                    :class="[control, 'w-full py-2.5']"
                 />
             </label>
         </form>
+        <p :class="['mt-3 text-sm', muted]" aria-live="polite">
+            {{ shares.total }}
+            {{
+                shares.total === 1
+                    ? types === 'vehicles'
+                        ? 'vehicle'
+                        : 'save'
+                    : types
+            }}
+        </p>
 
-        <ul
-            v-if="shares.data.length"
-            class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-            <li v-for="share in shares.data" :key="share.id" :class="card">
-                <Link
-                    :href="show({ types, id: share.id })"
-                    class="font-semibold after:absolute after:inset-0 after:rounded-lg hover:underline"
-                    >{{ share.name }}</Link
-                >
-                <p :class="['text-xs', muted]">
-                    by {{ share.authors.join(', ') }}
-                </p>
-                <p class="mt-2 line-clamp-3 text-sm">{{ share.abstract }}</p>
-                <p
-                    :class="[
-                        'mt-auto flex flex-wrap gap-x-3 pt-3 text-xs',
-                        muted,
-                    ]"
-                >
-                    <span v-if="share.version" class="font-mono"
-                        >v{{ share.version }}</span
-                    >
-                    <span v-if="share.game_version"
-                        >Game {{ share.game_version }}</span
-                    >
-                </p>
+        <ul v-if="shares.data.length" class="mt-4 flex flex-col gap-3">
+            <li v-for="share in shares.data" :key="share.id">
+                <ShareRow :share="share" />
             </li>
         </ul>
         <p
             v-else
             :class="[
-                'rounded-lg border border-dashed border-[#19140035] p-10 text-center text-sm dark:border-[#3E3E3A]',
+                'mt-4 rounded-lg border border-dashed border-[#19140035] p-10 text-center text-sm dark:border-[#3E3E3A]',
                 muted,
             ]"
         >

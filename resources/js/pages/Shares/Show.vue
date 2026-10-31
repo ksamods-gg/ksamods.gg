@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref, useTemplateRef } from 'vue';
+import ModIcon from '@/components/ModIcon.vue';
+import ModRelationGroups from '@/components/mods/ModRelationGroups.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate } from '@/lib/format';
-import { show as modPage } from '@/routes/mods';
 import { create, index, takeDown } from '@/routes/shares';
 import type { ShareDetail } from '@/types';
 
@@ -16,6 +18,7 @@ const props = defineProps<{
 
 const page = usePage();
 const listing = props.share.type === 'vehicle' ? 'vehicles' : 'saves';
+const kind = props.share.type === 'vehicle' ? 'vehicle' : 'save';
 
 // What search engines read: a player's creation for the game, and where it sits on the site.
 const jsonLd = computed(() => {
@@ -62,13 +65,76 @@ const jsonLd = computed(() => {
     };
 });
 
-const kinds: Record<string, string> = {
+// Newest first, so the first one still up is the one the download button gets.
+const latest = computed(() =>
+    props.share.releases.find((release) => !release.taken_down),
+);
+
+// A vehicle or save goes into the game's folders on a desktop, so phones get a note instead.
+const mobile = isMobileDevice(page.props.userAgent);
+
+// The same groups as a mod's dependencies.
+const dependencyKinds: Record<string, string> = {
     required: 'Required',
     recommends: 'Recommended',
     optional: 'Optional',
     suggests: 'Suggested',
     conflict: 'Conflicts with',
 };
+const dependencyGroups = computed(() =>
+    Object.entries(dependencyKinds)
+        .map(([kind, label]) => ({
+            label,
+            items: props.share.dependencies.filter((d) => d.kind === kind),
+        }))
+        .filter((group) => group.items.length > 0),
+);
+
+type Tab = 'description' | 'dependencies' | 'releases';
+const tabs = computed(() => [
+    ...(props.share.description
+        ? [
+              {
+                  id: 'description' as const,
+                  label: 'Description',
+                  count: undefined,
+              },
+          ]
+        : []),
+    {
+        id: 'dependencies' as const,
+        label: 'Dependencies',
+        count: props.share.dependencies.length,
+    },
+    {
+        id: 'releases' as const,
+        label: 'Releases',
+        count: props.share.releases.length,
+    },
+]);
+const activeTab = ref<Tab>(
+    props.share.description ? 'description' : 'dependencies',
+);
+const tabButtons = useTemplateRef<HTMLButtonElement[]>('tabButtons');
+
+// Arrow keys, Home and End move between tabs, per the WAI-ARIA tabs pattern.
+function moveBetweenTabs(event: KeyboardEvent, position: number) {
+    const last = tabs.value.length - 1;
+    const target = {
+        ArrowRight: position === last ? 0 : position + 1,
+        ArrowLeft: position === 0 ? last : position - 1,
+        Home: 0,
+        End: last,
+    }[event.key];
+
+    if (target === undefined) {
+        return;
+    }
+
+    event.preventDefault();
+    activeTab.value = tabs.value[target].id;
+    tabButtons.value?.[target]?.focus();
+}
 
 function takeDownRelease(id: number, version: string) {
     if (
@@ -81,6 +147,8 @@ function takeDownRelease(id: number, version: string) {
 }
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
+const primaryButton =
+    'rounded-md bg-[#1b1b18] px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white';
 const card =
     'rounded-lg bg-white p-5 shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]';
 </script>
@@ -97,7 +165,7 @@ const card =
             :href="index(listing)"
             :class="['text-sm hover:underline', muted]"
         >
-            ← {{ listing === 'vehicles' ? 'Vehicles' : 'Saves' }}
+            ← All {{ listing }}
         </Link>
 
         <p
@@ -108,8 +176,15 @@ const card =
             {{ page.flash.status }}
         </p>
 
-        <div class="mt-3 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <div class="flex min-w-0 flex-col gap-4">
+        <div
+            class="mt-4 mb-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between"
+        >
+            <div class="flex gap-4">
+                <ModIcon
+                    :name="share.name"
+                    :src="null"
+                    class="size-20 text-3xl"
+                />
                 <div>
                     <h1 class="text-2xl font-semibold tracking-tight">
                         {{ share.name }}
@@ -118,85 +193,161 @@ const card =
                         {{ share.type === 'vehicle' ? 'Vehicle' : 'Save' }}
                         by {{ share.authors.join(', ') }}
                     </p>
-                    <p class="mt-3">{{ share.abstract }}</p>
+                    <p
+                        class="mt-2 max-w-2xl text-[#4a4a46] dark:text-[#c4c3be]"
+                    >
+                        {{ share.abstract }}
+                    </p>
+                </div>
+            </div>
+
+            <div v-if="latest" class="flex shrink-0 flex-col sm:items-end">
+                <a
+                    v-if="!mobile && latest.url"
+                    :href="latest.url"
+                    :class="primaryButton"
+                >
+                    Download v{{ latest.version }}
+                </a>
+                <div
+                    v-else-if="mobile"
+                    class="rounded-md border border-dashed border-[#19140035] px-4 py-3 text-sm sm:max-w-72 sm:text-right dark:border-[#3E3E3A]"
+                >
+                    <p class="font-medium">Downloads are desktop only</p>
+                    <p :class="['mt-0.5 text-xs', muted]">
+                        Open this page on a Windows, Linux or macOS computer to
+                        get {{ share.name }}.
+                    </p>
                 </div>
 
-                <section v-if="share.description" :class="card">
-                    <h2 class="sr-only">Description</h2>
+                <p :class="['mt-2 text-xs', muted]">
+                    <template v-if="!mobile"
+                        >{{ formatBytes(latest.size) }} ·
+                    </template>
+                    Game {{ latest.game_version }} or newer
+                </p>
+                <p
+                    v-if="!mobile"
+                    :class="['mt-1 max-w-64 text-xs sm:text-right', muted]"
+                >
+                    A mod manager such as Borea installs the mods it needs
+                    first. By hand, unzip it into your
+                    {{ share.type === 'vehicle' ? 'Vehicles' : 'saves' }}
+                    folder.
+                </p>
+            </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div class="min-w-0">
+                <div
+                    role="tablist"
+                    :aria-label="`About this ${kind}`"
+                    class="mb-3 flex [scrollbar-width:none] gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_rgba(62,62,58,0.6)]"
+                >
+                    <button
+                        v-for="(tab, position) in tabs"
+                        :id="`tab-${tab.id}`"
+                        ref="tabButtons"
+                        :key="tab.id"
+                        type="button"
+                        role="tab"
+                        :aria-selected="activeTab === tab.id"
+                        :aria-controls="`panel-${tab.id}`"
+                        :tabindex="activeTab === tab.id ? 0 : -1"
+                        :class="[
+                            'shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+                            activeTab === tab.id
+                                ? 'border-[#1b1b18] dark:border-[#EDEDEC]'
+                                : [
+                                      'border-transparent hover:text-[#1b1b18] dark:hover:text-[#EDEDEC]',
+                                      muted,
+                                  ],
+                        ]"
+                        @click="activeTab = tab.id"
+                        @keydown="moveBetweenTabs($event, position)"
+                    >
+                        {{ tab.label }}
+                        <span
+                            v-if="tab.count !== undefined"
+                            :class="['ml-1 text-xs font-normal', muted]"
+                            >{{ tab.count }}</span
+                        >
+                    </button>
+                </div>
+
+                <section
+                    v-if="share.description"
+                    v-show="activeTab === 'description'"
+                    id="panel-description"
+                    role="tabpanel"
+                    aria-labelledby="tab-description"
+                    tabindex="0"
+                    :class="card"
+                >
                     <p class="text-sm break-words whitespace-pre-line">
                         {{ share.description }}
                     </p>
                 </section>
 
-                <section :class="card">
-                    <h2 class="mb-3 font-semibold">Mods it needs</h2>
-                    <ul
-                        v-if="share.dependencies.length"
-                        class="divide-y divide-[#19140014] text-sm dark:divide-[#3E3E3A]/60"
-                    >
-                        <li
-                            v-for="dependency in share.dependencies"
-                            :key="`${dependency.kind}-${dependency.id}`"
-                            class="flex flex-wrap items-baseline justify-between gap-x-3 py-2"
-                        >
-                            <span>
-                                <Link
-                                    v-if="dependency.name && dependency.id"
-                                    :href="modPage(dependency.id)"
-                                    class="font-medium hover:underline"
-                                    >{{ dependency.name }}</Link
-                                >
-                                <template v-else>{{ dependency.id }}</template>
-                                <span :class="['ml-2 text-xs', muted]">{{
-                                    kinds[dependency.kind] ?? dependency.kind
-                                }}</span>
-                            </span>
-                            <span
-                                v-if="dependency.min"
-                                :class="['text-xs', muted]"
-                                >{{ dependency.min }} or newer</span
-                            >
-                        </li>
-                    </ul>
+                <section
+                    v-show="activeTab === 'dependencies'"
+                    id="panel-dependencies"
+                    role="tabpanel"
+                    aria-labelledby="tab-dependencies"
+                    tabindex="0"
+                    :class="card"
+                >
+                    <ModRelationGroups
+                        v-if="dependencyGroups.length"
+                        :groups="dependencyGroups"
+                    />
                     <p v-else :class="['text-sm', muted]">
-                        Nothing besides the game.
+                        This {{ kind }} needs nothing besides the game.
                     </p>
                 </section>
 
-                <section :class="card">
-                    <h2 class="mb-3 font-semibold">Releases</h2>
+                <section
+                    v-show="activeTab === 'releases'"
+                    id="panel-releases"
+                    role="tabpanel"
+                    aria-labelledby="tab-releases"
+                    tabindex="0"
+                    :class="card"
+                >
                     <ul
-                        class="divide-y divide-[#19140014] text-sm dark:divide-[#3E3E3A]/60"
+                        class="divide-y divide-[#19140014] dark:divide-[#3E3E3A]/60"
                     >
                         <li
                             v-for="release in share.releases"
                             :key="release.id"
-                            class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5"
+                            class="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 text-sm first:pt-0 last:pb-0"
                         >
-                            <span class="flex flex-wrap items-baseline gap-x-3">
-                                <span class="font-mono font-medium"
-                                    >v{{ release.version }}</span
-                                >
-                                <span
-                                    v-if="release.status !== 'stable'"
-                                    class="rounded bg-accent-wash px-1.5 py-0.5 text-xs text-accent"
-                                    >{{ release.status }}</span
-                                >
-                                <span :class="['text-xs', muted]"
-                                    >{{ formatDate(release.date) }} · game
-                                    {{ release.game_version }} ·
-                                    {{ formatBytes(release.size) }}</span
-                                >
-                            </span>
-                            <span class="flex items-center gap-3 text-xs">
+                            <span class="font-medium">{{
+                                release.version
+                            }}</span>
+                            <span
+                                v-if="release.status !== 'stable'"
+                                class="rounded bg-accent-wash px-1.5 py-0.5 text-xs text-accent"
+                                >{{ release.status }}</span
+                            >
+                            <span :class="['text-xs', muted]"
+                                >{{ formatDate(release.date) }} · game
+                                {{ release.game_version }}</span
+                            >
+                            <span
+                                class="ml-auto flex items-center gap-3 text-xs"
+                            >
                                 <span v-if="release.taken_down" :class="muted"
                                     >Taken down</span
                                 >
                                 <a
-                                    v-else-if="release.url"
+                                    v-else-if="release.url && !mobile"
                                     :href="release.url"
                                     class="underline underline-offset-4"
-                                    >Download</a
+                                    >Download ({{
+                                        formatBytes(release.size)
+                                    }})</a
                                 >
                                 <button
                                     v-if="canTakeDown && !release.taken_down"
@@ -217,49 +368,59 @@ const card =
                 </section>
             </div>
 
-            <aside class="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
-                <div :class="[card, 'flex flex-col gap-3 text-sm']">
-                    <p :class="muted">
-                        Install it from your mod manager, such as Borea, which
-                        installs the mods it needs first. A manual download is
-                        the folder to unzip into your
-                        {{ share.type === 'vehicle' ? 'Vehicles' : 'saves' }}
-                        folder.
-                    </p>
-                    <Link
-                        v-if="owns"
-                        :href="create({ query: { listing: share.id } })"
-                        class="rounded-md bg-[#1b1b18] px-4 py-2 text-center font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
-                        >Upload a new version</Link
+            <!-- Sticky beside the content on wide screens; self-start, or the grid stretches it and it cannot stick. -->
+            <aside
+                class="flex flex-col gap-6 text-sm lg:sticky lg:top-6 lg:self-start"
+            >
+                <section :class="card">
+                    <h2 class="mb-3 font-semibold">Details</h2>
+                    <dl
+                        class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2"
                     >
-                </div>
-                <dl
-                    :class="[
-                        card,
-                        'grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm',
-                    ]"
+                        <dt :class="muted">Updated</dt>
+                        <dd>{{ formatDate(share.updated_at) }}</dd>
+                        <template v-if="share.game_version">
+                            <dt :class="muted">Game</dt>
+                            <dd>{{ share.game_version }} or newer</dd>
+                        </template>
+                        <dt :class="muted">License</dt>
+                        <dd>{{ share.license }}</dd>
+                        <dt :class="muted">Id</dt>
+                        <dd class="truncate font-mono">{{ share.id }}</dd>
+                    </dl>
+
+                    <ul
+                        v-if="share.tags.length"
+                        class="mt-4 flex flex-wrap gap-2"
+                    >
+                        <li
+                            v-for="tag in share.tags"
+                            :key="tag"
+                            class="rounded-full border border-[#19140035] px-2.5 py-0.5 text-xs dark:border-[#3E3E3A]"
+                        >
+                            {{ tag }}
+                        </li>
+                    </ul>
+
+                    <a
+                        v-if="share.pull_request_url"
+                        :href="share.pull_request_url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :class="[
+                            'mt-4 inline-block text-xs underline underline-offset-4',
+                            muted,
+                        ]"
+                        >Its listing in the index</a
+                    >
+                </section>
+
+                <Link
+                    v-if="owns"
+                    :href="create({ query: { listing: share.id } })"
+                    :class="primaryButton"
+                    >Upload a new version</Link
                 >
-                    <dt :class="muted">Id</dt>
-                    <dd class="truncate font-mono">{{ share.id }}</dd>
-                    <dt :class="muted">License</dt>
-                    <dd>{{ share.license }}</dd>
-                    <template v-if="share.tags.length">
-                        <dt :class="muted">Tags</dt>
-                        <dd>{{ share.tags.join(', ') }}</dd>
-                    </template>
-                    <template v-if="share.pull_request_url">
-                        <dt :class="muted">Index</dt>
-                        <dd>
-                            <a
-                                :href="share.pull_request_url"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="underline underline-offset-4"
-                                >Listing pull request</a
-                            >
-                        </dd>
-                    </template>
-                </dl>
             </aside>
         </div>
     </AppLayout>

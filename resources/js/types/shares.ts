@@ -3,12 +3,13 @@ export type ShareType = 'vehicle' | 'save';
 export type ShareCheck = { name: string; passed: boolean; message: string };
 
 export type ShareDependency = {
-    id?: string;
+    id: string | null;
     kind: string;
-    min?: string;
-    max?: string;
-    // The mod's name when the index lists it.
+    min: string | null;
+    max: string | null;
+    // The mod's name and icon when the index lists it.
     name: string | null;
+    icon: string | null;
 };
 
 export type ShareSummary = {
@@ -22,6 +23,8 @@ export type ShareSummary = {
     game_version: string | null;
     download_url: string | null;
     updated_at: string;
+    // "3 days ago", worked out on the server.
+    updated_ago: string;
 };
 
 export type ShareReleaseItem = {

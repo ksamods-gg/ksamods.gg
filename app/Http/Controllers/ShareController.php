@@ -237,20 +237,29 @@ class ShareController extends Controller
             'game_version' => $latest?->game_version,
             'download_url' => $latest?->url(),
             'updated_at' => $share->updated_at->toIso8601String(),
+            'updated_ago' => $share->updated_at->diffForHumans(),
         ];
     }
 
     /**
-     * Dependencies with the names of the mods the index lists.
+     * Dependencies with the name and icon of each mod the index lists, in the shape the mod page's
+     * dependency list takes.
      *
      * @param  list<array<string, mixed>>  $dependencies
      * @return list<array<string, mixed>>
      */
     private function dependencies(array $dependencies): array
     {
-        $names = collect(ContentIndex::snapshot()['listings'])->pluck('authored.name', 'id');
+        $listings = collect(ContentIndex::snapshot()['listings'])->keyBy('id');
 
-        return array_map(fn (array $dependency) => [...$dependency, 'name' => $names[$dependency['id'] ?? ''] ?? null], $dependencies);
+        return array_map(fn (array $dependency) => [
+            'id' => $dependency['id'] ?? null,
+            'kind' => $dependency['kind'],
+            'min' => $dependency['min'] ?? null,
+            'max' => $dependency['max'] ?? null,
+            'name' => $listings[$dependency['id'] ?? '']['authored']['name'] ?? null,
+            'icon' => $listings[$dependency['id'] ?? '']['authored']['images']['icon']['url'] ?? null,
+        ], $dependencies);
     }
 
     /**
