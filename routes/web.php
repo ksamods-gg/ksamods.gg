@@ -3,7 +3,9 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\DigestController;
 use App\Http\Controllers\DiscordAuthController;
+use App\Http\Controllers\FollowController;
 use App\Http\Controllers\GitHubAuthController;
 use App\Http\Controllers\GitHubWebhookController;
 use App\Http\Controllers\LegalController;
@@ -27,6 +29,9 @@ Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 Route::get('/policy', [ShareController::class, 'policy'])->name('policy');
 Route::get('/{types}', [ShareController::class, 'index'])->whereIn('types', ['vehicles', 'saves'])->name('shares.index');
 Route::get('/{types}/{id}', [ShareController::class, 'show'])->whereIn('types', ['vehicles', 'saves'])->name('shares.show');
+// From emails, so without signing in: signed links instead.
+Route::get('/digest/confirm/{user}', [DigestController::class, 'confirm'])->middleware('signed')->name('digest.confirm');
+Route::match(['get', 'post'], '/digest/unsubscribe/{user}', [DigestController::class, 'unsubscribe'])->middleware('signed')->name('digest.unsubscribe');
 // The GitHub App's webhook, signed with its secret.
 Route::post('/github/webhook', GitHubWebhookController::class)->name('github.webhook');
 // A release's url in the release list: it never changes, and answers 410 once taken down.
@@ -48,6 +53,9 @@ Route::get('/auth/discord/callback', [DiscordAuthController::class, 'callback'])
 Route::middleware('auth')->group(function () {
     Route::get('/my-mods', [ModController::class, 'mine'])->name('mods.mine');
     Route::get('/settings/accounts', [AccountController::class, 'show'])->name('accounts');
+    Route::get('/settings/notifications', [DigestController::class, 'show'])->name('settings.notifications');
+    Route::put('/settings/notifications', [DigestController::class, 'update'])->middleware('throttle:social')->name('settings.notifications.update');
+    Route::post('/follows', [FollowController::class, 'toggle'])->middleware('throttle:social')->name('follows.toggle');
     Route::delete('/settings/accounts/{provider}', [AccountController::class, 'unlink'])->name('accounts.unlink');
     Route::delete('/settings/account', [AccountController::class, 'destroy'])->name('account.destroy');
     Route::get('/auth/github/link', [GitHubAuthController::class, 'link'])->name('github.link');

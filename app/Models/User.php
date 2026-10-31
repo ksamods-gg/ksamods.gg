@@ -30,6 +30,10 @@ use Laravel\Passport\HasApiTokens;
  * @property Role|null $role
  * @property string|null $share_account
  * @property Carbon|null $share_consented_at
+ * @property string|null $digest_email
+ * @property Carbon|null $digest_email_verified_at
+ * @property 'off'|'daily'|'weekly'|'monthly' $digest_frequency
+ * @property Carbon|null $digest_sent_at
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
@@ -70,6 +74,22 @@ class User extends Authenticatable implements OAuthenticatable
     public function shares(): HasMany
     {
         return $this->hasMany(Share::class);
+    }
+
+    /**
+     * @return HasMany<Follow, $this>
+     */
+    public function follows(): HasMany
+    {
+        return $this->hasMany(Follow::class);
+    }
+
+    /**
+     * @param  'mod'|'vehicle'|'save'  $kind
+     */
+    public function isFollowing(string $kind, string $listingId): bool
+    {
+        return $this->follows()->where('kind', $kind)->where('listing_id', $listingId)->exists();
     }
 
     /**
@@ -135,6 +155,8 @@ class User extends Authenticatable implements OAuthenticatable
             'github_token' => 'encrypted',
             'role' => Role::class,
             'share_consented_at' => 'datetime',
+            'digest_email_verified_at' => 'datetime',
+            'digest_sent_at' => 'datetime',
         ];
     }
 }

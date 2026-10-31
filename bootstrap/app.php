@@ -25,8 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Coolify's proxy terminates TLS; trust it so URLs are generated as https.
         $middleware->trustProxies(at: '*');
 
-        // GitHub signs its webhook instead.
-        $middleware->validateCsrfTokens(except: ['github/webhook']);
+        // GitHub signs its webhook instead, and a mail client's one-click unsubscribe is a signed link.
+        $middleware->validateCsrfTokens(except: ['github/webhook', 'digest/unsubscribe/*']);
 
         $middleware->web(append: [
             HandleInertiaRequests::class,

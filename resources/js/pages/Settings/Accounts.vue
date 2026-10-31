@@ -6,6 +6,7 @@ import { destroy as deleteAccount } from '@/routes/account';
 import { unlink } from '@/routes/accounts';
 import { link as discordLink } from '@/routes/discord';
 import { link as githubLink } from '@/routes/github';
+import { notifications as notificationSettings } from '@/routes/settings';
 
 const props = defineProps<{
     github: { login: string | null; canOpenPullRequests: boolean } | null;
@@ -58,6 +59,11 @@ const button =
             </h1>
             <p :class="['mt-1 mb-6 text-sm', muted]">
                 Sign in to ksamods.gg with any account linked here.
+                <Link
+                    :href="notificationSettings()"
+                    class="underline underline-offset-4"
+                    >Notification settings</Link
+                >
             </p>
 
             <p

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
+import FollowButton from '@/components/FollowButton.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import CommentsPanel from '@/components/mods/CommentsPanel.vue';
 import Gallery from '@/components/mods/Gallery.vue';
@@ -32,6 +33,7 @@ const props = defineProps<{
     // Listings whose newest release needs this one.
     dependents: Dependent[];
     gameVersions: GameVersion[];
+    following: boolean;
 }>();
 
 const latest = computed(
@@ -397,6 +399,12 @@ const card =
                     >
                         {{ mod.abstract }}
                     </p>
+                    <FollowButton
+                        kind="mod"
+                        :id="mod.id"
+                        :following="following"
+                        class="mt-3"
+                    />
                 </div>
             </div>
 

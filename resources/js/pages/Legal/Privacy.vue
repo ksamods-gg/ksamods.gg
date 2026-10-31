@@ -10,7 +10,7 @@ defineProps<{ operator: LegalOperator }>();
 <template>
     <LegalPage
         title="Privacy policy"
-        updated="14 October 2026"
+        updated="1 November 2026"
         description="What ksamods.gg stores about you, why, and how to have it deleted."
     >
         <p>
@@ -80,8 +80,17 @@ defineProps<{ operator: LegalOperator }>();
                 are seen only by moderators.
             </li>
             <li>
-                <strong>Notifications</strong> about replies and mentions are
+                <strong>Notifications</strong> about replies, mentions, new
+                releases of what you follow and your own shared listings are
                 stored for you and delivered live by ksamods.gg's own server.
+                What you follow is visible only to you.
+            </li>
+            <li>
+                <strong>Email digest:</strong> if you turn it on, the email
+                address you give for it, whether you confirmed it, how often you
+                want it and when the last one went out. It is used only to send
+                the digest and its confirmation email. Turn it off with the link
+                in any digest or in your notification settings.
             </li>
             <li>
                 <strong>Mod listings</strong> you submit or edit become pull
@@ -105,8 +114,9 @@ defineProps<{ operator: LegalOperator }>();
             or delete your account. When you delete a comment that has replies,
             it is hidden but kept so the thread still reads, until your account
             is deleted. Deleting your account removes your reviews, comments,
-            reports and notifications, the replies other people wrote under your
-            comments, and the notifications others got about your comments.
+            reports, follows, digest email address and notifications, the
+            replies other people wrote under your comments, and the
+            notifications others got about your comments.
         </p>
 
         <h2>Who else receives data</h2>
@@ -118,6 +128,11 @@ defineProps<{ operator: LegalOperator }>();
             <li>
                 <strong>GitHub and Discord</strong>, when you sign in with them
                 and when ksamods.gg acts on GitHub for you.
+            </li>
+            <li>
+                <strong>The email provider</strong> that delivers the digest and
+                its confirmation email, which receives your digest address and
+                the email's content.
             </li>
             <li>
                 <strong>Image and download hosts.</strong> Avatars, mod icons,

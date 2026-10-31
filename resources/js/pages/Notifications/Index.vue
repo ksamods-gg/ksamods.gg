@@ -12,6 +12,7 @@ import {
     notificationText,
 } from '@/lib/notifications';
 import { open, readAll } from '@/routes/notifications';
+import { notifications as settings } from '@/routes/settings';
 import type { AppNotification } from '@/types';
 
 const props = defineProps<{ notifications: AppNotification[] }>();
@@ -36,15 +37,23 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 <h1 class="text-2xl font-semibold tracking-tight">
                     Notifications
                 </h1>
-                <Link
-                    v-if="hasUnread"
-                    :href="readAll()"
-                    as="button"
-                    preserve-scroll
-                    :class="['text-sm hover:underline', muted]"
-                >
-                    Mark all as read
-                </Link>
+                <div class="flex items-center gap-4">
+                    <Link
+                        v-if="hasUnread"
+                        :href="readAll()"
+                        as="button"
+                        preserve-scroll
+                        :class="['text-sm hover:underline', muted]"
+                    >
+                        Mark all as read
+                    </Link>
+                    <Link
+                        :href="settings()"
+                        :class="['text-sm hover:underline', muted]"
+                    >
+                        Email digest
+                    </Link>
+                </div>
             </div>
 
             <ul

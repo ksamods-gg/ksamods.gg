@@ -4,6 +4,7 @@ namespace App\Support\Share;
 
 use App\Jobs\MirrorShareRelease;
 use App\Jobs\ProposeShareListing;
+use App\Models\Follow;
 use App\Models\Share;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
@@ -196,6 +197,10 @@ class ShareHost
         $release->forceFill(['listed_at' => now()])->save();
         DataFiles::writeReleaseList($share);
         $pullRequest = $propose ? self::propose($share, $new) : null;
+
+        if (! $new) {
+            Follow::announce($share->type, $share->listing_id, $share->name, $version, $share->url(), except: $user->id);
+        }
 
         // The Internet Archive copy follows from the queue, and joins the entry once it is served.
         if (ArchiveMirror::enabled()) {

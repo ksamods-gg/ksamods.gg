@@ -1,15 +1,20 @@
 <?php
 
 use App\Enums\Role;
+use App\Mail\ReleaseDigest;
+use App\Models\Follow;
+use App\Models\SeenRelease;
 use App\Models\Share;
 use App\Models\ShareUpload;
 use App\Models\User;
+use App\Support\ContentIndex;
 use App\Support\Share\DataFiles;
 use App\Support\Share\ShareHost;
 use App\Support\Share\Signer;
 use App\Support\Toml;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -44,6 +49,71 @@ Artisan::command('ksamods:admin {account : A GitHub login, Discord username or u
  */
 Schedule::command('model:prune', ['--model' => [ShareUpload::class]])->hourly();
 Schedule::command('passport:purge')->daily();
+
+/*
+ * Following: a new release of a followed mod shows up in its followers' bell, and an email digest
+ * gathers those for the players who asked for one.
+ */
+Schedule::command('follows:check')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('digests:send')->hourly()->withoutOverlapping();
+
+Artisan::command('follows:check', function () {
+    $listings = collect(ContentIndex::snapshot()['listings'])->keyBy('id');
+
+    foreach (Follow::where('kind', 'mod')->distinct()->pluck('listing_id') as $id) {
+        $listing = $listings[$id] ?? null;
+        $version = $listing === null ? null : SeenRelease::newestVersion($listing);
+
+        if ($version === null) {
+            continue;
+        }
+
+        $seen = SeenRelease::where('listing_id', $id)->first();
+
+        // The first look at a mod only notes where it stands.
+        if ($seen !== null && $seen->version !== $version) {
+            Follow::announce('mod', $id, $listing['authored']['name'], $version, route('mods.show', $id), $listing['authored']['images']['icon']['url'] ?? null);
+            $this->line("{$id} {$version}");
+        }
+
+        SeenRelease::updateOrCreate(['listing_id' => $id], ['version' => $version]);
+    }
+})->purpose('Tell the followers of each mod about its new release');
+
+Artisan::command('digests:send', function () {
+    $periods = ['daily' => now()->subDay(), 'weekly' => now()->subWeek(), 'monthly' => now()->subMonth()];
+
+    $users = User::whereIn('digest_frequency', array_keys($periods))
+        ->whereNotNull('digest_email')
+        ->whereNotNull('digest_email_verified_at')
+        ->get();
+
+    foreach ($users as $user) {
+        $since = $periods[$user->digest_frequency] ?? null;
+
+        // An hour's leeway, so a digest sent a little late does not skip the next one.
+        if ($since === null || ($user->digest_sent_at !== null && $user->digest_sent_at->isAfter($since->copy()->addHour()))) {
+            continue;
+        }
+
+        $releases = [];
+
+        foreach ($user->notifications()->where('created_at', '>', $user->digest_sent_at ?? $since)->oldest()->get() as $notification) {
+            $data = $notification->data;
+
+            if (($data['kind'] ?? null) === 'release') {
+                $releases[] = ['name' => (string) $data['subject']['name'], 'version' => (string) $data['version'], 'url' => (string) $data['url']];
+            }
+        }
+
+        if ($releases !== []) {
+            Mail::to((string) $user->digest_email)->send(new ReleaseDigest($user, $releases));
+            $this->line("{$user->id}: ".count($releases));
+        }
+
+        $user->forceFill(['digest_sent_at' => now()])->save();
+    }
+})->purpose('Email each player who asked for one the digest of new releases they follow');
 
 Artisan::command('share:key', function () {
     $this->line('SHARE_SIGNING_KEY='.Signer::generate());

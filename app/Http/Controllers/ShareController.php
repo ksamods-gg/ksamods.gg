@@ -70,6 +70,7 @@ class ShareController extends Controller
                 ])->filter(fn (array $release) => ! $release['taken_down'] || $owns || $user?->canModerate()),
             ],
             'owns' => $owns,
+            'following' => $user?->isFollowing($share->type, $share->listing_id) ?? false,
             'canTakeDown' => $owns || ($user?->canModerate() ?? false),
             // Without asking GitHub: a merged pull request or the snapshot says it is listed.
             'canDelete' => $owns && $share->pull_request_state !== 'merged'

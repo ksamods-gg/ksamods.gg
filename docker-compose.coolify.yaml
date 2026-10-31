@@ -53,6 +53,10 @@
 #   IA_ACCESS_KEY, IA_SECRET_KEY  https://archive.org/account/s3.php of the archive.org account
 #                                 that owns the mirrors (rule 19); empty turns mirroring off
 #   IA_COLLECTION                 opensource_media, or the collection archive.org gives you
+#   MAIL_MAILER=smtp, MAIL_SCHEME (smtps for port 465, empty for STARTTLS on 587), MAIL_HOST,
+#   MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM_ADDRESS, MAIL_FROM_NAME
+#                                 the email digest and its confirmation emails (website and
+#                                 scheduler); MAIL_MAILER=log sends nothing
 #   PASSPORT_PRIVATE_KEY, PASSPORT_PUBLIC_KEY
 #                                 php artisan passport:keys, then the two files' contents;
 #                                 they sign the upload API's tokens
@@ -126,7 +130,8 @@ services:
             # A mirror upload may take 20 minutes; no other worker may take its job before then.
             - DB_QUEUE_RETRY_AFTER=1500
 
-    # Runs scheduled commands: discarding expired uploads and spent sign-ins.
+    # Runs scheduled commands: discarding expired uploads and spent sign-ins, telling followers about
+    # new mod releases, and sending the email digests.
     scheduler:
         build:
             context: .
@@ -135,10 +140,22 @@ services:
         healthcheck:
             test: ['CMD', 'healthcheck-schedule']
         environment:
+            - APP_NAME=${APP_NAME:-ksamods.gg}
             - APP_ENV=production
             - APP_DEBUG=false
             - APP_KEY=${APP_KEY:?}
+            # The links in notifications and emails.
+            - APP_URL=${APP_URL:?}
             - LOG_CHANNEL=stderr
+            # The email digest, over SMTP; with MAIL_MAILER=log nothing is sent.
+            - MAIL_MAILER=${MAIL_MAILER:-log}
+            - MAIL_SCHEME=${MAIL_SCHEME:-}
+            - MAIL_HOST=${MAIL_HOST:-}
+            - MAIL_PORT=${MAIL_PORT:-587}
+            - MAIL_USERNAME=${MAIL_USERNAME:-}
+            - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+            - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS:-}
+            - MAIL_FROM_NAME=${MAIL_FROM_NAME:-ksamods.gg}
             - DB_CONNECTION=mysql
             - DB_HOST=${DB_HOST:?}
             - DB_DATABASE=${DB_DATABASE:?}

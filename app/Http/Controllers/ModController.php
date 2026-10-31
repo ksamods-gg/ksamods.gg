@@ -214,6 +214,7 @@ class ModController extends Controller
                 ->values(),
             'tagNames' => $this->tagNames($snapshot),
             'gameVersions' => $this->gameVersions($snapshot),
+            'following' => $request->user()?->isFollowing('mod', $id) ?? false,
             // The tab a link opens, such as a notification's link to a comment.
             'tab' => in_array($request->query('tab'), ['gallery', 'dependents', 'releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
             // Adds reviews and comments.

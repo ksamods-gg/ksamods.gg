@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, useTemplateRef } from 'vue';
+import FollowButton from '@/components/FollowButton.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import ModRelationGroups from '@/components/mods/ModRelationGroups.vue';
 import PageMeta from '@/components/PageMeta.vue';
@@ -13,6 +14,7 @@ import type { ShareDetail } from '@/types';
 const props = defineProps<{
     share: ShareDetail;
     owns: boolean;
+    following: boolean;
     canTakeDown: boolean;
     canDelete: boolean;
 }>();
@@ -218,6 +220,12 @@ const card =
                     >
                         {{ share.abstract }}
                     </p>
+                    <FollowButton
+                        :kind="share.type"
+                        :id="share.id"
+                        :following="following"
+                        class="mt-3"
+                    />
                 </div>
             </div>
 
