@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { useEchoNotification } from '@laravel/echo-vue';
-import { ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+import ModIcon from '@/components/ModIcon.vue';
 import {
     notificationChannel,
     notificationExcerpt,
@@ -22,18 +23,51 @@ import { dashboard as adminDashboard } from '@/routes/admin';
 import { create } from '@/routes/listings';
 import { index, mine } from '@/routes/mods';
 import { open as openNotification } from '@/routes/notifications';
+import { show as profileShow } from '@/routes/profiles';
+import { profile as profileSettings } from '@/routes/settings';
 import { index as sharesIndex } from '@/routes/shares';
 import { index as translateIndex } from '@/routes/translate';
 import type { NotificationData } from '@/types';
 
 const page = usePage();
 
-// The phone menu, closed again whenever a link in it is followed.
+// The phone menu and the account menu, closed again whenever a link in them is followed.
 const menuOpen = ref(false);
+const accountMenuOpen = ref(false);
 watch(
     () => page.url,
-    () => (menuOpen.value = false),
+    () => {
+        menuOpen.value = false;
+        accountMenuOpen.value = false;
+    },
 );
+
+// The account menu also closes on Escape, which returns focus to its toggle, and on a click outside.
+const accountMenu = useTemplateRef<HTMLElement>('accountMenu');
+const accountMenuToggle =
+    useTemplateRef<HTMLButtonElement>('accountMenuToggle');
+
+function closeAccountMenu(refocus = false) {
+    if (accountMenuOpen.value && refocus) {
+        accountMenuToggle.value?.focus();
+    }
+
+    accountMenuOpen.value = false;
+}
+
+function closeOnOutsideClick(event: PointerEvent) {
+    if (!accountMenu.value?.contains(event.target as Node)) {
+        closeAccountMenu();
+    }
+}
+
+onMounted(() => document.addEventListener('pointerdown', closeOnOutsideClick));
+onBeforeUnmount(() =>
+    document.removeEventListener('pointerdown', closeOnOutsideClick),
+);
+
+const menuItem =
+    'block px-3 py-2 hover:bg-[#f4f3ef] focus-visible:bg-[#f4f3ef] focus-visible:outline-none dark:hover:bg-[#232321] dark:focus-visible:bg-[#232321]';
 
 // The bell's count, kept current over Reverb between page loads.
 const unread = ref(page.props.unreadNotifications);
@@ -98,26 +132,6 @@ if (page.props.auth.user) {
                         <a :href="create().url" class="hover:underline">
                             {{ $t('Publish a mod') }}
                         </a>
-                        <template v-if="page.props.auth.user">
-                            <Link :href="mine()" class="hover:underline">
-                                {{ $t('My mods') }}
-                            </Link>
-                            <Link
-                                v-if="page.props.auth.user.role"
-                                :href="adminDashboard()"
-                                class="flex items-center gap-1.5 hover:underline"
-                            >
-                                {{ $t('Admin') }}
-                                <span
-                                    v-if="page.props.openReports"
-                                    class="rounded-full bg-accent px-1.5 text-xs leading-5 font-semibold text-white tabular-nums dark:text-[#0a0a0a]"
-                                    >{{ page.props.openReports
-                                    }}<span class="sr-only">
-                                        {{ $t('open reports') }}</span
-                                    ></span
-                                >
-                            </Link>
-                        </template>
                     </div>
                     <Link
                         v-if="page.props.auth.user"
@@ -153,10 +167,21 @@ if (page.props.auth.user) {
                         >
                     </Link>
                     <div class="hidden sm:contents">
-                        <template v-if="page.props.auth.user">
-                            <Link
-                                :href="accounts()"
-                                class="flex items-center gap-2 hover:underline"
+                        <!-- Everything about the player sits behind their avatar, as on GitHub. -->
+                        <div
+                            v-if="page.props.auth.user"
+                            ref="accountMenu"
+                            class="relative"
+                            @keydown.escape="closeAccountMenu(true)"
+                        >
+                            <button
+                                ref="accountMenuToggle"
+                                type="button"
+                                class="relative flex items-center gap-1 rounded-full p-0.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
+                                aria-controls="account-menu"
+                                :aria-expanded="accountMenuOpen"
+                                :aria-label="$t('Your account')"
+                                @click="accountMenuOpen = !accountMenuOpen"
                             >
                                 <img
                                     v-if="page.props.auth.user.avatar"
@@ -164,16 +189,123 @@ if (page.props.auth.user) {
                                     alt=""
                                     class="size-7 rounded-full"
                                 />
-                                {{ page.props.auth.user.name }}
-                            </Link>
-                            <Link
-                                :href="logout()"
-                                as="button"
-                                class="rounded-md border border-[#19140035] px-3 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                                <ModIcon
+                                    v-else
+                                    :name="page.props.auth.user.name"
+                                    :src="null"
+                                    class="size-7 rounded-full text-xs"
+                                />
+                                <svg
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                    aria-hidden="true"
+                                    :class="[
+                                        'size-3.5 transition-transform',
+                                        accountMenuOpen && 'rotate-180',
+                                    ]"
+                                >
+                                    <path
+                                        d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z"
+                                    />
+                                </svg>
+                                <!-- Moderators see waiting reports on the avatar too. -->
+                                <span
+                                    v-if="
+                                        page.props.auth.user.role &&
+                                        page.props.openReports
+                                    "
+                                    aria-hidden="true"
+                                    class="absolute top-0 left-6 size-2 rounded-full bg-accent"
+                                ></span>
+                            </button>
+
+                            <div
+                                v-show="accountMenuOpen"
+                                id="account-menu"
+                                class="absolute top-full right-0 z-20 mt-2 w-60 rounded-md bg-white py-1 text-sm shadow-[0_8px_24px_rgba(0,0,0,0.12),inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[0_8px_24px_rgba(0,0,0,0.5),inset_0px_0px_0px_1px_#fffaed2d]"
                             >
-                                {{ $t('Log out') }}
-                            </Link>
-                        </template>
+                                <p
+                                    class="truncate border-b border-[#19140014] px-3 pt-1.5 pb-2.5 dark:border-[#3E3E3A]/60"
+                                >
+                                    <span class="block font-medium">{{
+                                        page.props.auth.user.name
+                                    }}</span>
+                                    <span
+                                        v-if="page.props.auth.user.username"
+                                        class="text-xs text-[#706f6c] dark:text-[#A1A09A]"
+                                        >@{{
+                                            page.props.auth.user.username
+                                        }}</span
+                                    >
+                                </p>
+                                <ul class="py-1">
+                                    <li>
+                                        <Link
+                                            :href="
+                                                page.props.auth.user
+                                                    .profile_enabled &&
+                                                page.props.auth.user.username
+                                                    ? profileShow(
+                                                          String(
+                                                              page.props.auth
+                                                                  .user
+                                                                  .username,
+                                                          ),
+                                                      ).url
+                                                    : profileSettings().url
+                                            "
+                                            :class="menuItem"
+                                            >{{ $t('Your profile') }}</Link
+                                        >
+                                    </li>
+                                    <li>
+                                        <Link
+                                            :href="mine()"
+                                            :class="menuItem"
+                                            >{{ $t('My mods') }}</Link
+                                        >
+                                    </li>
+                                    <li>
+                                        <Link
+                                            :href="accounts()"
+                                            :class="menuItem"
+                                            >{{ $t('Settings') }}</Link
+                                        >
+                                    </li>
+                                    <li v-if="page.props.auth.user.role">
+                                        <Link
+                                            :href="adminDashboard()"
+                                            :class="[
+                                                menuItem,
+                                                'flex items-center justify-between',
+                                            ]"
+                                        >
+                                            {{ $t('Admin') }}
+                                            <span
+                                                v-if="page.props.openReports"
+                                                class="rounded-full bg-accent px-1.5 text-xs leading-5 font-semibold text-white tabular-nums dark:text-[#0a0a0a]"
+                                                >{{ page.props.openReports
+                                                }}<span class="sr-only">
+                                                    {{
+                                                        $t('open reports')
+                                                    }}</span
+                                                ></span
+                                            >
+                                        </Link>
+                                    </li>
+                                </ul>
+                                <div
+                                    class="border-t border-[#19140014] pt-1 dark:border-[#3E3E3A]/60"
+                                >
+                                    <Link
+                                        :href="logout()"
+                                        as="button"
+                                        :class="[menuItem, 'w-full text-left']"
+                                        >{{ $t('Log out') }}</Link
+                                    >
+                                </div>
+                            </div>
+                        </div>
                         <Link
                             v-else
                             :href="login()"
