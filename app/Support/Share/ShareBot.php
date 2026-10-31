@@ -8,11 +8,12 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /**
- * The host's bot account on GitHub (rule 4): it opens listing pull requests on the authored
- * repository from its own fork, like any author, and never merges, approves or labels (rule 14).
- * Authenticated with a classic token of the bot user, SHARE_BOT_TOKEN.
+ * The host's bot on GitHub (rule 4): a GitHub App, whose bot user (such as ksamods-gg[bot]) opens
+ * listing pull requests on the authored repository from the host's fork, like any author, and
+ * never merges, approves or labels (rule 14). It authenticates with installation tokens.
  */
 class ShareBot
 {
@@ -29,7 +30,7 @@ class ShareBot
     {
         $github = self::github();
         $repository = config('share.authored_repository');
-        $fork = $github->post("/repos/{$repository}/forks", ['default_branch_only' => true])->throw()->json('full_name');
+        $fork = (string) config('share.fork');
         $owner = strtok($fork, '/');
 
         // Push to the open pull request of this listing when there is one, so a listing has one at a time.
@@ -107,10 +108,54 @@ class ShareBot
         return $github->get("/repos/{$repository}/pulls", ['state' => 'open', 'head' => $head])->throw()->json() !== [];
     }
 
+    /**
+     * GitHub's API as the App's installation on the fork.
+     */
     public static function github(): PendingRequest
     {
-        return Http::withToken((string) config('share.bot_token'))
-            ->baseUrl('https://api.github.com')
+        return self::api()->withToken(self::installationToken());
+    }
+
+    /**
+     * An installation token lasts an hour; one is kept for 50 minutes.
+     *
+     * @throws RequestException
+     */
+    private static function installationToken(): string
+    {
+        return Cache::remember('share:github-installation-token', 3000, function () {
+            $app = self::api()->withToken(self::appToken());
+            $installation = config('share.github_app.installation_id')
+                ?: $app->get('/repos/'.config('share.fork').'/installation')->throw()->json('id');
+
+            return (string) $app->post("/app/installations/{$installation}/access_tokens")->throw()->json('token');
+        });
+    }
+
+    /**
+     * The App's own token: a JWT signed with its private key, valid for ten minutes, issued a
+     * minute in the past against clock drift (GitHub's "Generating a JWT for a GitHub App").
+     */
+    private static function appToken(): string
+    {
+        // Env values often carry the key's line breaks as a literal \n.
+        $key = openssl_pkey_get_private(str_replace('\n', "\n", (string) config('share.github_app.private_key')));
+
+        if ($key === false || blank(config('share.github_app.id'))) {
+            throw new RuntimeException('SHARE_GITHUB_APP_ID and SHARE_GITHUB_APP_PRIVATE_KEY must be the GitHub App\'s id and private key.');
+        }
+
+        $encode = fn (string $data) => rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+        $unsigned = $encode((string) json_encode(['alg' => 'RS256', 'typ' => 'JWT']))
+            .'.'.$encode((string) json_encode(['iat' => now()->subMinute()->timestamp, 'exp' => now()->addMinutes(9)->timestamp, 'iss' => (string) config('share.github_app.id')]));
+        openssl_sign($unsigned, $signature, $key, OPENSSL_ALGO_SHA256);
+
+        return $unsigned.'.'.$encode($signature);
+    }
+
+    private static function api(): PendingRequest
+    {
+        return Http::baseUrl('https://api.github.com')
             ->withHeaders(['X-GitHub-Api-Version' => '2022-11-28'])
             ->acceptJson()
             ->timeout(20);

@@ -34,13 +34,22 @@ beforeEach(function () {
         Artisan::call('passport:keys');
     }
 
+    // A key of the fake GitHub App, made for these tests only, so its tokens can be checked as
+    // GitHub checks them.
+    $this->appKey = (string) file_get_contents(__DIR__.'/../fixtures/github-app-test.pem');
+
     config([
         'share.disk' => 'public',
         'share.public_url' => 'https://files.test/',
         'share.signing_key' => Signer::generate(),
-        'share.bot_token' => 'bot-token',
         'share.authored_repository' => 'ksamods-test/content-index',
+        'share.fork' => 'ksamods-bot/content-index',
+        'share.github_app.id' => '123456',
+        'share.github_app.private_key' => $this->appKey,
     ]);
+    // The App's token of each installation token request, and the token of each other request.
+    $this->appTokens = [];
+    $this->tokens = [];
 
     // The pull requests the bot opened, and the files of each push.
     $this->pulls = [];
@@ -88,8 +97,17 @@ beforeEach(function () {
 
         $path = parse_url($url, PHP_URL_PATH);
 
+        if (str_starts_with($url, 'https://api.github.com/') && ! str_contains($path, '/access_tokens') && ! str_ends_with($path, '/installation')) {
+            $this->tokens[] = $request->header('Authorization')[0] ?? null;
+        }
+
         return match (true) {
-            $path === '/repos/ksamods-test/content-index/forks' => Http::response(['full_name' => 'ksamods-bot/content-index'], 202),
+            $path === '/repos/ksamods-bot/content-index/installation' => Http::response(['id' => 777]),
+            $path === '/app/installations/777/access_tokens' => (function () use ($request) {
+                $this->appTokens[] = substr($request->header('Authorization')[0], 7);
+
+                return Http::response(['token' => 'installation-token'], 201);
+            })(),
             str_ends_with($path, '/merge-upstream') => Http::response([], 200),
             $path === '/repos/ksamods-test/content-index/git/ref/heads/main' => Http::response(['object' => ['sha' => 'main-sha']]),
             str_starts_with($path, '/repos/ksamods-bot/content-index/git/ref/heads/') => Http::response(['object' => ['sha' => 'branch-sha']]),
@@ -528,4 +546,22 @@ describe('Internet Archive mirrors', function () {
 
         expect($this->unmirrored)->toBe([ArchiveMirror::identifier($release).'/ExampleRover-1.0.0.zip']);
     });
+});
+
+it('opens pull requests as the GitHub App, with an installation token for the fork', function () {
+    publishVehicle(User::factory()->create())->assertCreated();
+
+    // The App's JWT, signed with its key, as GitHub verifies it.
+    [$header, $payload, $signature] = explode('.', $this->appTokens[0]);
+    $decode = fn (string $part) => base64_decode(strtr($part, '-_', '+/'));
+    $public = openssl_pkey_get_details(openssl_pkey_get_private($this->appKey))['key'];
+    $claims = json_decode($decode($payload), true);
+
+    expect(json_decode($decode($header), true))->toBe(['alg' => 'RS256', 'typ' => 'JWT'])
+        ->and($claims['iss'])->toBe('123456')
+        ->and($claims['exp'] - $claims['iat'])->toBeLessThanOrEqual(600)
+        ->and(openssl_verify("{$header}.{$payload}", $decode($signature), $public, OPENSSL_ALGO_SHA256))->toBe(1)
+        // Every call that opens the pull request uses the installation token, and none forks.
+        ->and(array_unique(array_filter($this->tokens)))->toBe(['Bearer installation-token'])
+        ->and($this->pulls[0]['head'])->toStartWith('ksamods-bot:share/ExampleRover-');
 });

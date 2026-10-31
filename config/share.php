@@ -45,11 +45,22 @@ return [
     /*
      * Pull requests. The authored repository the listings go to: a test repository you own until
      * ksamods is registered in hosts.toml (rule 1), then KSAModding/content-index. The bot is a
-     * GitHub user used by this host only (rule 4), with a classic token of scope public_repo.
+     * GitHub App used by this host only (rule 4).
      */
     'authored_repository' => env('SHARE_AUTHORED_REPOSITORY', 'KSAModding/content-index'),
-    'bot_token' => env('SHARE_BOT_TOKEN'),
+    // The fork of the authored repository the pull requests come from.
+    'fork' => env('SHARE_FORK', 'ksamods-gg/content-index'),
+    // The numeric id of the account the pull requests are opened as: the GitHub App's bot user,
+    // such as ksamods-gg[bot], whose id is the `bot` of hosts.toml.
     'bot_id' => (int) env('SHARE_BOT_ID', 0),
+
+    // The GitHub App the pull requests are opened with, installed on the fork. Its private key is
+    // the .pem GitHub gives; the installation is looked up from the fork when not set.
+    'github_app' => [
+        'id' => env('SHARE_GITHUB_APP_ID'),
+        'private_key' => env('SHARE_GITHUB_APP_PRIVATE_KEY'),
+        'installation_id' => env('SHARE_GITHUB_INSTALLATION_ID'),
+    ],
 
     /*
      * Internet Archive mirrors (rule 19): every release is also uploaded to archive.org as an item
