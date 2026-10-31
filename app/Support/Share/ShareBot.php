@@ -120,8 +120,7 @@ class ShareBot
      */
     public static function merged(Share $share): bool
     {
-        return $share->pull_request_url !== null && (bool) self::github()
-            ->get('/repos/'.config('share.authored_repository').'/pulls/'.basename($share->pull_request_url))->throw()->json('merged');
+        return $share->pull_request_url !== null && (bool) self::github()->get(self::pullPath($share))->throw()->json('merged');
     }
 
     /**
@@ -132,7 +131,7 @@ class ShareBot
     public static function withdraw(Share $share): void
     {
         if ($share->pull_request_url !== null) {
-            self::github()->patch('/repos/'.config('share.authored_repository').'/pulls/'.basename($share->pull_request_url), ['state' => 'closed'])->throw();
+            self::github()->patch(self::pullPath($share), ['state' => 'closed'])->throw();
         }
 
         if ($share->branch !== null) {
@@ -142,6 +141,18 @@ class ShareBot
                 $response->throw();
             }
         }
+    }
+
+    /**
+     * The API path of the listing's pull request, from its own URL: the authored repository may
+     * have changed since it was opened.
+     */
+    private static function pullPath(Share $share): string
+    {
+        preg_match('#^https://github\.com/([^/]+/[^/]+)/pull/(\d+)$#', (string) $share->pull_request_url, $match)
+            ?: throw new RuntimeException("{$share->pull_request_url} is not a GitHub pull request URL.");
+
+        return "/repos/{$match[1]}/pulls/{$match[2]}";
     }
 
     private static function isOpen(PendingRequest $github, string $repository, string $head): bool

@@ -585,6 +585,8 @@ it('purges a listing that never reached the index, with its files and pull reque
     publishVehicle(User::factory()->create())->assertCreated();
     $share = Share::sole();
     $branch = $share->branch;
+    // Its pull request is closed where it was opened, even after the authored repository changed.
+    config(['share.authored_repository' => 'KSAModding/content-index']);
 
     $this->artisan('share:purge', ['type' => 'vehicle', 'id' => 'ExampleRover', '--force' => true])->assertSuccessful();
 
