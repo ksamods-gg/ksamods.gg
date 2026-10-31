@@ -111,6 +111,12 @@ describe('archive checks', function () {
         expect(ShareArchive::inspect($save, 1000))->type->toBe('save');
     });
 
+    it('accepts the game build with the leading v the game writes, and drops it', function () {
+        $vehicle = shareZip(['Rover/meta.toml' => "name = \"Rover\"\nversion = \"v2026.10.25.5707\"", 'Rover/vehicle.xml' => '<V/>']);
+
+        expect(ShareArchive::inspect($vehicle, 1000))->gameVersion->toBe('2026.10.25.5707');
+    });
+
     it('refuses an archive that fails a check, with the code of rule 16', function (Closure $archive, string $check, string $error, int $size = 1000, ?string $type = null) {
         $inspection = ShareArchive::inspect($archive(), $size, $type);
 

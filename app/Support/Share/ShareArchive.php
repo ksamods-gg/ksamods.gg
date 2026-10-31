@@ -238,7 +238,12 @@ class ShareArchive
 
         $version = $meta['version'] ?? null;
 
-        // RFC 0017's full form, which the game shows, such as 2026.10.10.5554, with no suffix.
+        // RFC 0017's full form, which the game shows, such as 2026.10.10.5554, with no suffix. The game
+        // writes it with a leading v (VersionInfo.VersionString), which the index drops too (meta_game_min).
+        if (is_string($version) && str_starts_with($version, 'v')) {
+            $version = substr($version, 1);
+        }
+
         if (! is_string($version) || preg_match('/^[0-9]{4}\.(?:1[0-2]|[1-9])\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/', $version) !== 1) {
             $this->fail('version', 'The version in meta.toml must be the game build that wrote it, such as 2026.10.10.5554.');
         }
