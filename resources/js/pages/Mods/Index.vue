@@ -5,6 +5,7 @@ import ModRow from '@/components/ModRow.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { tagName } from '@/lib/format';
+import { fuzzyScore } from '@/lib/fuzzy';
 import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
 import { mods as modsFeed } from '@/routes/feeds';
 import type { GameVersion, ModSummary } from '@/types';
@@ -108,14 +109,23 @@ const activeFilterCount = computed(
 const query = computed(() => search.value.trim().toLowerCase());
 
 // How well a mod matches the search: its name counts most, then authors, then the summary.
+// Without an exact match, a near one counts for less, so "rocet" still finds rockets.
 function relevance(mod: ModSummary): number {
     const q = query.value;
     const name = mod.name.toLowerCase();
-
-    return (
+    const exact =
         (name.startsWith(q) ? 4 : name.includes(q) ? 3 : 0) +
         (mod.authors.some((a) => a.toLowerCase().includes(q)) ? 2 : 0) +
-        ((mod.abstract ?? '').toLowerCase().includes(q) ? 1 : 0)
+        ((mod.abstract ?? '').toLowerCase().includes(q) ? 1 : 0);
+
+    if (exact > 0) {
+        return exact;
+    }
+
+    return (
+        fuzzyScore(q, mod.name) * 2.5 +
+        fuzzyScore(q, mod.authors.join(' ')) * 1.5 +
+        fuzzyScore(q, `${mod.abstract ?? ''} ${mod.tags.join(' ')}`) * 0.75
     );
 }
 
