@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AdminNav from '@/components/admin/AdminNav.vue';
 import Pager from '@/components/admin/Pager.vue';
 import PostSummary from '@/components/admin/PostSummary.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { reports as reportsPage } from '@/routes/admin';
 import { resolve } from '@/routes/admin/reports';
 import type { AdminReport, Paginated } from '@/types';
@@ -14,14 +16,14 @@ defineProps<{
     reports: Paginated<AdminReport>;
 }>();
 
-const filters = [
-    { status: 'open', label: 'Open', href: reportsPage().url },
+const filters = computed(() => [
+    { status: 'open', label: t('Open'), href: reportsPage().url },
     {
         status: 'resolved',
-        label: 'Resolved',
+        label: t('Resolved'),
         href: reportsPage({ query: { status: 'resolved' } }).url,
     },
-] as const;
+]);
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const card =
@@ -29,12 +31,16 @@ const card =
 </script>
 
 <template>
-    <Head title="Reports" />
+    <Head :title="$t('Reports')" />
 
     <AppLayout>
         <AdminNav />
 
-        <div class="mb-4 flex gap-2 text-sm" role="group" aria-label="Status">
+        <div
+            class="mb-4 flex gap-2 text-sm"
+            role="group"
+            :aria-label="$t('Status')"
+        >
             <Link
                 v-for="filter in filters"
                 :key="filter.status"
@@ -54,9 +60,9 @@ const card =
             <li v-for="report in reports.data" :key="report.id" :class="card">
                 <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
                     <span class="font-semibold">{{ report.reason }}</span>
-                    <span :class="muted"
-                        >reported by {{ report.reporter }}</span
-                    >
+                    <span :class="muted">{{
+                        $t('reported by :name', { name: report.reporter })
+                    }}</span>
                     <time
                         :datetime="report.created_at"
                         :class="['text-xs', muted]"
@@ -65,7 +71,11 @@ const card =
                     <span
                         v-if="report.resolved_at"
                         :class="['ml-auto text-xs', muted]"
-                        >Resolved {{ formatDate(report.resolved_at) }}</span
+                        >{{
+                            $t('Resolved :date', {
+                                date: formatDate(report.resolved_at),
+                            })
+                        }}</span
                     >
                 </p>
                 <p
@@ -83,18 +93,18 @@ const card =
                             as="button"
                             preserve-scroll
                             class="hover:underline"
-                            >Dismiss, it's fine</Link
+                            >{{ $t("Dismiss, it's fine") }}</Link
                         >
                     </PostSummary>
                     <p v-else :class="['text-sm', muted]">
-                        The reported post has been deleted.
+                        {{ $t('The reported post has been deleted.') }}
                         <Link
                             v-if="!report.resolved_at"
                             :href="resolve(report.id)"
                             as="button"
                             preserve-scroll
                             class="ml-2 text-[#1b1b18] hover:underline dark:text-[#EDEDEC]"
-                            >Mark resolved</Link
+                            >{{ $t('Mark resolved') }}</Link
                         >
                     </p>
                 </div>
@@ -109,8 +119,8 @@ const card =
         >
             {{
                 status === 'open'
-                    ? 'No open reports. Nothing needs a look right now.'
-                    : 'No resolved reports yet.'
+                    ? $t('No open reports. Nothing needs a look right now.')
+                    : $t('No resolved reports yet.')
             }}
         </p>
 

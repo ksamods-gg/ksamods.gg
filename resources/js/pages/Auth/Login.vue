@@ -10,28 +10,35 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 </script>
 
 <template>
-    <Head title="Log in" />
+    <Head :title="$t('Log in')" />
 
     <AppLayout>
         <div class="mx-auto max-w-sm py-8">
-            <h1 class="text-2xl font-semibold tracking-tight">Log in</h1>
+            <h1 class="text-2xl font-semibold tracking-tight">
+                {{ $t('Log in') }}
+            </h1>
             <p :class="['mt-1 mb-6 text-sm', muted]">
-                Use either account. You can link the other one later.
+                {{
+                    $t('Use either account. You can link the other one later.')
+                }}
             </p>
 
             <!-- Plain links: both leave the site for the provider's sign-in. -->
             <div class="flex flex-col gap-3">
                 <a :href="githubLogin().url" :class="button">
-                    Continue with GitHub
+                    {{ $t('Continue with GitHub') }}
                 </a>
                 <a :href="discordLogin().url" :class="button">
-                    Continue with Discord
+                    {{ $t('Continue with Discord') }}
                 </a>
             </div>
 
             <p :class="['mt-6 text-xs', muted]">
-                Submitting and editing mod listings opens pull requests on
-                GitHub, so it needs a linked GitHub account.
+                {{
+                    $t(
+                        'Submitting and editing mod listings opens pull requests on GitHub, so it needs a linked GitHub account.',
+                    )
+                }}
             </p>
         </div>
     </AppLayout>

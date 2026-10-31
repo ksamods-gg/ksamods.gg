@@ -12,22 +12,25 @@ defineProps<{ page: Paginated<unknown> }>();
     <nav
         v-if="page.last_page > 1"
         class="mt-6 flex items-center justify-center gap-4 text-sm"
-        aria-label="Pages"
+        :aria-label="$t('Pages')"
     >
         <Link
             v-if="page.prev_page_url"
             :href="page.prev_page_url"
             class="hover:underline"
-            >Previous</Link
+            >{{ $t('Previous') }}</Link
         >
-        <span class="text-[#706f6c] dark:text-[#A1A09A]"
-            >Page {{ page.current_page }} of {{ page.last_page }}</span
-        >
+        <span class="text-[#706f6c] dark:text-[#A1A09A]">{{
+            $t('Page :page of :pages', {
+                page: page.current_page,
+                pages: page.last_page,
+            })
+        }}</span>
         <Link
             v-if="page.next_page_url"
             :href="page.next_page_url"
             class="hover:underline"
-            >Next</Link
+            >{{ $t('Next') }}</Link
         >
     </nav>
 </template>

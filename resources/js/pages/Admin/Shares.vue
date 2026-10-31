@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import AdminNav from '@/components/admin/AdminNav.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { mirror, propose, purge } from '@/routes/admin/shares';
 import jobs from '@/routes/admin/shares/jobs';
 
@@ -39,18 +41,21 @@ const page = usePage();
 function confirmPurge(id: number, name: string) {
     if (
         confirm(
-            `Delete ${name} for good, with its releases, files and pull request? Only possible while it is not in the index.`,
+            t(
+                'Delete :name for good, with its releases, files and pull request? Only possible while it is not in the index.',
+                { name },
+            ),
         )
     ) {
         router.delete(purge(id).url, { preserveScroll: true });
     }
 }
 
-const states = {
-    open: 'Pull request open',
-    merged: 'In the index',
-    closed: 'Pull request closed',
-} as const;
+const states = computed(() => ({
+    open: t('Pull request open'),
+    merged: t('In the index'),
+    closed: t('Pull request closed'),
+}));
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const card =
@@ -60,7 +65,7 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
 </script>
 
 <template>
-    <Head title="Share host" />
+    <Head :title="$t('Share host')" />
 
     <AppLayout>
         <AdminNav />
@@ -83,7 +88,7 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
         <div class="flex flex-col gap-6">
             <section :class="card">
                 <h2 class="font-semibold">
-                    Failed jobs
+                    {{ $t('Failed jobs') }}
                     <span :class="['ml-1 text-sm font-normal', muted]">{{
                         failedJobs.length
                     }}</span>
@@ -119,28 +124,37 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
                                 as="button"
                                 preserve-scroll
                                 :class="action"
-                                >Retry</Link
+                                >{{ $t('Retry') }}</Link
                             >
                             <Link
                                 :href="jobs.forget(job.id)"
                                 as="button"
                                 preserve-scroll
                                 :class="danger"
-                                >Forget</Link
+                                >{{ $t('Forget') }}</Link
                             >
                         </span>
                     </li>
                 </ul>
-                <p v-else :class="['mt-2 text-sm', muted]">None.</p>
+                <p v-else :class="['mt-2 text-sm', muted]">
+                    {{ $t('None.') }}
+                </p>
             </section>
 
             <section :class="card">
                 <h2 class="font-semibold">
-                    Waiting for their archive.org copy
+                    {{ $t('Waiting for their archive.org copy') }}
                 </h2>
                 <p v-if="!mirroring" :class="['mt-2 text-sm', muted]">
-                    Mirroring is off until IA_ACCESS_KEY and IA_SECRET_KEY are
-                    set.
+                    {{
+                        $t(
+                            'Mirroring is off until :access and :secret are set.',
+                            {
+                                access: 'IA_ACCESS_KEY',
+                                secret: 'IA_SECRET_KEY',
+                            },
+                        )
+                    }}
                 </p>
                 <ul
                     v-else-if="waitingMirrors.length"
@@ -158,27 +172,28 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
                                 >{{ release.name }}</a
                             >
                             {{ release.version }}
-                            <span :class="['text-xs', muted]"
-                                >published
-                                {{ formatDate(release.created_at) }}</span
-                            >
+                            <span :class="['text-xs', muted]">{{
+                                $t('published :date', {
+                                    date: formatDate(release.created_at),
+                                })
+                            }}</span>
                         </span>
                         <Link
                             :href="mirror(release.id)"
                             as="button"
                             preserve-scroll
                             :class="action"
-                            >Mirror again</Link
+                            >{{ $t('Mirror again') }}</Link
                         >
                     </li>
                 </ul>
                 <p v-else :class="['mt-2 text-sm', muted]">
-                    Every release has its copy.
+                    {{ $t('Every release has its copy.') }}
                 </p>
             </section>
 
             <section :class="card">
-                <h2 class="font-semibold">Listings</h2>
+                <h2 class="font-semibold">{{ $t('Listings') }}</h2>
                 <ul
                     v-if="listings.length"
                     class="mt-3 divide-y divide-[#19140014] dark:divide-[#3E3E3A]/60"
@@ -195,13 +210,21 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
                                 >{{ listing.name }}</a
                             >
                             <span :class="['ml-2 text-xs', muted]"
-                                >{{ listing.type }} ·
-                                {{ listing.owner ?? 'deleted account' }} ·
-                                {{ listing.releases }}
+                                >{{
+                                    listing.type === 'vehicle'
+                                        ? $t('vehicle')
+                                        : $t('save')
+                                }}
+                                ·
+                                {{ listing.owner ?? $t('deleted account') }} ·
                                 {{
                                     listing.releases === 1
-                                        ? 'release'
-                                        : 'releases'
+                                        ? $t(':count release', {
+                                              count: listing.releases,
+                                          })
+                                        : $t(':count releases', {
+                                              count: listing.releases,
+                                          })
                                 }}</span
                             >
                         </span>
@@ -215,17 +238,19 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
                                 >{{
                                     listing.pull_request_state
                                         ? states[listing.pull_request_state]
-                                        : 'Pull request'
+                                        : $t('Pull request')
                                 }}</a
                             >
-                            <span v-else :class="muted">No pull request</span>
+                            <span v-else :class="muted">{{
+                                $t('No pull request')
+                            }}</span>
                             <Link
                                 v-if="listing.pull_request_state !== 'merged'"
                                 :href="propose(listing.id)"
                                 as="button"
                                 preserve-scroll
                                 :class="action"
-                                >Propose</Link
+                                >{{ $t('Propose') }}</Link
                             >
                             <button
                                 v-if="listing.pull_request_state !== 'merged'"
@@ -233,12 +258,14 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
                                 :class="danger"
                                 @click="confirmPurge(listing.id, listing.name)"
                             >
-                                Delete
+                                {{ $t('Delete') }}
                             </button>
                         </span>
                     </li>
                 </ul>
-                <p v-else :class="['mt-2 text-sm', muted]">None yet.</p>
+                <p v-else :class="['mt-2 text-sm', muted]">
+                    {{ $t('None yet.') }}
+                </p>
             </section>
         </div>
     </AppLayout>

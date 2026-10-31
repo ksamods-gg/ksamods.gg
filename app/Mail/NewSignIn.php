@@ -16,7 +16,7 @@ class NewSignIn extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'New sign-in to your ksamods.gg account');
+        return new Envelope(subject: __('New sign-in to your ksamods.gg account'));
     }
 
     public function content(): Content
@@ -25,7 +25,7 @@ class NewSignIn extends Mailable
             'name' => $this->user->name,
             'device' => $this->device,
             'ip' => $this->ip,
-            'time' => now()->utc()->format('j F Y, H:i').' UTC',
+            'time' => now()->utc()->translatedFormat('j F Y, H:i').' UTC',
             'sessions' => route('settings.sessions'),
         ]);
     }

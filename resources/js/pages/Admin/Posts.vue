@@ -30,18 +30,26 @@ const card =
 </script>
 
 <template>
-    <Head :title="type === 'reviews' ? 'Reviews' : 'Comments'" />
+    <Head :title="type === 'reviews' ? $t('Reviews') : $t('Comments')" />
 
     <AppLayout>
         <AdminNav />
 
         <form role="search" class="mb-4" @submit.prevent="apply">
             <label>
-                <span class="sr-only">Search {{ type }}</span>
+                <span class="sr-only">{{
+                    type === 'reviews'
+                        ? $t('Search reviews')
+                        : $t('Search comments')
+                }}</span>
                 <input
                     v-model="query"
                     type="search"
-                    :placeholder="`Search ${type} by text`"
+                    :placeholder="
+                        type === 'reviews'
+                            ? $t('Search reviews by text')
+                            : $t('Search comments by text')
+                    "
                     class="w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] sm:max-w-md dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus:border-[#EDEDEC]"
                 />
             </label>
@@ -58,8 +66,15 @@ const card =
                         v-if="post.openReports"
                         :href="reports().url"
                         class="font-medium text-accent hover:underline"
-                        >{{ post.openReports }} open
-                        {{ post.openReports === 1 ? 'report' : 'reports' }}</a
+                        >{{
+                            post.openReports === 1
+                                ? $t(':count open report', {
+                                      count: post.openReports,
+                                  })
+                                : $t(':count open reports', {
+                                      count: post.openReports,
+                                  })
+                        }}</a
                     >
                 </PostSummary>
             </li>
@@ -71,7 +86,13 @@ const card =
                 muted,
             ]"
         >
-            {{ search ? `Nothing matches “${search}”.` : `No ${type} yet.` }}
+            {{
+                search
+                    ? $t('Nothing matches “:search”.', { search })
+                    : type === 'reviews'
+                      ? $t('No reviews yet.')
+                      : $t('No comments yet.')
+            }}
         </p>
 
         <Pager :page="posts" />

@@ -39,9 +39,11 @@ const chip =
                     class="text-base font-semibold after:absolute after:inset-0 after:rounded-lg hover:underline"
                     >{{ share.name }}</Link
                 >
-                <span :class="['text-sm font-normal', muted]"
-                    >by {{ share.authors.join(', ') }}</span
-                >
+                <span :class="['text-sm font-normal', muted]">{{
+                    $t('by :authors', {
+                        authors: share.authors.join(', '),
+                    })
+                }}</span>
             </h2>
             <p
                 class="mt-1 line-clamp-2 text-sm text-[#4a4a46] dark:text-[#c4c3be]"
@@ -57,7 +59,7 @@ const chip =
             ]"
         >
             <div v-if="share.game_version" class="flex items-center gap-1.5">
-                <dt class="sr-only">Game build</dt>
+                <dt class="sr-only">{{ $t('Game build') }}</dt>
                 <svg
                     viewBox="0 0 16 16"
                     fill="none"
@@ -78,7 +80,7 @@ const chip =
                 </dd>
             </div>
             <div class="flex items-center gap-1.5">
-                <dt class="sr-only">Updated</dt>
+                <dt class="sr-only">{{ $t('Updated') }}</dt>
                 <svg
                     viewBox="0 0 16 16"
                     fill="none"
@@ -101,10 +103,10 @@ const chip =
 
         <ul
             class="col-span-2 flex flex-wrap gap-1.5 sm:col-span-1 sm:col-start-2"
-            aria-label="Tags"
+            :aria-label="$t('Tags')"
         >
             <li :class="[chip, 'text-accent']">
-                {{ share.type === 'vehicle' ? 'Vehicle' : 'Save' }}
+                {{ share.type === 'vehicle' ? $t('Vehicle') : $t('Save') }}
             </li>
             <li v-for="tag in share.tags" :key="tag" :class="chip">
                 {{ tag }}

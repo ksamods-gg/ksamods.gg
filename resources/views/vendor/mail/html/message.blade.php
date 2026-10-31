@@ -21,7 +21,7 @@
 {{-- Footer --}}
 <x-slot:footer>
 <x-mail::footer>
-[{{ config('app.name') }}]({{ config('app.url') }}) · Mods, vehicles and saves for Kitten Space Agency
+[{{ config('app.name') }}]({{ config('app.url') }}) · {{ __('Mods, vehicles and saves for Kitten Space Agency') }}
 </x-mail::footer>
 </x-slot:footer>
 </x-mail::layout>

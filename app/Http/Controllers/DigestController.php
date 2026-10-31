@@ -49,14 +49,14 @@ class DigestController extends Controller
             $user->forceFill(['digest_email' => $email, 'digest_email_verified_at' => null]);
 
             if ($email !== null) {
-                Mail::to($email)->send(new ConfirmDigestEmail($user));
+                Mail::to($email)->locale(app()->getLocale())->send(new ConfirmDigestEmail($user));
             }
         }
 
         $user->save();
         Inertia::flash('status', $user->digest_email !== null && $user->digest_email_verified_at === null
-            ? "Saved. Click the link we sent to {$user->digest_email} to start the digest."
-            : 'Saved.');
+            ? __('Saved. Click the link we sent to :email to start the digest.', ['email' => $user->digest_email])
+            : __('Saved.'));
 
         return back();
     }
@@ -71,10 +71,13 @@ class DigestController extends Controller
         $user->forceFill(['digest_email_verified_at' => now()])->save();
 
         return Inertia::render('Settings/DigestDone', [
-            'title' => 'Email confirmed',
-            'message' => $user->digest_frequency === 'off'
-                ? "{$user->digest_email} is confirmed. Choose how often the digest comes in your notification settings."
-                : "{$user->digest_email} is confirmed. Your {$user->digest_frequency} digest starts with the next one.",
+            'title' => __('Email confirmed'),
+            'message' => match ($user->digest_frequency) {
+                'off' => __(':email is confirmed. Choose how often the digest comes in your notification settings.', ['email' => $user->digest_email]),
+                'daily' => __(':email is confirmed. Your daily digest starts with the next one.', ['email' => $user->digest_email]),
+                'monthly' => __(':email is confirmed. Your monthly digest starts with the next one.', ['email' => $user->digest_email]),
+                default => __(':email is confirmed. Your weekly digest starts with the next one.', ['email' => $user->digest_email]),
+            },
         ]);
     }
 
@@ -86,8 +89,8 @@ class DigestController extends Controller
         $user->forceFill(['digest_frequency' => 'off'])->save();
 
         return Inertia::render('Settings/DigestDone', [
-            'title' => 'Unsubscribed',
-            'message' => 'You will get no more digest emails. Turn them back on in your notification settings whenever you like.',
+            'title' => __('Unsubscribed'),
+            'message' => __('You will get no more digest emails. Turn them back on in your notification settings whenever you like.'),
         ]);
     }
 }

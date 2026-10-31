@@ -2,6 +2,7 @@
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import SettingsLayout from '@/layouts/SettingsLayout.vue';
+import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { destroy as deleteAccount } from '@/routes/account';
 import { unlink } from '@/routes/accounts';
@@ -22,16 +23,18 @@ const providers = computed(() => [
         linkedAs: props.github ? `@${props.github.login}` : null,
         note: props.github
             ? props.github.canOpenPullRequests
-                ? 'Can open pull requests for your listings.'
-                : 'Asked for pull request access when you first submit or edit a listing.'
-            : 'Needed to submit and edit mod listings.',
+                ? t('Can open pull requests for your listings.')
+                : t(
+                      'Asked for pull request access when you first submit or edit a listing.',
+                  )
+            : t('Needed to submit and edit mod listings.'),
         connect: githubLink().url,
     },
     {
         id: 'discord',
         name: 'Discord',
         linkedAs: props.discord ? props.discord.username : null,
-        note: props.discord ? null : 'Another way to sign in.',
+        note: props.discord ? null : t('Another way to sign in.'),
         connect: discordLink().url,
     },
 ]);
@@ -54,13 +57,13 @@ const button =
 </script>
 
 <template>
-    <Head title="Account" />
+    <Head :title="$t('Account')" />
 
     <SettingsLayout>
         <section>
-            <h1 :class="heading">Linked accounts</h1>
+            <h1 :class="heading">{{ $t('Linked accounts') }}</h1>
             <p :class="['mb-4 text-sm', muted]">
-                Sign in to ksamods.gg with any account linked here.
+                {{ $t('Sign in to ksamods.gg with any account linked here.') }}
             </p>
 
             <p
@@ -100,34 +103,38 @@ const button =
                         :disabled="linkedCount < 2"
                         :title="
                             linkedCount < 2
-                                ? 'Link another account first, so you can still sign in.'
+                                ? $t(
+                                      'Link another account first, so you can still sign in.',
+                                  )
                                 : undefined
                         "
                         :class="button"
                     >
-                        Unlink
+                        {{ $t('Unlink') }}
                     </Link>
                     <!-- A plain link: it leaves the site for the provider's sign-in. -->
                     <a v-else :href="provider.connect" :class="button">
-                        Connect {{ provider.name }}
+                        {{
+                            $t('Connect :provider', { provider: provider.name })
+                        }}
                     </a>
                 </li>
             </ul>
         </section>
 
         <section>
-            <h2 :class="heading">Danger zone</h2>
+            <h2 :class="heading">{{ $t('Danger zone') }}</h2>
             <div
                 class="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[#f53003]/50 px-4 py-3.5 text-sm dark:border-[#FF4433]/50"
             >
                 <div class="min-w-0 flex-1 basis-72">
-                    <p class="font-medium">Delete this account</p>
+                    <p class="font-medium">{{ $t('Delete this account') }}</p>
                     <p :class="['text-xs', muted]">
-                        Deletes your ksamods.gg account with your reviews,
-                        comments, reports, follows and notifications. Replies
-                        other people wrote under your comments go too. Listings
-                        you submitted stay in the content index, and pull
-                        requests stay on GitHub.
+                        {{
+                            $t(
+                                'Deletes your ksamods.gg account with your reviews, comments, reports, follows and notifications. Replies other people wrote under your comments go too. Listings you submitted stay in the content index, and pull requests stay on GitHub.',
+                            )
+                        }}
                     </p>
                 </div>
                 <button
@@ -136,25 +143,25 @@ const button =
                     :class="cn(button, danger)"
                     @click="confirmingDelete = true"
                 >
-                    Delete account…
+                    {{ $t('Delete account…') }}
                 </button>
                 <div v-else class="flex w-full flex-wrap items-center gap-3">
                     <p class="w-full font-medium">
-                        This cannot be undone. Delete your account?
+                        {{ $t('This cannot be undone. Delete your account?') }}
                     </p>
                     <Link
                         :href="deleteAccount()"
                         as="button"
                         class="rounded-md bg-[#f53003] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:text-[#0a0a0a]"
                     >
-                        Yes, delete my account
+                        {{ $t('Yes, delete my account') }}
                     </Link>
                     <button
                         type="button"
                         :class="button"
                         @click="confirmingDelete = false"
                     >
-                        Cancel
+                        {{ $t('Cancel') }}
                     </button>
                 </div>
             </div>

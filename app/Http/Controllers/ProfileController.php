@@ -119,9 +119,9 @@ class ProfileController extends Controller
             'sections' => ['array'],
             'sections.*' => ['boolean'],
         ], [
-            'username.regex' => 'A username is 3 to 30 letters, digits, - or _, starting and ending with a letter or digit.',
-            'username.not_in' => 'That username is reserved.',
-            'username.unique' => 'That username is taken.',
+            'username.regex' => __('A username is 3 to 30 letters, digits, - or _, starting and ending with a letter or digit.'),
+            'username.not_in' => __('That username is reserved.'),
+            'username.unique' => __('That username is taken.'),
         ]);
 
         $user->forceFill([
@@ -133,7 +133,7 @@ class ProfileController extends Controller
             'profile_sections' => collect(User::PROFILE_SECTIONS)->mapWithKeys(fn (string $section) => [$section => (bool) ($validated['sections'][$section] ?? true)])->all(),
         ])->save();
 
-        Inertia::flash('status', $user->profile_enabled ? 'Profile updated.' : 'Saved. Your profile is off, so nobody can see it.');
+        Inertia::flash('status', $user->profile_enabled ? __('Profile updated.') : __('Saved. Your profile is off, so nobody can see it.'));
 
         return back();
     }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import ModIcon from '@/components/ModIcon.vue';
+import { t } from '@/lib/i18n';
 import { show } from '@/routes/mods';
 import type { RelatedMod } from '@/types';
 
@@ -15,14 +16,14 @@ defineProps<{
 
 function versionRange(min: string | null, max: string | null): string {
     if (min && max) {
-        return `${min} to ${max}`;
+        return t(':min to :max', { min, max });
     }
 
     if (min) {
-        return `${min} or newer`;
+        return t(':min or newer', { min });
     }
 
-    return max ? `up to ${max}` : 'any version';
+    return max ? t('up to :max', { max }) : t('any version');
 }
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
@@ -39,7 +40,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                     class="py-2 text-sm"
                 >
                     <p v-if="item.any_of" :class="['mb-1 text-xs', muted]">
-                        One of these:
+                        {{ $t('One of these:') }}
                     </p>
                     <div
                         v-for="mod in item.any_of ?? [item]"
@@ -63,9 +64,9 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                             >
                             <template v-else>
                                 {{ mod.id }}
-                                <span :class="['text-xs', muted]"
-                                    >not in the index</span
-                                >
+                                <span :class="['text-xs', muted]">{{
+                                    $t('not in the index')
+                                }}</span>
                             </template>
                         </span>
                         <span :class="['shrink-0 text-xs', muted]">{{

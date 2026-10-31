@@ -7,6 +7,7 @@ import { accounts } from '@/routes';
 import { mine } from '@/routes/mods';
 import { notifications, profile, sessions } from '@/routes/settings';
 import { create as shareCreate } from '@/routes/shares';
+import { t } from '@/lib/i18n';
 
 /**
  * The settings pages, laid out like GitHub's: who you are at the top, a grouped sidebar, and the
@@ -15,28 +16,32 @@ import { create as shareCreate } from '@/routes/shares';
 const page = usePage();
 const user = computed(() => page.props.auth.user!);
 
-const groups = [
+const groups = computed(() => [
     {
         title: null,
         items: [
-            { label: 'Public profile', href: profile().url, icon: 'card' },
-            { label: 'Account', href: accounts().url, icon: 'person' },
-            { label: 'Notifications', href: notifications().url, icon: 'bell' },
-            { label: 'Sessions', href: sessions().url, icon: 'shield' },
+            { label: t('Public profile'), href: profile().url, icon: 'card' },
+            { label: t('Account'), href: accounts().url, icon: 'person' },
+            {
+                label: t('Notifications'),
+                href: notifications().url,
+                icon: 'bell',
+            },
+            { label: t('Sessions'), href: sessions().url, icon: 'shield' },
         ],
     },
     {
-        title: 'Your content',
+        title: t('Your content'),
         items: [
-            { label: 'My mods', href: mine().url, icon: 'box' },
+            { label: t('My mods'), href: mine().url, icon: 'box' },
             {
-                label: 'Share a vehicle or save',
+                label: t('Share a vehicle or save'),
                 href: shareCreate().url,
                 icon: 'upload',
             },
         ],
     },
-] as const;
+]);
 
 const current = computed(() => page.url.split('?')[0]);
 
@@ -63,12 +68,14 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                     <p class="text-xl font-semibold tracking-tight">
                         {{ user.name }}
                     </p>
-                    <p :class="['text-sm', muted]">Your personal account</p>
+                    <p :class="['text-sm', muted]">
+                        {{ $t('Your personal account') }}
+                    </p>
                 </div>
             </div>
 
             <div class="grid gap-8 md:grid-cols-[14rem_minmax(0,1fr)]">
-                <nav aria-label="Settings" class="flex flex-col gap-4">
+                <nav :aria-label="$t('Settings')" class="flex flex-col gap-4">
                     <div v-for="(group, index) in groups" :key="index">
                         <p
                             v-if="group.title"

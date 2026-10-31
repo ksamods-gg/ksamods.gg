@@ -1,24 +1,46 @@
+import { t } from '@/lib/i18n';
 import type { NotificationData } from '@/types';
 
 // What happened, in one line, the same in the header's toast and on the notifications page.
 export function notificationText(data: NotificationData): string {
     switch (data.kind) {
         case 'reply':
-            return `${data.actor.name} replied to your comment on ${data.mod.name}`;
+            return t(':actor replied to your comment on :mod', {
+                actor: data.actor.name,
+                mod: data.mod.name,
+            });
         case 'review_reply':
-            return `${data.actor.name} replied to your review of ${data.mod.name}`;
+            return t(':actor replied to your review of :mod', {
+                actor: data.actor.name,
+                mod: data.mod.name,
+            });
         case 'mention':
-            return `${data.actor.name} mentioned you on ${data.mod.name}`;
+            return t(':actor mentioned you on :mod', {
+                actor: data.actor.name,
+                mod: data.mod.name,
+            });
         case 'release':
-            return `${data.subject.name} ${data.version} is out`;
+            return t(':mod :version is out', {
+                mod: data.subject.name,
+                version: data.version ?? '',
+            });
         case 'share_merged':
-            return `${data.subject.name} is in the index`;
+            return t(':mod is in the index', { mod: data.subject.name });
         case 'share_closed':
-            return `The listing pull request of ${data.subject.name} was closed without merging`;
+            return t(
+                'The listing pull request of :mod was closed without merging',
+                { mod: data.subject.name },
+            );
         case 'share_mirrored':
-            return `${data.subject.name} ${data.version} has its archive.org copy`;
+            return t(':mod :version has its archive.org copy', {
+                mod: data.subject.name,
+                version: data.version ?? '',
+            });
         case 'share_taken_down':
-            return `${data.subject.name} ${data.version} was taken down`;
+            return t(':mod :version was taken down', {
+                mod: data.subject.name,
+                version: data.version ?? '',
+            });
     }
 }
 

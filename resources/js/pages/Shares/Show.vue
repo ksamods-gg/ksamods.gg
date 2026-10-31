@@ -9,6 +9,7 @@ import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { create, destroy, edit, index, takeDown } from '@/routes/shares';
 import {
     cover as coverImage,
@@ -83,15 +84,15 @@ const latest = computed(() =>
 const mobile = isMobileDevice(page.props.userAgent);
 
 // The same groups as a mod's dependencies.
-const dependencyKinds: Record<string, string> = {
-    required: 'Required',
-    recommends: 'Recommended',
-    optional: 'Optional',
-    suggests: 'Suggested',
-    conflict: 'Conflicts with',
-};
+const dependencyKinds = computed<Record<string, string>>(() => ({
+    required: t('Required'),
+    recommends: t('Recommended'),
+    optional: t('Optional'),
+    suggests: t('Suggested'),
+    conflict: t('Conflicts with'),
+}));
 const dependencyGroups = computed(() =>
-    Object.entries(dependencyKinds)
+    Object.entries(dependencyKinds.value)
         .map(([kind, label]) => ({
             label,
             items: props.share.dependencies.filter((d) => d.kind === kind),
@@ -106,7 +107,7 @@ const tabs = computed(() => [
         ? [
               {
                   id: 'screenshots' as const,
-                  label: 'Screenshots',
+                  label: t('Screenshots'),
                   count: props.share.images.length,
               },
           ]
@@ -115,19 +116,19 @@ const tabs = computed(() => [
         ? [
               {
                   id: 'description' as const,
-                  label: 'Description',
+                  label: t('Description'),
                   count: undefined,
               },
           ]
         : []),
     {
         id: 'dependencies' as const,
-        label: 'Dependencies',
+        label: t('Dependencies'),
         count: props.share.dependencies.length,
     },
     {
         id: 'releases' as const,
-        label: 'Releases',
+        label: t('Releases'),
         count: props.share.releases.length,
     },
 ]);
@@ -153,7 +154,9 @@ function addScreenshots(event: Event) {
 }
 
 function removeScreenshot(id: number) {
-    if (confirm('Remove this screenshot? It also leaves the index listing.')) {
+    if (
+        confirm(t('Remove this screenshot? It also leaves the index listing.'))
+    ) {
         router.delete(destroyImage(id).url, { preserveScroll: true });
     }
 }
@@ -181,7 +184,10 @@ function moveBetweenTabs(event: KeyboardEvent, position: number) {
 function takeDownRelease(id: number, version: string) {
     if (
         confirm(
-            `Take down ${props.share.name} ${version}? Its archive is deleted and its download answers that it is gone. This cannot be undone.`,
+            t(
+                'Take down :name :version? Its archive is deleted and its download answers that it is gone. This cannot be undone.',
+                { name: props.share.name, version },
+            ),
         )
     ) {
         router.post(takeDown(id).url, {}, { preserveScroll: true });
@@ -191,7 +197,10 @@ function takeDownRelease(id: number, version: string) {
 function deleteListing() {
     if (
         confirm(
-            `Delete ${props.share.name} for good? Its releases, files and pull request go, and its id becomes free again.`,
+            t(
+                'Delete :name for good? Its releases, files and pull request go, and its id becomes free again.',
+                { name: props.share.name },
+            ),
         )
     ) {
         router.delete(destroy({ types: listing, id: props.share.id }).url);
@@ -209,7 +218,11 @@ const card =
 
 <template>
     <PageMeta
-        :title="`${share.name} - KSA ${share.type}`"
+        :title="
+            share.type === 'vehicle'
+                ? $t(':name - KSA vehicle', { name: share.name })
+                : $t(':name - KSA save', { name: share.name })
+        "
         :description="share.abstract"
         :json-ld="jsonLd"
     />
@@ -219,7 +232,8 @@ const card =
             :href="index(listing)"
             :class="['text-sm hover:underline', muted]"
         >
-            ← All {{ listing }}
+            ←
+            {{ listing === 'vehicles' ? $t('All vehicles') : $t('All saves') }}
         </Link>
 
         <p
@@ -251,8 +265,15 @@ const card =
                         {{ share.name }}
                     </h1>
                     <p :class="['text-sm', muted]">
-                        {{ share.type === 'vehicle' ? 'Vehicle' : 'Save' }}
-                        by {{ share.authors.join(', ') }}
+                        {{
+                            share.type === 'vehicle'
+                                ? $t('Vehicle by :authors', {
+                                      authors: share.authors.join(', '),
+                                  })
+                                : $t('Save by :authors', {
+                                      authors: share.authors.join(', '),
+                                  })
+                        }}
                     </p>
                     <p
                         class="mt-2 max-w-2xl text-[#4a4a46] dark:text-[#c4c3be]"
@@ -274,16 +295,22 @@ const card =
                     :href="latest.url"
                     :class="primaryButton"
                 >
-                    Download v{{ latest.version }}
+                    {{ $t('Download v:version', { version: latest.version }) }}
                 </a>
                 <div
                     v-else-if="mobile"
                     class="rounded-md border border-dashed border-[#19140035] px-4 py-3 text-sm sm:max-w-72 sm:text-right dark:border-[#3E3E3A]"
                 >
-                    <p class="font-medium">Downloads are desktop only</p>
+                    <p class="font-medium">
+                        {{ $t('Downloads are desktop only') }}
+                    </p>
                     <p :class="['mt-0.5 text-xs', muted]">
-                        Open this page on a Windows, Linux or macOS computer to
-                        get {{ share.name }}.
+                        {{
+                            $t(
+                                'Open this page on a Windows, Linux or macOS computer to get :name.',
+                                { name: share.name },
+                            )
+                        }}
                     </p>
                 </div>
 
@@ -291,16 +318,25 @@ const card =
                     <template v-if="!mobile"
                         >{{ formatBytes(latest.size) }} ·
                     </template>
-                    Game {{ latest.game_version }} or newer
+                    {{
+                        $t('Game :version or newer', {
+                            version: latest.game_version,
+                        })
+                    }}
                 </p>
                 <p
                     v-if="!mobile"
                     :class="['mt-1 max-w-64 text-xs sm:text-right', muted]"
                 >
-                    A mod manager such as Borea installs the mods it needs
-                    first. By hand, unzip it into your
-                    {{ share.type === 'vehicle' ? 'Vehicles' : 'saves' }}
-                    folder.
+                    {{
+                        share.type === 'vehicle'
+                            ? $t(
+                                  'A mod manager such as Borea installs the mods it needs first. By hand, unzip it into your Vehicles folder.',
+                              )
+                            : $t(
+                                  'A mod manager such as Borea installs the mods it needs first. By hand, unzip it into your saves folder.',
+                              )
+                    }}
                 </p>
             </div>
         </div>
@@ -309,7 +345,11 @@ const card =
             <div class="min-w-0">
                 <div
                     role="tablist"
-                    :aria-label="`About this ${kind}`"
+                    :aria-label="
+                        kind === 'vehicle'
+                            ? $t('About this vehicle')
+                            : $t('About this save')
+                    "
                     class="mb-3 flex [scrollbar-width:none] gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_rgba(62,62,58,0.6)]"
                 >
                     <button
@@ -379,15 +419,16 @@ const card =
                         <p class="text-sm font-semibold">
                             {{
                                 owns
-                                    ? 'Your screenshots'
-                                    : 'Moderate screenshots'
+                                    ? $t('Your screenshots')
+                                    : $t('Moderate screenshots')
                             }}
                         </p>
                         <p v-if="owns" :class="['text-xs', muted]">
-                            Up to 6 PNG, JPEG or WebP images, at most 10 MB
-                            each, converted to WebP. The first is the cover and
-                            its square middle is the icon. Changes go to the
-                            index by pull request.
+                            {{
+                                $t(
+                                    'Up to 6 PNG, JPEG or WebP images, at most 10 MB each, converted to WebP. The first is the cover and its square middle is the icon. Changes go to the index by pull request.',
+                                )
+                            }}
                         </p>
                         <ul
                             v-if="share.images.length"
@@ -400,12 +441,18 @@ const card =
                             >
                                 <img
                                     :src="image.url"
-                                    :alt="`Screenshot ${index + 1}`"
+                                    :alt="
+                                        $t('Screenshot :number', {
+                                            number: index + 1,
+                                        })
+                                    "
                                     class="aspect-video w-full rounded-md object-cover"
                                 />
                                 <span class="flex flex-wrap gap-x-3 text-xs">
-                                    <span v-if="index === 0" class="text-accent"
-                                        >Cover</span
+                                    <span
+                                        v-if="index === 0"
+                                        class="text-accent"
+                                        >{{ $t('Cover') }}</span
                                     >
                                     <Link
                                         v-else-if="owns"
@@ -413,14 +460,14 @@ const card =
                                         as="button"
                                         preserve-scroll
                                         class="underline underline-offset-4"
-                                        >Make cover</Link
+                                        >{{ $t('Make cover') }}</Link
                                     >
                                     <button
                                         type="button"
                                         class="text-[#f53003] hover:underline dark:text-[#FF4433]"
                                         @click="removeScreenshot(image.id)"
                                     >
-                                        Remove
+                                        {{ $t('Remove') }}
                                     </button>
                                 </span>
                             </li>
@@ -431,8 +478,8 @@ const card =
                         >
                             {{
                                 uploadForm.processing
-                                    ? 'Uploading…'
-                                    : 'Add screenshots'
+                                    ? $t('Uploading…')
+                                    : $t('Add screenshots')
                             }}
                             <input
                                 type="file"
@@ -466,7 +513,15 @@ const card =
                         :groups="dependencyGroups"
                     />
                     <p v-else :class="['text-sm', muted]">
-                        This {{ kind }} needs nothing besides the game.
+                        {{
+                            kind === 'vehicle'
+                                ? $t(
+                                      'This vehicle needs nothing besides the game.',
+                                  )
+                                : $t(
+                                      'This save needs nothing besides the game.',
+                                  )
+                        }}
                     </p>
                 </section>
 
@@ -495,22 +550,30 @@ const card =
                                 >{{ release.status }}</span
                             >
                             <span :class="['text-xs', muted]"
-                                >{{ formatDate(release.date) }} · game
-                                {{ release.game_version }}</span
+                                >{{ formatDate(release.date) }} ·
+                                {{
+                                    $t('game :version', {
+                                        version: release.game_version,
+                                    })
+                                }}</span
                             >
                             <span
                                 class="ml-auto flex items-center gap-3 text-xs"
                             >
-                                <span v-if="release.taken_down" :class="muted"
-                                    >Taken down</span
+                                <span
+                                    v-if="release.taken_down"
+                                    :class="muted"
+                                    >{{ $t('Taken down') }}</span
                                 >
                                 <a
                                     v-else-if="release.url && !mobile"
                                     :href="release.url"
                                     class="underline underline-offset-4"
-                                    >Download ({{
-                                        formatBytes(release.size)
-                                    }})</a
+                                    >{{
+                                        $t('Download (:size)', {
+                                            size: formatBytes(release.size),
+                                        })
+                                    }}</a
                                 >
                                 <button
                                     v-if="canTakeDown && !release.taken_down"
@@ -523,7 +586,7 @@ const card =
                                         )
                                     "
                                 >
-                                    Take down
+                                    {{ $t('Take down') }}
                                 </button>
                             </span>
                         </li>
@@ -536,19 +599,25 @@ const card =
                 class="flex flex-col gap-6 text-sm lg:sticky lg:top-6 lg:self-start"
             >
                 <section :class="card">
-                    <h2 class="mb-3 font-semibold">Details</h2>
+                    <h2 class="mb-3 font-semibold">{{ $t('Details') }}</h2>
                     <dl
                         class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2"
                     >
-                        <dt :class="muted">Updated</dt>
+                        <dt :class="muted">{{ $t('Updated') }}</dt>
                         <dd>{{ formatDate(share.updated_at) }}</dd>
                         <template v-if="share.game_version">
-                            <dt :class="muted">Game</dt>
-                            <dd>{{ share.game_version }} or newer</dd>
+                            <dt :class="muted">{{ $t('Game') }}</dt>
+                            <dd>
+                                {{
+                                    $t(':version or newer', {
+                                        version: share.game_version,
+                                    })
+                                }}
+                            </dd>
                         </template>
-                        <dt :class="muted">License</dt>
+                        <dt :class="muted">{{ $t('License') }}</dt>
                         <dd>{{ share.license }}</dd>
-                        <dt :class="muted">Id</dt>
+                        <dt :class="muted">{{ $t('Id') }}</dt>
                         <dd class="truncate font-mono">{{ share.id }}</dd>
                     </dl>
 
@@ -574,21 +643,21 @@ const card =
                             'mt-4 inline-block text-xs underline underline-offset-4',
                             muted,
                         ]"
-                        >Its listing in the index</a
+                        >{{ $t('Its listing in the index') }}</a
                     >
                 </section>
 
                 <section v-if="owns" :class="[card, 'flex flex-col gap-3']">
-                    <h2 class="font-semibold">Your listing</h2>
+                    <h2 class="font-semibold">{{ $t('Your listing') }}</h2>
                     <Link
                         :href="create({ query: { listing: share.id } })"
                         :class="primaryButton"
-                        >Upload a new version</Link
+                        >{{ $t('Upload a new version') }}</Link
                     >
                     <Link
                         :href="edit({ types: listing, id: share.id })"
                         :class="secondaryButton"
-                        >Edit the listing</Link
+                        >{{ $t('Edit the listing') }}</Link
                     >
                     <template v-if="canDelete">
                         <button
@@ -596,11 +665,18 @@ const card =
                             class="text-left text-xs text-[#f53003] hover:underline dark:text-[#FF4433]"
                             @click="deleteListing"
                         >
-                            Delete this {{ kind }}
+                            {{
+                                kind === 'vehicle'
+                                    ? $t('Delete this vehicle')
+                                    : $t('Delete this save')
+                            }}
                         </button>
                         <p :class="['text-xs', muted]">
-                            Possible until the index takes it. After that, take
-                            its releases down instead.
+                            {{
+                                $t(
+                                    'Possible until the index takes it. After that, take its releases down instead.',
+                                )
+                            }}
                         </p>
                     </template>
                 </section>

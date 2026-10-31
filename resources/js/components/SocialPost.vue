@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import { formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { store as reportStore } from '@/routes/reports';
 import type { Post } from '@/types';
 
@@ -17,7 +18,12 @@ const props = defineProps<{
 }>();
 
 function remove() {
-    if (confirm(`Delete this ${props.noun}?`)) {
+    const message =
+        props.noun === 'review'
+            ? t('Delete this review?')
+            : t('Delete this comment?');
+
+    if (confirm(message)) {
         router.delete(props.deleteUrl, { preserveScroll: true });
     }
 }
@@ -42,12 +48,12 @@ function sendReport() {
     });
 }
 
-const reasons = {
-    spam: 'Spam',
-    abuse: 'Harassment or abuse',
-    'off-topic': 'Off-topic',
-    other: 'Something else',
-};
+const reasons = computed(() => ({
+    spam: t('Spam'),
+    abuse: t('Harassment or abuse'),
+    'off-topic': t('Off-topic'),
+    other: t('Something else'),
+}));
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const control =
@@ -82,11 +88,17 @@ const control =
                 <span v-else-if="post.author" class="font-medium">{{
                     post.author.name
                 }}</span>
-                <span v-else :class="['italic', muted]">Deleted</span>
-                <span v-if="post.mine" :class="['text-xs', muted]">(you)</span>
+                <span v-else :class="['italic', muted]">{{
+                    $t('Deleted')
+                }}</span>
+                <span v-if="post.mine" :class="['text-xs', muted]">{{
+                    $t('(you)')
+                }}</span>
                 <time :datetime="post.created_at" :class="['text-xs', muted]">
                     {{ formatDate(post.created_at)
-                    }}<template v-if="post.edited"> · edited</template>
+                    }}<template v-if="post.edited">
+                        · {{ $t('edited') }}</template
+                    >
                 </time>
                 <span class="ml-auto flex gap-3 text-xs">
                     <slot name="actions" />
@@ -97,7 +109,7 @@ const control =
                         :aria-expanded="reporting"
                         @click="reporting = !reporting"
                     >
-                        Report
+                        {{ $t('Report') }}
                     </button>
                     <button
                         v-if="post.canDelete"
@@ -105,7 +117,7 @@ const control =
                         :class="['hover:underline', muted]"
                         @click="remove"
                     >
-                        Delete
+                        {{ $t('Delete') }}
                     </button>
                 </span>
             </header>
@@ -117,7 +129,11 @@ const control =
                 @submit.prevent="sendReport"
             >
                 <label class="flex flex-wrap items-center gap-2">
-                    <span class="font-medium">Report this {{ noun }} for</span>
+                    <span class="font-medium">{{
+                        noun === 'review'
+                            ? $t('Report this review for')
+                            : $t('Report this comment for')
+                    }}</span>
                     <select v-model="report.reason" :class="control">
                         <option
                             v-for="(label, value) in reasons"
@@ -129,9 +145,9 @@ const control =
                     </select>
                 </label>
                 <label class="flex flex-col gap-1">
-                    <span :class="muted"
-                        >Anything moderators should know? (optional)</span
-                    >
+                    <span :class="muted">{{
+                        $t('Anything moderators should know? (optional)')
+                    }}</span>
                     <input
                         v-model="report.details"
                         maxlength="500"
@@ -143,7 +159,7 @@ const control =
                     role="alert"
                     class="text-xs text-[#f53003] dark:text-[#FF4433]"
                 >
-                    The report could not be sent. Please try again.
+                    {{ $t('The report could not be sent. Please try again.') }}
                 </p>
                 <div class="flex gap-3">
                     <button
@@ -151,19 +167,19 @@ const control =
                         :disabled="report.processing"
                         class="rounded-md bg-[#1b1b18] px-3 py-1.5 font-medium text-white hover:bg-black disabled:opacity-60 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                     >
-                        Send report
+                        {{ $t('Send report') }}
                     </button>
                     <button
                         type="button"
                         :class="['hover:underline', muted]"
                         @click="reporting = false"
                     >
-                        Cancel
+                        {{ $t('Cancel') }}
                     </button>
                 </div>
             </form>
             <p v-if="reported" role="status" :class="['mt-1 text-xs', muted]">
-                Thanks for the report. A moderator will take a look.
+                {{ $t('Thanks for the report. A moderator will take a look.') }}
             </p>
         </div>
     </article>

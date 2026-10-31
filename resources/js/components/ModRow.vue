@@ -33,9 +33,9 @@ const chip =
                     class="text-base font-semibold after:absolute after:inset-0 after:rounded-lg hover:underline"
                     >{{ mod.name }}</Link
                 >
-                <span :class="['text-sm font-normal', muted]"
-                    >by {{ mod.authors.join(', ') }}</span
-                >
+                <span :class="['text-sm font-normal', muted]">{{
+                    $t('by :authors', { authors: mod.authors.join(', ') })
+                }}</span>
             </h2>
             <p
                 class="mt-1 line-clamp-2 text-sm text-[#4a4a46] dark:text-[#c4c3be]"
@@ -52,7 +52,7 @@ const chip =
             ]"
         >
             <div class="flex items-center gap-1.5">
-                <dt class="sr-only">Downloads</dt>
+                <dt class="sr-only">{{ $t('Downloads') }}</dt>
                 <svg
                     viewBox="0 0 16 16"
                     fill="none"
@@ -74,7 +74,7 @@ const chip =
                 </dd>
             </div>
             <div v-if="mod.rating" class="flex items-center gap-1.5">
-                <dt class="sr-only">Rating</dt>
+                <dt class="sr-only">{{ $t('Rating') }}</dt>
                 <svg
                     viewBox="0 0 20 20"
                     aria-hidden="true"
@@ -92,7 +92,7 @@ const chip =
                 </dd>
             </div>
             <div class="flex items-center gap-1.5">
-                <dt class="sr-only">Updated</dt>
+                <dt class="sr-only">{{ $t('Updated') }}</dt>
                 <svg
                     viewBox="0 0 16 16"
                     fill="none"
@@ -115,10 +115,10 @@ const chip =
 
         <ul
             class="col-span-2 flex flex-wrap gap-1.5 sm:col-span-1 sm:col-start-2"
-            aria-label="Tags"
+            :aria-label="$t('Tags')"
         >
             <li v-if="mod.type === 'mod-loader'" :class="[chip, 'text-accent']">
-                Mod loader
+                {{ $t('Mod loader') }}
             </li>
             <li v-if="mod.loader" :class="chip">
                 {{ mod.loader }}

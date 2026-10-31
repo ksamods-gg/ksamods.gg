@@ -169,10 +169,10 @@ class ListingController extends Controller
             'loader_id' => $isMod ? ['nullable', Rule::in([...$this->loaderIds($snapshot), ...array_filter([$listing['loader']['id'] ?? null])])] : ['exclude'],
             'loader_min' => $isMod ? ['nullable', 'required_with:loader_id', 'regex:/^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){0,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/D'] : ['exclude'],
         ], [
-            'github.required_without' => 'Give a GitHub repository or a SpaceDock mod id, so the index can find your releases.',
-            'spacedock.required_without' => 'Give a GitHub repository or a SpaceDock mod id, so the index can find your releases.',
-            'forums.regex' => 'Use a link to your thread on forums.ahwoo.com, such as https://forums.ahwoo.com/threads/my-mod.783/.',
-            'license.regex' => 'Use an SPDX license expression, such as MIT or GPL-2.0-only AND CC-BY-SA-4.0.',
+            'github.required_without' => __('Give a GitHub repository or a SpaceDock mod id, so the index can find your releases.'),
+            'spacedock.required_without' => __('Give a GitHub repository or a SpaceDock mod id, so the index can find your releases.'),
+            'forums.regex' => __('Use a link to your thread on forums.ahwoo.com, such as https://forums.ahwoo.com/threads/my-mod.783/.'),
+            'license.regex' => __('Use an SPDX license expression, such as MIT or GPL-2.0-only AND CC-BY-SA-4.0.'),
         ]);
 
         $description = trim(str_replace("\r\n", "\n", $validated['description'] ?? ''));
@@ -216,7 +216,7 @@ class ListingController extends Controller
             report($e);
 
             return back()->withErrors([
-                'pull_request' => 'GitHub refused the pull request: '.($e->response->json('message') ?? 'unknown error').'. If this keeps happening, reconnect GitHub and try again.',
+                'pull_request' => __('GitHub refused the pull request: :message. If this keeps happening, reconnect GitHub and try again.', ['message' => $e->response->json('message') ?? __('unknown error')]),
             ]);
         }
 

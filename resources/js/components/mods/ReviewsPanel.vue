@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import CommentNode from '@/components/mods/CommentNode.vue';
 import ReplyForm from '@/components/mods/ReplyForm.vue';
 import SocialPost from '@/components/SocialPost.vue';
 import Stars from '@/components/Stars.vue';
+import { t } from '@/lib/i18n';
 import { login } from '@/routes';
 import { destroy, save } from '@/routes/reviews';
 import type { Reviews } from '@/types';
@@ -31,7 +32,13 @@ function submit() {
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const input =
     'w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#0a0a0a] dark:focus:border-[#EDEDEC]';
-const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
+const starLabels = computed(() => [
+    t('Bad'),
+    t('Poor'),
+    t('Okay'),
+    t('Good'),
+    t('Great'),
+]);
 </script>
 
 <template>
@@ -43,7 +50,7 @@ const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
         >
             <fieldset>
                 <legend class="mb-1 text-sm font-medium">
-                    {{ reviews.mine ? 'Your review' : 'Rate this mod' }}
+                    {{ reviews.mine ? $t('Your review') : $t('Rate this mod') }}
                 </legend>
                 <div class="flex" @mouseleave="hovered = 0">
                     <label
@@ -73,10 +80,12 @@ const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
                                 d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8L1.5 7.7l5.9-.9L10 1.5z"
                             />
                         </svg>
-                        <span class="sr-only"
-                            >{{ star }} out of 5,
-                            {{ starLabels[star - 1] }}</span
-                        >
+                        <span class="sr-only">{{
+                            $t(':star out of 5, :label', {
+                                star,
+                                label: starLabels[star - 1],
+                            })
+                        }}</span>
                     </label>
                 </div>
                 <p
@@ -88,12 +97,12 @@ const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
             </fieldset>
 
             <label class="flex flex-col gap-1">
-                <span class="sr-only">Your review</span>
+                <span class="sr-only">{{ $t('Your review') }}</span>
                 <textarea
                     v-model="form.body"
                     rows="3"
                     maxlength="2000"
-                    placeholder="What did you think? (optional)"
+                    :placeholder="$t('What did you think? (optional)')"
                     :class="input"
                 />
                 <span
@@ -109,15 +118,15 @@ const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
                     :disabled="form.processing || form.rating === 0"
                     class="rounded-md bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                 >
-                    {{ reviews.mine ? 'Update review' : 'Post review' }}
+                    {{ reviews.mine ? $t('Update review') : $t('Post review') }}
                 </button>
             </div>
         </form>
         <p v-else :class="['text-sm', muted]">
-            <Link :href="login()" class="underline underline-offset-4"
-                >Log in</Link
-            >
-            to rate this mod.
+            <Link :href="login()" class="underline underline-offset-4">{{
+                $t('Log in')
+            }}</Link>
+            {{ $t('to rate this mod.') }}
         </p>
 
         <div
@@ -141,7 +150,7 @@ const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
                             :class="['hover:underline', muted]"
                             @click="replyingTo = review.id"
                         >
-                            Reply
+                            {{ $t('Reply') }}
                         </button>
                     </template>
                     <Stars :rating="review.rating" class="mt-1" />
@@ -175,6 +184,8 @@ const starLabels = ['Bad', 'Poor', 'Okay', 'Good', 'Great'];
                 </div>
             </div>
         </div>
-        <p v-else :class="['text-sm', muted]">No reviews yet.</p>
+        <p v-else :class="['text-sm', muted]">
+            {{ $t('No reviews yet.') }}
+        </p>
     </div>
 </template>

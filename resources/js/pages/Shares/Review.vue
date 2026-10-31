@@ -51,20 +51,26 @@ const input =
 </script>
 
 <template>
-    <Head title="Publish" />
+    <Head :title="$t('Publish')" />
 
     <AppLayout>
         <div class="mx-auto max-w-3xl">
             <h1 class="text-2xl font-semibold tracking-tight">
                 {{
                     listingId
-                        ? `A new version of ${listingId}`
-                        : `Publish your ${type}`
+                        ? $t('A new version of :id', { id: listingId })
+                        : type === 'vehicle'
+                          ? $t('Publish your vehicle')
+                          : $t('Publish your save')
                 }}
             </h1>
             <p :class="['mt-1 mb-6 text-sm', muted]">
-                The archive passed its checks. Confirm the details; the upload
-                waits until {{ formatDate(expires) }}.
+                {{
+                    $t(
+                        'The archive passed its checks. Confirm the details; the upload waits until :date.',
+                        { date: formatDate(expires) },
+                    )
+                }}
             </p>
 
             <p
@@ -72,9 +78,10 @@ const input =
                 role="alert"
                 class="mb-6 rounded-md bg-[#fff2f2] p-3 text-sm text-[#f53003] dark:bg-[#1D0002] dark:text-[#FF4433]"
             >
-                This upload expired.
-                <Link :href="create()" class="underline underline-offset-4"
-                    >Upload it again</Link
+                {{ $t('This upload expired.') }}
+                <Link :href="create()" class="underline underline-offset-4">{{
+                    $t('Upload it again')
+                }}</Link
                 >.
             </p>
 
@@ -88,12 +95,16 @@ const input =
                 </p>
 
                 <section v-if="!listingId" :class="card">
-                    <h2 class="font-semibold">The listing</h2>
+                    <h2 class="font-semibold">{{ $t('The listing') }}</h2>
                     <FormField
-                        label="Id"
+                        :label="$t('Id')"
                         for="id"
                         required
-                        hint="How the index and clients name it, such as ExampleRover: letters, digits, ., _ or -. It cannot change later."
+                        :hint="
+                            $t(
+                                'How the index and clients name it, such as ExampleRover: letters, digits, ., _ or -. It cannot change later.',
+                            )
+                        "
                         :error="form.errors.id"
                     >
                         <input
@@ -105,7 +116,7 @@ const input =
                             :class="[input, 'font-mono']"
                         />
                     </FormField>
-                    <FormField label="Name" for="name" required>
+                    <FormField :label="$t('Name')" for="name" required>
                         <input
                             id="name"
                             v-model="form.name"
@@ -114,10 +125,14 @@ const input =
                         />
                     </FormField>
                     <FormField
-                        label="Authors"
+                        :label="$t('Authors')"
                         for="authors"
                         required
-                        hint="The names you publish under, separated by commas."
+                        :hint="
+                            $t(
+                                'The names you publish under, separated by commas.',
+                            )
+                        "
                     >
                         <input
                             id="authors"
@@ -127,10 +142,10 @@ const input =
                         />
                     </FormField>
                     <FormField
-                        label="Summary"
+                        :label="$t('Summary')"
                         for="abstract"
                         required
-                        hint="One sentence for its card."
+                        :hint="$t('One sentence for its card.')"
                     >
                         <input
                             id="abstract"
@@ -140,7 +155,7 @@ const input =
                             :class="input"
                         />
                     </FormField>
-                    <FormField label="Description" for="description">
+                    <FormField :label="$t('Description')" for="description">
                         <textarea
                             id="description"
                             v-model="form.description"
@@ -150,10 +165,10 @@ const input =
                     </FormField>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <FormField
-                            label="License"
+                            :label="$t('License')"
                             for="license"
                             required
-                            hint="An SPDX id, such as CC-BY-4.0."
+                            :hint="$t('An SPDX id, such as CC-BY-4.0.')"
                         >
                             <input
                                 id="license"
@@ -163,9 +178,13 @@ const input =
                             />
                         </FormField>
                         <FormField
-                            label="Tags"
+                            :label="$t('Tags')"
                             for="tags"
-                            hint="Lowercase, comma-separated, such as rover, lander."
+                            :hint="
+                                $t(
+                                    'Lowercase, comma-separated, such as rover, lander.',
+                                )
+                            "
                         >
                             <input
                                 id="tags"
@@ -177,13 +196,17 @@ const input =
                 </section>
 
                 <section :class="card">
-                    <h2 class="font-semibold">The release</h2>
+                    <h2 class="font-semibold">{{ $t('The release') }}</h2>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <FormField
-                            label="Version"
+                            :label="$t('Version')"
                             for="version"
                             required
-                            hint="Three numbers, such as 1.0.0. A version is never used twice."
+                            :hint="
+                                $t(
+                                    'Three numbers, such as 1.0.0. A version is never used twice.',
+                                )
+                            "
                             :error="form.errors.version"
                         >
                             <input
@@ -194,15 +217,19 @@ const input =
                                 :class="[input, 'font-mono']"
                             />
                         </FormField>
-                        <FormField label="Status" for="status" required>
+                        <FormField :label="$t('Status')" for="status" required>
                             <select
                                 id="status"
                                 v-model="form.status"
                                 :class="input"
                             >
-                                <option value="stable">Stable</option>
-                                <option value="testing">Testing</option>
-                                <option value="dev">Dev</option>
+                                <option value="stable">
+                                    {{ $t('Stable') }}
+                                </option>
+                                <option value="testing">
+                                    {{ $t('Testing') }}
+                                </option>
+                                <option value="dev">{{ $t('Dev') }}</option>
                             </select>
                         </FormField>
                     </div>
@@ -210,7 +237,7 @@ const input =
 
                 <details :class="card">
                     <summary class="cursor-pointer font-semibold">
-                        Checks and listing text
+                        {{ $t('Checks and listing text') }}
                     </summary>
                     <ul class="flex flex-col gap-1.5 text-sm">
                         <li
@@ -225,10 +252,13 @@ const input =
                         </li>
                     </ul>
                     <p v-if="dependencies.length" :class="['text-sm', muted]">
-                        Needs
                         {{
-                            dependencies.map((d) => d.name ?? d.id).join(', ')
-                        }}.
+                            $t('Needs :mods.', {
+                                mods: dependencies
+                                    .map((d) => d.name ?? d.id)
+                                    .join(', '),
+                            })
+                        }}
                     </p>
                     <pre
                         class="overflow-x-auto rounded-md bg-[#f4f3ef] p-3 font-mono text-xs dark:bg-[#232321]"
@@ -241,7 +271,9 @@ const input =
                         :disabled="form.processing || expired"
                         class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-60 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                     >
-                        {{ form.processing ? 'Publishing…' : 'Publish' }}
+                        {{
+                            form.processing ? $t('Publishing…') : $t('Publish')
+                        }}
                     </button>
                 </div>
             </form>

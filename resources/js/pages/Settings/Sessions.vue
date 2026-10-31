@@ -25,15 +25,17 @@ const button =
 </script>
 
 <template>
-    <Head title="Sessions" />
+    <Head :title="$t('Sessions')" />
 
     <SettingsLayout>
         <section>
-            <h1 :class="heading">Sessions</h1>
+            <h1 :class="heading">{{ $t('Sessions') }}</h1>
             <p :class="['mb-4 text-sm', muted]">
-                The browsers signed in to your account. If you don't recognise
-                one, sign it out. With a confirmed digest email, you also get an
-                email when your account is signed in to from a new browser.
+                {{
+                    $t(
+                        "The browsers signed in to your account. If you don't recognise one, sign it out. With a confirmed digest email, you also get an email when your account is signed in to from a new browser.",
+                    )
+                }}
             </p>
 
             <p
@@ -51,7 +53,11 @@ const button =
                     muted,
                 ]"
             >
-                The session list needs SESSION_DRIVER=database.
+                {{
+                    $t('The session list needs :setting.', {
+                        setting: 'SESSION_DRIVER=database',
+                    })
+                }}
             </p>
 
             <template v-else>
@@ -69,15 +75,18 @@ const button =
                                 <span
                                     v-if="session.current"
                                     class="ml-1 rounded-full bg-accent-wash px-2 py-0.5 text-xs font-medium text-accent"
-                                    >This browser</span
+                                    >{{ $t('This browser') }}</span
                                 >
                             </p>
                             <p :class="['text-xs', muted]">
                                 <template v-if="session.ip"
                                     >{{ session.ip }} ·
                                 </template>
-                                Last active
-                                {{ formatDate(session.last_active) }}
+                                {{
+                                    $t('Last active :date', {
+                                        date: formatDate(session.last_active),
+                                    })
+                                }}
                             </p>
                         </div>
                         <Link
@@ -87,7 +96,7 @@ const button =
                             preserve-scroll
                             :class="button"
                         >
-                            Sign out
+                            {{ $t('Sign out') }}
                         </Link>
                     </li>
                 </ul>
@@ -102,10 +111,12 @@ const button =
                         preserve-scroll
                         :class="button"
                     >
-                        Sign out of all other sessions
+                        {{ $t('Sign out of all other sessions') }}
                     </Link>
                     <span :class="['text-xs', muted]">
-                        Their "remember me" sign-ins stop working too.
+                        {{
+                            $t('Their "remember me" sign-ins stop working too.')
+                        }}
                     </span>
                 </div>
             </template>

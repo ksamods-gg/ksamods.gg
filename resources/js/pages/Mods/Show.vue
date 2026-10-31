@@ -22,6 +22,7 @@ import {
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate, formatNumber, tagName } from '@/lib/format';
 import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
+import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { mod as modFeed } from '@/routes/feeds';
 import { edit } from '@/routes/listings';
@@ -98,7 +99,7 @@ const jsonLd = computed(() => {
                     {
                         '@type': 'ListItem',
                         position: 1,
-                        name: 'Mods',
+                        name: t('Mods'),
                         item: `${page.props.appUrl}/mods`,
                     },
                     { '@type': 'ListItem', position: 2, name: props.mod.name },
@@ -175,13 +176,13 @@ const compatibility = computed(() => {
 });
 
 // The dependencies of the release the install button gets: its loader first, then by kind.
-const dependencyKinds: Record<string, string> = {
-    required: 'Required',
-    recommends: 'Recommended',
-    optional: 'Optional',
-    suggests: 'Suggested',
-    conflict: 'Conflicts with',
-};
+const dependencyKinds = computed<Record<string, string>>(() => ({
+    required: t('Required'),
+    recommends: t('Recommended'),
+    optional: t('Optional'),
+    suggests: t('Suggested'),
+    conflict: t('Conflicts with'),
+}));
 const dependencyGroups = computed(() => {
     const release = latest.value;
 
@@ -189,7 +190,7 @@ const dependencyGroups = computed(() => {
         return [];
     }
 
-    const groups = Object.entries(dependencyKinds)
+    const groups = Object.entries(dependencyKinds.value)
         .map(([kind, label]) => ({
             label,
             items: release.dependencies.filter((d) => d.kind === kind),
@@ -199,7 +200,7 @@ const dependencyGroups = computed(() => {
     return release.loader
         ? [
               {
-                  label: 'Mod loader',
+                  label: t('Mod loader'),
                   items: [
                       {
                           id: release.loader.id,
@@ -220,11 +221,11 @@ const dependencyGroups = computed(() => {
 const dependentGroups = computed(() =>
     [
         {
-            label: 'As their mod loader',
+            label: t('As their mod loader'),
             items: props.dependents.filter((d) => d.kind === 'loader'),
         },
         {
-            label: 'As a required dependency',
+            label: t('As a required dependency'),
             items: props.dependents.filter((d) => d.kind === 'required'),
         },
     ].filter((group) => group.items.length > 0),
@@ -245,7 +246,7 @@ const tabs = computed(() => [
         ? [
               {
                   id: 'description' as const,
-                  label: 'Description',
+                  label: t('Description'),
                   count: undefined,
               },
           ]
@@ -254,33 +255,37 @@ const tabs = computed(() => [
         ? [
               {
                   id: 'gallery' as const,
-                  label: 'Gallery',
+                  label: t('Gallery'),
                   count: props.mod.images.length,
               },
           ]
         : []),
     {
         id: 'dependencies' as const,
-        label: 'Dependencies',
+        label: t('Dependencies'),
         count: dependencyGroups.value.reduce((n, g) => n + g.items.length, 0),
     },
     ...(props.dependents.length
         ? [
               {
                   id: 'dependents' as const,
-                  label: 'Required by',
+                  label: t('Required by'),
                   count: props.dependents.length,
               },
           ]
         : []),
     {
         id: 'releases' as const,
-        label: 'Releases',
+        label: t('Releases'),
         count: props.mod.releases.length,
     },
-    { id: 'stats' as const, label: 'Stats', count: undefined },
-    { id: 'reviews' as const, label: 'Reviews', count: props.reviews.count },
-    { id: 'comments' as const, label: 'Comments', count: props.comments.count },
+    { id: 'stats' as const, label: t('Stats'), count: undefined },
+    { id: 'reviews' as const, label: t('Reviews'), count: props.reviews.count },
+    {
+        id: 'comments' as const,
+        label: t('Comments'),
+        count: props.comments.count,
+    },
 ]);
 // A link can name the tab to open, such as a notification's link to a comment.
 const activeTab = ref<Tab>(
@@ -318,14 +323,14 @@ function moveBetweenTabs(event: KeyboardEvent, index: number) {
     tabButtons.value?.[target]?.focus();
 }
 
-const linkLabels: Record<string, string> = {
-    homepage: 'Website',
-    repository: 'Source code',
+const linkLabels = computed<Record<string, string>>(() => ({
+    homepage: t('Website'),
+    repository: t('Source code'),
     spacedock: 'SpaceDock',
-    forums: 'Forum thread',
-    discussions: 'Discussions',
-    bugtracker: 'Report an issue',
-};
+    forums: t('Forum thread'),
+    discussions: t('Discussions'),
+    bugtracker: t('Report an issue'),
+}));
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const primaryButton =
@@ -363,11 +368,16 @@ const card =
 
 <template>
     <PageMeta
-        :title="`${mod.name} - KSA mod`"
+        :title="$t(':name - KSA mod', { name: mod.name })"
         :json-ld="jsonLd"
         :description="
             mod.abstract ??
-            `${mod.name}, a Kitten Space Agency mod${mod.authors.length ? ` by ${mod.authors.join(', ')}` : ''}.`
+            (mod.authors.length
+                ? $t(':name, a Kitten Space Agency mod by :authors.', {
+                      name: mod.name,
+                      authors: mod.authors.join(', '),
+                  })
+                : $t(':name, a Kitten Space Agency mod.', { name: mod.name }))
         "
         :image="mod.icon"
     />
@@ -375,14 +385,14 @@ const card =
         <link
             rel="alternate"
             type="application/atom+xml"
-            :title="`${mod.name} releases`"
+            :title="$t(':name releases', { name: mod.name })"
             :href="modFeed({ id: mod.id, format: 'atom' }).url"
         />
     </Head>
 
     <AppLayout>
         <Link :href="index()" :class="['text-sm hover:underline', muted]">
-            ← All mods
+            ← {{ $t('All mods') }}
         </Link>
 
         <div
@@ -399,7 +409,11 @@ const card =
                         {{ mod.name }}
                     </h1>
                     <p :class="['text-sm', muted]">
-                        by {{ mod.authors.join(', ') }}
+                        {{
+                            $t('by :authors', {
+                                authors: mod.authors.join(', '),
+                            })
+                        }}
                     </p>
                     <button
                         v-if="reviews.average !== null"
@@ -410,9 +424,15 @@ const card =
                         <Stars :rating="reviews.average" />
                         <span>{{ reviews.average }}</span>
                         <span :class="muted"
-                            >· {{ reviews.count }}
+                            >·
                             {{
-                                reviews.count === 1 ? 'review' : 'reviews'
+                                reviews.count === 1
+                                    ? $t(':count review', {
+                                          count: reviews.count,
+                                      })
+                                    : $t(':count reviews', {
+                                          count: reviews.count,
+                                      })
                             }}</span
                         >
                     </button>
@@ -442,17 +462,20 @@ const card =
                         :href="boreaInstall"
                         :class="cn(primaryButton, 'flex-1 rounded-r-none')"
                     >
-                        Install<template v-if="latestStable">
-                            v{{ latestStable.version }}</template
-                        >
-                        with Borea
+                        {{
+                            latestStable
+                                ? $t('Install v:version with Borea', {
+                                      version: latestStable.version,
+                                  })
+                                : $t('Install with Borea')
+                        }}
                     </a>
                     <button
                         ref="installMenuToggle"
                         type="button"
                         :aria-expanded="installMenuOpen"
                         aria-controls="install-options"
-                        aria-label="Other ways to get this mod"
+                        :aria-label="$t('Other ways to get this mod')"
                         :class="
                             cn(
                                 primaryButton,
@@ -483,11 +506,14 @@ const card =
                     >
                         <li>
                             <a :href="latest.download_url" :class="menuItem">
-                                Download v{{ latest.version }}
+                                {{
+                                    $t('Download v:version', {
+                                        version: latest.version,
+                                    })
+                                }}
                                 <span :class="['block text-xs', muted]"
-                                    >Manual install<template
-                                        v-if="latest.download_size"
-                                    >
+                                    >{{ $t('Manual install')
+                                    }}<template v-if="latest.download_size">
                                         ·
                                         {{
                                             formatBytes(latest.download_size)
@@ -498,7 +524,7 @@ const card =
                         </li>
                         <li v-if="boreaOpen">
                             <a :href="boreaOpen" :class="menuItem">
-                                Open in Borea
+                                {{ $t('Open in Borea') }}
                             </a>
                         </li>
                         <li
@@ -510,7 +536,7 @@ const card =
                                 rel="noopener noreferrer"
                                 :class="[menuItem, muted]"
                             >
-                                Don't have Borea? Get it
+                                {{ $t("Don't have Borea? Get it") }}
                             </a>
                         </li>
                     </ul>
@@ -520,18 +546,22 @@ const card =
                     :href="latest.download_url"
                     :class="primaryButton"
                 >
-                    Download v{{ latest.version }}
+                    {{ $t('Download v:version', { version: latest.version }) }}
                 </a>
                 <div
                     v-else
                     class="rounded-md border border-dashed border-[#19140035] px-4 py-3 text-sm sm:max-w-72 sm:text-right dark:border-[#3E3E3A]"
                 >
                     <p class="font-medium">
-                        Downloads and installs are desktop only
+                        {{ $t('Downloads and installs are desktop only') }}
                     </p>
                     <p :class="['mt-0.5 text-xs', muted]">
-                        Open this page on a Windows, Linux or macOS computer to
-                        get {{ mod.name }}.
+                        {{
+                            $t(
+                                'Open this page on a Windows, Linux or macOS computer to get :name.',
+                                { name: mod.name },
+                            )
+                        }}
                     </p>
                 </div>
 
@@ -544,9 +574,11 @@ const card =
                         "
                         >{{ formatBytes(latest.download_size) }} ·
                     </template>
-                    <template v-if="latest.game_min"
-                        >Game {{ latest.game_min }} or newer</template
-                    >
+                    <template v-if="latest.game_min">{{
+                        $t('Game :version or newer', {
+                            version: latest.game_min,
+                        })
+                    }}</template>
                 </p>
                 <p
                     v-if="compatibility?.works"
@@ -564,17 +596,21 @@ const card =
                     >
                         <path d="m3.5 8.5 3 3 6-7" />
                     </svg>
-                    Works with your game ({{ compatibility.game }})
+                    {{
+                        $t('Works with your game (:game)', {
+                            game: compatibility.game,
+                        })
+                    }}
                 </p>
                 <p
                     v-else-if="compatibility"
                     class="mt-1 max-w-64 text-xs sm:text-right"
                 >
-                    <span class="font-medium"
-                        >Needs a newer game than yours ({{
-                            compatibility.game
-                        }}).</span
-                    >
+                    <span class="font-medium">{{
+                        $t('Needs a newer game than yours (:game).', {
+                            game: compatibility.game,
+                        })
+                    }}</span>
                     <template v-if="compatibility.fallback">
                         <button
                             type="button"
@@ -583,7 +619,7 @@ const card =
                         >
                             v{{ compatibility.fallback.version }}
                         </button>
-                        works with it.
+                        {{ $t('works with it.') }}
                     </template>
                 </p>
             </div>
@@ -593,7 +629,7 @@ const card =
             <div class="min-w-0">
                 <div
                     role="tablist"
-                    aria-label="About this mod"
+                    :aria-label="$t('About this mod')"
                     class="mb-3 flex [scrollbar-width:none] gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_rgba(62,62,58,0.6)]"
                 >
                     <!-- The bottom line is an inset shadow, which the active tab's border paints over.
@@ -662,8 +698,12 @@ const card =
                 >
                     <template v-if="dependencyGroups.length">
                         <p v-if="latest" :class="['mb-4 text-xs', muted]">
-                            For v{{ latest.version }}, the release the install
-                            button gets.
+                            {{
+                                $t(
+                                    'For v:version, the release the install button gets.',
+                                    { version: latest.version },
+                                )
+                            }}
                         </p>
                         <ModRelationGroups :groups="dependencyGroups" />
 
@@ -672,11 +712,14 @@ const card =
                             class="mt-6 border-t border-[#19140014] pt-5 dark:border-[#3E3E3A]/60"
                         >
                             <h3 class="mb-1 text-sm font-semibold">
-                                Everything it pulls in
+                                {{ $t('Everything it pulls in') }}
                             </h3>
                             <p :class="['mb-3 text-xs', muted]">
-                                Its loader and required mods, and theirs in
-                                turn, as a mod manager installs them.
+                                {{
+                                    $t(
+                                        'Its loader and required mods, and theirs in turn, as a mod manager installs them.',
+                                    )
+                                }}
                             </p>
                             <p
                                 v-for="conflict in dependencyTree.conflicts"
@@ -684,9 +727,12 @@ const card =
                                 role="alert"
                                 class="mb-3 rounded-md bg-[#fff2f2] p-3 text-sm text-[#f53003] dark:bg-[#1D0002] dark:text-[#FF4433]"
                             >
-                                {{ conflict.a }} conflicts with
-                                {{ conflict.b }}, which this mod also needs, so
-                                they can't be installed together.
+                                {{
+                                    $t(
+                                        ":a conflicts with :b, which this mod also needs, so they can't be installed together.",
+                                        { a: conflict.a, b: conflict.b },
+                                    )
+                                }}
                             </p>
                             <DependencyTree
                                 :nodes="dependencyTree.nodes"
@@ -695,7 +741,7 @@ const card =
                         </div>
                     </template>
                     <p v-else :class="['text-sm', muted]">
-                        This mod needs nothing besides the game.
+                        {{ $t('This mod needs nothing besides the game.') }}
                     </p>
                 </section>
 
@@ -709,8 +755,12 @@ const card =
                     :class="card"
                 >
                     <p :class="['mb-4 text-xs', muted]">
-                        Mods whose newest release needs {{ mod.name }}, most
-                        downloaded first.
+                        {{
+                            $t(
+                                'Mods whose newest release needs :name, most downloaded first.',
+                                { name: mod.name },
+                            )
+                        }}
                     </p>
                     <ModRelationGroups :groups="dependentGroups" />
                     <Link
@@ -721,7 +771,7 @@ const card =
                             muted,
                         ]"
                     >
-                        Browse mods for {{ mod.name }}
+                        {{ $t('Browse mods for :name', { name: mod.name }) }}
                     </Link>
                 </section>
 
@@ -761,9 +811,8 @@ const card =
                                     :href="release.download_url"
                                     class="ml-auto text-xs underline underline-offset-4"
                                 >
-                                    Download<template
-                                        v-if="release.download_size"
-                                    >
+                                    {{ $t('Download')
+                                    }}<template v-if="release.download_size">
                                         ({{
                                             formatBytes(release.download_size)
                                         }})</template
@@ -774,14 +823,14 @@ const card =
                                     :href="release.boreaInstall"
                                     class="text-xs underline underline-offset-4"
                                 >
-                                    Install with Borea
+                                    {{ $t('Install with Borea') }}
                                 </a>
                             </div>
                             <details v-if="release.changelog" class="mt-1">
                                 <summary
                                     :class="['cursor-pointer text-xs', muted]"
                                 >
-                                    Changelog
+                                    {{ $t('Changelog') }}
                                 </summary>
                                 <div
                                     class="markdown mt-2 text-sm"
@@ -803,33 +852,42 @@ const card =
                     <div>
                         <LineChart
                             v-if="stats.downloads.length > 1"
-                            title="Downloads"
+                            :title="$t('Downloads')"
                             :points="stats.downloads"
                         />
                         <template v-else>
-                            <p class="text-sm font-semibold">Downloads</p>
+                            <p class="text-sm font-semibold">
+                                {{ $t('Downloads') }}
+                            </p>
                             <p :class="['mt-1 text-sm', muted]">
                                 {{
-                                    formatNumber(stats.downloads[0]?.value ?? 0)
+                                    $t(
+                                        ':count so far. ksamods.gg notes the total once a day, so the chart grows from here.',
+                                        {
+                                            count: formatNumber(
+                                                stats.downloads[0]?.value ?? 0,
+                                            ),
+                                        },
+                                    )
                                 }}
-                                so far. ksamods.gg notes the total once a day,
-                                so the chart grows from here.
                             </p>
                         </template>
                     </div>
                     <div>
                         <LineChart
                             v-if="stats.rating.length"
-                            title="Average rating"
+                            :title="$t('Average rating')"
                             :points="stats.rating"
                             :min="1"
                             :max="5"
                             :format="(value: number) => value.toFixed(1)"
                         />
                         <template v-else>
-                            <p class="text-sm font-semibold">Average rating</p>
+                            <p class="text-sm font-semibold">
+                                {{ $t('Average rating') }}
+                            </p>
                             <p :class="['mt-1 text-sm', muted]">
-                                No reviews yet.
+                                {{ $t('No reviews yet.') }}
                             </p>
                         </template>
                     </div>
@@ -871,20 +929,20 @@ const card =
                 class="flex flex-col gap-6 text-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:self-start lg:overflow-y-auto"
             >
                 <section :class="card">
-                    <h2 class="mb-3 font-semibold">Details</h2>
+                    <h2 class="mb-3 font-semibold">{{ $t('Details') }}</h2>
                     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                        <dt :class="muted">Downloads</dt>
+                        <dt :class="muted">{{ $t('Downloads') }}</dt>
                         <dd>{{ formatNumber(mod.downloads) }}</dd>
-                        <dt :class="muted">Updated</dt>
+                        <dt :class="muted">{{ $t('Updated') }}</dt>
                         <dd>{{ formatDate(mod.updated_at) }}</dd>
-                        <dt :class="muted">Published</dt>
+                        <dt :class="muted">{{ $t('Published') }}</dt>
                         <dd>{{ formatDate(mod.published_at) }}</dd>
                         <template v-if="mod.license">
-                            <dt :class="muted">License</dt>
+                            <dt :class="muted">{{ $t('License') }}</dt>
                             <dd>{{ mod.license }}</dd>
                         </template>
                         <template v-if="latest?.loader">
-                            <dt :class="muted">Loader</dt>
+                            <dt :class="muted">{{ $t('Loader') }}</dt>
                             <dd>
                                 {{ latest.loader.id }}
                                 <template v-if="latest.loader.min"
@@ -894,7 +952,9 @@ const card =
                         </template>
                         <template v-if="gameVersions.length">
                             <dt :class="muted">
-                                <label for="game-version">Your game</label>
+                                <label for="game-version">{{
+                                    $t('Your game')
+                                }}</label>
                             </dt>
                             <dd>
                                 <select
@@ -908,7 +968,9 @@ const card =
                                         )
                                     "
                                 >
-                                    <option value="">Not set</option>
+                                    <option value="">
+                                        {{ $t('Not set') }}
+                                    </option>
                                     <option
                                         v-for="version in gameVersions"
                                         :key="version.label"
@@ -941,19 +1003,19 @@ const card =
                             :href="edit(mod.id).url"
                             :class="['underline underline-offset-4', muted]"
                         >
-                            Edit this listing
+                            {{ $t('Edit this listing') }}
                         </a>
                         <a
                             :href="modFeed({ id: mod.id, format: 'atom' }).url"
                             :class="['underline underline-offset-4', muted]"
                         >
-                            Releases feed
+                            {{ $t('Releases feed') }}
                         </a>
                     </p>
                 </section>
 
                 <section v-if="Object.keys(mod.links).length" :class="card">
-                    <h2 class="mb-3 font-semibold">Links</h2>
+                    <h2 class="mb-3 font-semibold">{{ $t('Links') }}</h2>
                     <ul class="flex flex-col gap-2">
                         <li v-for="(url, key) in mod.links" :key="key">
                             <a

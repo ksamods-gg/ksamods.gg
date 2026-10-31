@@ -38,7 +38,7 @@ const input =
 </script>
 
 <template>
-    <Head :title="`Edit ${share.name}`" />
+    <Head :title="$t('Edit :name', { name: share.name })" />
 
     <AppLayout>
         <div class="mx-auto max-w-3xl">
@@ -49,12 +49,14 @@ const input =
                 ← {{ share.name }}
             </Link>
             <h1 class="mt-3 text-2xl font-semibold tracking-tight">
-                Edit the listing
+                {{ $t('Edit the listing') }}
             </h1>
             <p :class="['mt-1 mb-6 text-sm', muted]">
-                Saving proposes the change to the index by pull request, which
-                merges by itself once its checks pass. The index keeps the
-                listing's history, so earlier text stays visible there.
+                {{
+                    $t(
+                        "Saving proposes the change to the index by pull request, which merges by itself once its checks pass. The index keeps the listing's history, so earlier text stays visible there.",
+                    )
+                }}
             </p>
 
             <form class="flex flex-col gap-6" @submit.prevent="submit">
@@ -67,7 +69,7 @@ const input =
                 </p>
 
                 <section :class="card">
-                    <FormField label="Name" for="name" required>
+                    <FormField :label="$t('Name')" for="name" required>
                         <input
                             id="name"
                             v-model="form.name"
@@ -77,10 +79,10 @@ const input =
                         />
                     </FormField>
                     <FormField
-                        label="Summary"
+                        :label="$t('Summary')"
                         for="abstract"
                         required
-                        hint="One sentence for its card."
+                        :hint="$t('One sentence for its card.')"
                     >
                         <input
                             id="abstract"
@@ -90,7 +92,7 @@ const input =
                             :class="input"
                         />
                     </FormField>
-                    <FormField label="Description" for="description">
+                    <FormField :label="$t('Description')" for="description">
                         <textarea
                             id="description"
                             v-model="form.description"
@@ -100,10 +102,14 @@ const input =
                     </FormField>
                     <div class="grid gap-5 sm:grid-cols-2">
                         <FormField
-                            label="License"
+                            :label="$t('License')"
                             for="license"
                             required
-                            hint="An SPDX id, such as CC-BY-4.0. Releases already out keep the license they came with."
+                            :hint="
+                                $t(
+                                    'An SPDX id, such as CC-BY-4.0. Releases already out keep the license they came with.',
+                                )
+                            "
                         >
                             <input
                                 id="license"
@@ -113,9 +119,13 @@ const input =
                             />
                         </FormField>
                         <FormField
-                            label="Tags"
+                            :label="$t('Tags')"
                             for="tags"
-                            hint="Lowercase, comma-separated, such as rover, lander."
+                            :hint="
+                                $t(
+                                    'Lowercase, comma-separated, such as rover, lander.',
+                                )
+                            "
                         >
                             <input
                                 id="tags"
@@ -132,12 +142,12 @@ const input =
                         :disabled="form.processing"
                         class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                     >
-                        Save and propose
+                        {{ $t('Save and propose') }}
                     </button>
                     <Link
                         :href="show({ types, id: share.id })"
                         :class="['text-sm hover:underline', muted]"
-                        >Cancel</Link
+                        >{{ $t('Cancel') }}</Link
                     >
                 </div>
             </form>

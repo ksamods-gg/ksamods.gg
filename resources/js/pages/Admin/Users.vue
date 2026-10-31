@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AdminNav from '@/components/admin/AdminNav.vue';
 import Pager from '@/components/admin/Pager.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate, formatNumber } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { users as usersPage } from '@/routes/admin';
 import { role as roleRoute } from '@/routes/admin/users';
 import type { AdminUser, Paginated } from '@/types';
@@ -30,11 +31,14 @@ function apply() {
 function changeRole(user: AdminUser, event: Event) {
     const select = event.target as HTMLSelectElement;
     const role = (select.value || null) as AdminUser['role'];
-    const label = role
-        ? { admin: 'an admin', moderator: 'a moderator' }[role]
-        : 'a regular user';
+    const message = role
+        ? {
+              admin: t('Make :name an admin?', { name: user.name }),
+              moderator: t('Make :name a moderator?', { name: user.name }),
+          }[role]
+        : t('Make :name a regular user?', { name: user.name });
 
-    if (!confirm(`Make ${user.name} ${label}?`)) {
+    if (!confirm(message)) {
         select.value = user.role ?? '';
 
         return;
@@ -43,7 +47,10 @@ function changeRole(user: AdminUser, event: Event) {
     router.patch(roleRoute(user.id).url, { role }, { preserveScroll: true });
 }
 
-const roleNames = { admin: 'Admin', moderator: 'Moderator' };
+const roleNames = computed(() => ({
+    admin: t('Admin'),
+    moderator: t('Moderator'),
+}));
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const control =
@@ -51,18 +58,20 @@ const control =
 </script>
 
 <template>
-    <Head title="Users" />
+    <Head :title="$t('Users')" />
 
     <AppLayout>
         <AdminNav />
 
         <form role="search" class="mb-4" @submit.prevent="apply">
             <label>
-                <span class="sr-only">Search users</span>
+                <span class="sr-only">{{ $t('Search users') }}</span>
                 <input
                     v-model="query"
                     type="search"
-                    placeholder="Search by name, GitHub login or Discord username"
+                    :placeholder="
+                        $t('Search by name, GitHub login or Discord username')
+                    "
                     :class="[control, 'w-full px-3 py-2 sm:max-w-md']"
                 />
             </label>
@@ -77,15 +86,21 @@ const control =
                     <tr
                         class="shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_#3E3E3A]"
                     >
-                        <th scope="col" class="px-4 py-3 font-medium">User</th>
                         <th scope="col" class="px-4 py-3 font-medium">
-                            Accounts
+                            {{ $t('User') }}
                         </th>
-                        <th scope="col" class="px-4 py-3 font-medium">Posts</th>
                         <th scope="col" class="px-4 py-3 font-medium">
-                            Joined
+                            {{ $t('Accounts') }}
                         </th>
-                        <th scope="col" class="px-4 py-3 font-medium">Role</th>
+                        <th scope="col" class="px-4 py-3 font-medium">
+                            {{ $t('Posts') }}
+                        </th>
+                        <th scope="col" class="px-4 py-3 font-medium">
+                            {{ $t('Joined') }}
+                        </th>
+                        <th scope="col" class="px-4 py-3 font-medium">
+                            {{ $t('Role') }}
+                        </th>
                     </tr>
                 </thead>
                 <tbody
@@ -122,8 +137,12 @@ const control =
                             </div>
                         </td>
                         <td :class="['px-4 py-3 tabular-nums', muted]">
-                            {{ formatNumber(user.reviews) }} reviews,
-                            {{ formatNumber(user.comments) }} comments
+                            {{
+                                $t(':reviews reviews, :comments comments', {
+                                    reviews: formatNumber(user.reviews),
+                                    comments: formatNumber(user.comments),
+                                })
+                            }}
                         </td>
                         <td :class="['px-4 py-3', muted]">
                             <time :datetime="user.created_at">{{
@@ -138,18 +157,22 @@ const control =
                                     user.id !== page.props.auth.user?.id
                                 "
                                 :value="user.role ?? ''"
-                                :aria-label="`Role of ${user.name}`"
+                                :aria-label="
+                                    $t('Role of :name', { name: user.name })
+                                "
                                 :class="control"
                                 @change="changeRole(user, $event)"
                             >
-                                <option value="">None</option>
-                                <option value="moderator">Moderator</option>
-                                <option value="admin">Admin</option>
+                                <option value="">{{ $t('None') }}</option>
+                                <option value="moderator">
+                                    {{ $t('Moderator') }}
+                                </option>
+                                <option value="admin">{{ $t('Admin') }}</option>
                             </select>
                             <span v-else-if="user.role">{{
                                 roleNames[user.role]
                             }}</span>
-                            <span v-else :class="muted">None</span>
+                            <span v-else :class="muted">{{ $t('None') }}</span>
                         </td>
                     </tr>
                 </tbody>
@@ -162,7 +185,11 @@ const control =
                 muted,
             ]"
         >
-            {{ search ? `No users match “${search}”.` : 'No users yet.' }}
+            {{
+                search
+                    ? $t('No users match “:search”.', { search })
+                    : $t('No users yet.')
+            }}
         </p>
 
         <Pager :page="users" />

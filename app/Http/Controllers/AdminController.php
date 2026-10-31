@@ -42,10 +42,10 @@ class AdminController extends Controller
         try {
             $count = count(ContentIndex::refresh()['listings']);
         } catch (Throwable) {
-            return back()->withErrors(['index' => 'The content index could not be fetched. The cached copy is still in use.']);
+            return back()->withErrors(['index' => __('The content index could not be fetched. The cached copy is still in use.')]);
         }
 
-        Inertia::flash('status', "Content index refreshed: {$count} listings.");
+        Inertia::flash('status', __('Content index refreshed: :count listings.', ['count' => $count]));
 
         return back();
     }

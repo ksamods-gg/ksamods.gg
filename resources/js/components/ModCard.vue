@@ -20,7 +20,7 @@ defineProps<{ mod: ModSummary }>();
                     {{ mod.name }}
                 </h2>
                 <p class="truncate text-xs text-[#706f6c] dark:text-[#A1A09A]">
-                    by {{ mod.authors.join(', ') }}
+                    {{ $t('by :authors', { authors: mod.authors.join(', ') }) }}
                 </p>
             </div>
         </div>
@@ -38,7 +38,7 @@ defineProps<{ mod: ModSummary }>();
                 v-if="mod.type === 'mod-loader'"
                 class="font-medium text-accent"
             >
-                Mod loader
+                {{ $t('Mod loader') }}
             </span>
             <span
                 v-if="mod.rating"
@@ -54,15 +54,22 @@ defineProps<{ mod: ModSummary }>();
                     />
                 </svg>
                 {{ mod.rating.average }}
-                <span class="sr-only">out of 5 from</span>
+                <span class="sr-only">{{ $t('out of 5 from') }}</span>
                 <span class="text-[#706f6c] dark:text-[#A1A09A]"
                     >({{ mod.rating.count
-                    }}<span class="sr-only"> reviews</span>)</span
+                    }}<span class="sr-only"> {{ $t('reviews') }}</span
+                    >)</span
                 >
             </span>
             <span v-if="mod.version">v{{ mod.version }}</span>
-            <span>{{ formatNumber(mod.downloads) }} downloads</span>
-            <span>Updated {{ formatDate(mod.updated_at) }}</span>
+            <span>{{
+                $t(':count downloads', {
+                    count: formatNumber(mod.downloads),
+                })
+            }}</span>
+            <span>{{
+                $t('Updated :date', { date: formatDate(mod.updated_at) })
+            }}</span>
         </div>
     </Link>
 </template>

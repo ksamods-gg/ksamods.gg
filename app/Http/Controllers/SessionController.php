@@ -43,7 +43,7 @@ class SessionController extends Controller
         abort_if($id === $request->session()->getId(), 422);
 
         DB::table('sessions')->where('id', $id)->where('user_id', $request->user()->id)->delete();
-        Inertia::flash('status', 'Signed out of that session.');
+        Inertia::flash('status', __('Signed out of that session.'));
 
         return back();
     }
@@ -61,7 +61,7 @@ class SessionController extends Controller
         $user->save();
         Auth::login($user, remember: true);
 
-        Inertia::flash('status', 'Signed out of every other session.');
+        Inertia::flash('status', __('Signed out of every other session.'));
 
         return back();
     }

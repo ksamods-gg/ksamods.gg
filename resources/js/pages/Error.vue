@@ -2,6 +2,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { t } from '@/lib/i18n';
 import { home } from '@/routes';
 import { index as mods } from '@/routes/mods';
 
@@ -14,34 +15,46 @@ const props = defineProps<{ status: 403 | 404 | 419 | 429 | 500 | 503 }>();
 const page = usePage();
 const withLayout = computed(() => page.props.auth !== undefined);
 
-const messages = {
+const messages = computed(() => ({
     403: {
-        title: 'You can’t open this page',
-        body: 'This page is for someone else, such as the owner of a mod or a moderator.',
+        title: t('You can’t open this page'),
+        body: t(
+            'This page is for someone else, such as the owner of a mod or a moderator.',
+        ),
     },
     404: {
-        title: 'This page doesn’t exist',
-        body: 'The link may be old, or the mod may have left the index. Try searching for it.',
+        title: t('This page doesn’t exist'),
+        body: t(
+            'The link may be old, or the mod may have left the index. Try searching for it.',
+        ),
     },
     419: {
-        title: 'This page expired',
-        body: 'It was open for a while, so the form on it timed out. Go back, reload the page and try again.',
+        title: t('This page expired'),
+        body: t(
+            'It was open for a while, so the form on it timed out. Go back, reload the page and try again.',
+        ),
     },
     429: {
-        title: 'Slow down a little',
-        body: 'That was a lot of requests in a short time. Wait a minute, then try again.',
+        title: t('Slow down a little'),
+        body: t(
+            'That was a lot of requests in a short time. Wait a minute, then try again.',
+        ),
     },
     500: {
-        title: 'Something went wrong on our side',
-        body: 'The error was logged, and it isn’t anything you did. Try again in a moment.',
+        title: t('Something went wrong on our side'),
+        body: t(
+            'The error was logged, and it isn’t anything you did. Try again in a moment.',
+        ),
     },
     503: {
-        title: 'Back in a moment',
-        body: 'ksamods.gg is being updated. It should be back within a few minutes.',
+        title: t('Back in a moment'),
+        body: t(
+            'ksamods.gg is being updated. It should be back within a few minutes.',
+        ),
     },
-} as const;
+}));
 
-const message = computed(() => messages[props.status]);
+const message = computed(() => messages.value[props.status]);
 
 const search = ref('');
 
@@ -101,7 +114,7 @@ const secondary =
             ]"
         >
             <p :class="['font-mono text-sm tabular-nums', muted]">
-                Error {{ status }}
+                {{ $t('Error :status', { status }) }}
             </p>
             <h1 class="mt-2 text-3xl font-semibold tracking-tight text-balance">
                 {{ message.title }}
@@ -117,15 +130,17 @@ const secondary =
                 @submit.prevent="find"
             >
                 <label class="min-w-0 flex-1">
-                    <span class="sr-only">Search mods</span>
+                    <span class="sr-only">{{ $t('Search mods') }}</span>
                     <input
                         v-model="search"
                         type="search"
-                        placeholder="Search mods"
+                        :placeholder="$t('Search mods')"
                         class="w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus:border-[#EDEDEC]"
                     />
                 </label>
-                <button type="submit" :class="button">Search</button>
+                <button type="submit" :class="button">
+                    {{ $t('Search') }}
+                </button>
             </form>
 
             <div class="mt-8 flex flex-wrap justify-center gap-3">
@@ -134,19 +149,21 @@ const secondary =
                     <Link
                         :href="home()"
                         :class="status === 404 ? secondary : button"
-                        >Go to the home page</Link
+                        >{{ $t('Go to the home page') }}</Link
                     >
                     <Link
                         v-if="status !== 404"
                         :href="mods()"
                         :class="secondary"
-                        >Browse mods</Link
+                        >{{ $t('Browse mods') }}</Link
                     >
                 </template>
                 <template v-else>
-                    <a href="/" :class="button">Go to the home page</a>
+                    <a href="/" :class="button">{{
+                        $t('Go to the home page')
+                    }}</a>
                     <button type="button" :class="secondary" @click="reload">
-                        Try again
+                        {{ $t('Try again') }}
                     </button>
                 </template>
             </div>

@@ -306,11 +306,11 @@ the cover, and its square middle becomes the listing's icon. Each change goes to
 request, as an edit to the listing. `{type}` is `vehicle` or `save`; only the listing's owner may
 use these.
 
-| Request                                         | Body                               | Answer                     |
-| ----------------------------------------------- | ---------------------------------- | -------------------------- |
-| `GET listings/{type}/{id}/images`               |                                    | `200`, the screenshots     |
-| `POST listings/{type}/{id}/images`              | `multipart/form-data`, file `image` | `201`, the screenshots     |
-| `DELETE listings/{type}/{id}/images/{image}`    |                                    | `204`                      |
+| Request                                      | Body                                | Answer                 |
+| -------------------------------------------- | ----------------------------------- | ---------------------- |
+| `GET listings/{type}/{id}/images`            |                                     | `200`, the screenshots |
+| `POST listings/{type}/{id}/images`           | `multipart/form-data`, file `image` | `201`, the screenshots |
+| `DELETE listings/{type}/{id}/images/{image}` |                                     | `204`                  |
 
 The screenshots, cover first:
 

@@ -65,8 +65,12 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
 
 <template>
     <PageMeta
-        title="Kitten Space Agency mods"
-        description="Find, install and publish Kitten Space Agency mods. Every mod in the KSA content index, with reviews and one-click installs through Borea."
+        :title="$t('Kitten Space Agency mods')"
+        :description="
+            $t(
+                'Find, install and publish Kitten Space Agency mods. Every mod in the KSA content index, with reviews and one-click installs through Borea.',
+            )
+        "
         :json-ld="{
             '@type': 'WebSite',
             name: page.props.name,
@@ -88,7 +92,11 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                 <h1
                     class="text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.5rem]"
                 >
-                    Find, install and publish Kitten Space Agency mods.
+                    {{
+                        $t(
+                            'Find, install and publish Kitten Space Agency mods.',
+                        )
+                    }}
                 </h1>
                 <p
                     :class="[
@@ -96,26 +104,31 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                         muted,
                     ]"
                 >
-                    Every mod in the community KSA content index, with reviews,
-                    dependencies and one-click installs through Borea.
+                    {{
+                        $t(
+                            'Every mod in the community KSA content index, with reviews, dependencies and one-click installs through Borea.',
+                        )
+                    }}
                 </p>
 
                 <!-- Two equal paths: players and authors weigh the same. -->
                 <div class="mt-8 grid gap-3 sm:grid-cols-2">
                     <Link :href="index()" :class="[card, pathTile]">
-                        <span class="font-semibold"
-                            >Browse {{ counts.mods }} mods</span
-                        >
-                        <span :class="['mt-0.5 text-sm', muted]"
-                            >Search, read reviews, install</span
-                        >
+                        <span class="font-semibold">{{
+                            $t('Browse :count mods', { count: counts.mods })
+                        }}</span>
+                        <span :class="['mt-0.5 text-sm', muted]">{{
+                            $t('Search, read reviews, install')
+                        }}</span>
                     </Link>
                     <!-- A plain link: it may go on to GitHub to sign in. -->
                     <a :href="create().url" :class="[card, pathTile]">
-                        <span class="font-semibold">Publish your mod</span>
-                        <span :class="['mt-0.5 text-sm', muted]"
-                            >List it in the index from GitHub</span
-                        >
+                        <span class="font-semibold">{{
+                            $t('Publish your mod')
+                        }}</span>
+                        <span :class="['mt-0.5 text-sm', muted]">{{
+                            $t('List it in the index from GitHub')
+                        }}</span>
                     </a>
                 </div>
 
@@ -124,8 +137,12 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                         class="font-medium text-[#1b1b18] tabular-nums dark:text-[#EDEDEC]"
                         >{{ formatNumber(counts.downloads) }}</span
                     >
-                    downloads across {{ counts.mods }} mods, refreshed from the
-                    index every 10 minutes.
+                    {{
+                        $t(
+                            'downloads across :count mods, refreshed from the index every 10 minutes.',
+                            { count: counts.mods },
+                        )
+                    }}
                 </p>
             </div>
 
@@ -134,9 +151,9 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                 <div
                     class="mb-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1"
                 >
-                    <h2 class="font-semibold">Latest releases</h2>
+                    <h2 class="font-semibold">{{ $t('Latest releases') }}</h2>
                     <p :class="['text-xs', muted]">
-                        Stable releases from the KSA content index
+                        {{ $t('Stable releases from the KSA content index') }}
                     </p>
                 </div>
 
@@ -200,7 +217,11 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                                     >
                                     <span
                                         class="rounded bg-[#f4f3ef] px-1.5 py-0.5 font-mono text-xs tabular-nums dark:bg-[#232321]"
-                                        :title="`Released ${release.ago}`"
+                                        :title="
+                                            $t('Released :ago', {
+                                                ago: release.ago,
+                                            })
+                                        "
                                         >{{ release.version }}</span
                                     >
                                     <!-- The day markers show when; the exact age stays for screen readers. -->
@@ -239,42 +260,56 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                                     ) ?? undefined
                                 "
                                 class="col-start-2 mt-2 justify-self-start rounded-md bg-[#1b1b18] px-3 py-1.5 text-xs font-medium text-white hover:bg-black sm:col-start-auto sm:mt-0 sm:self-center dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
-                                :aria-label="`Install ${release.mod.name} ${release.version} with Borea`"
+                                :aria-label="
+                                    $t('Install :name :version with Borea', {
+                                        name: release.mod.name,
+                                        version: release.version,
+                                    })
+                                "
                             >
-                                Install
+                                {{ $t('Install') }}
                             </a>
                             <a
                                 v-else-if="!mobile"
                                 :href="release.download_url"
                                 class="col-start-2 mt-2 justify-self-start rounded-md px-3 py-1.5 text-xs font-medium shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.2)] hover:shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.45)] sm:col-start-auto sm:mt-0 sm:self-center dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d] dark:hover:shadow-[inset_0px_0px_0px_1px_#fffaed5a]"
-                                :aria-label="`Download ${release.mod.name} ${release.version}`"
+                                :aria-label="
+                                    $t('Download :name :version', {
+                                        name: release.mod.name,
+                                        version: release.version,
+                                    })
+                                "
                             >
-                                Download
+                                {{ $t('Download') }}
                             </a>
                         </li>
                     </template>
                 </ol>
                 <p v-else :class="['text-sm', muted]">
-                    No releases yet. They show up here as the index stamps them.
+                    {{
+                        $t(
+                            'No releases yet. They show up here as the index stamps them.',
+                        )
+                    }}
                 </p>
 
                 <div
                     class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#19140014] pt-4 text-sm dark:border-[#3E3E3A]/60"
                 >
-                    <Link :href="index()" :class="textLink"
-                        >Browse every mod</Link
-                    >
+                    <Link :href="index()" :class="textLink">{{
+                        $t('Browse every mod')
+                    }}</Link>
                     <a
                         v-if="borea"
                         :href="BOREA_RELEASES_URL"
                         target="_blank"
                         rel="noopener noreferrer"
                         :class="['text-xs hover:underline', muted]"
-                        >Install needs Borea. Get it on GitHub</a
+                        >{{ $t('Install needs Borea. Get it on GitHub') }}</a
                     >
-                    <span v-else-if="mobile" :class="['text-xs', muted]"
-                        >Installs and downloads are desktop only</span
-                    >
+                    <span v-else-if="mobile" :class="['text-xs', muted]">{{
+                        $t('Installs and downloads are desktop only')
+                    }}</span>
                 </div>
             </div>
         </section>
@@ -282,8 +317,10 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
         <!-- What people install. -->
         <section v-if="popular.length" class="mt-24">
             <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
-                <h2 :class="sectionHeading">Most installed</h2>
-                <Link :href="index()" :class="textLink">All mods</Link>
+                <h2 :class="sectionHeading">{{ $t('Most installed') }}</h2>
+                <Link :href="index()" :class="textLink">{{
+                    $t('All mods')
+                }}</Link>
             </div>
             <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <!-- Three on phones, so the shelf does not become a long scroll. -->
@@ -299,7 +336,7 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
 
         <!-- What people rate highest, once they have rated anything. -->
         <section v-if="topRated.length" class="mt-20">
-            <h2 :class="[sectionHeading, 'mb-6']">Highest rated</h2>
+            <h2 :class="[sectionHeading, 'mb-6']">{{ $t('Highest rated') }}</h2>
             <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <li v-for="mod in topRated" :key="mod.id">
                     <ModCard :mod="mod" />
@@ -310,17 +347,26 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
         <!-- How each path works, side by side: installing and publishing. -->
         <section class="mt-24 grid gap-4 lg:grid-cols-2">
             <div :class="[card, 'p-6 sm:p-8']">
-                <h2 :class="sectionHeading">Install in one click</h2>
+                <h2 :class="sectionHeading">
+                    {{ $t('Install in one click') }}
+                </h2>
                 <p :class="['mt-2 max-w-prose', muted]">
-                    Borea, the KSA content manager from KSAModding, takes the
-                    install links on every mod page.
+                    {{
+                        $t(
+                            'Borea, the KSA content manager from KSAModding, takes the install links on every mod page.',
+                        )
+                    }}
                 </p>
                 <ol class="mt-6 flex flex-col gap-4">
                     <li
                         v-for="(step, i) in [
-                            'Get Borea for Windows or Linux.',
-                            'Pick a mod here and choose Install with Borea.',
-                            'Borea opens and installs the release you picked.',
+                            $t('Get Borea for Windows or Linux.'),
+                            $t(
+                                'Pick a mod here and choose Install with Borea.',
+                            ),
+                            $t(
+                                'Borea opens and installs the release you picked.',
+                            ),
                         ]"
                         :key="step"
                         class="flex gap-3"
@@ -334,8 +380,11 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                     </li>
                 </ol>
                 <p :class="['mt-6 text-sm', muted]">
-                    On macOS, every release has a direct download. On a phone,
-                    browse now and install later on your computer.
+                    {{
+                        $t(
+                            'On macOS, every release has a direct download. On a phone, browse now and install later on your computer.',
+                        )
+                    }}
                 </p>
                 <a
                     :href="BOREA_RELEASES_URL"
@@ -343,24 +392,32 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                     rel="noopener noreferrer"
                     :class="[button, 'mt-8']"
                 >
-                    Get Borea on GitHub
+                    {{ $t('Get Borea on GitHub') }}
                 </a>
             </div>
 
             <div :class="[card, 'p-6 sm:p-8']">
-                <h2 :class="sectionHeading">Publish without the TOML</h2>
+                <h2 :class="sectionHeading">
+                    {{ $t('Publish without the TOML') }}
+                </h2>
                 <p :class="['mt-2 max-w-prose', muted]">
-                    Listings live in the KSA content index. ksamods.gg writes
-                    yours and opens the pull request from your GitHub account,
-                    so it merges as yours.
+                    {{
+                        $t(
+                            'Listings live in the KSA content index. ksamods.gg writes yours and opens the pull request from your GitHub account, so it merges as yours.',
+                        )
+                    }}
                 </p>
                 <ol class="mt-6 flex flex-col gap-4">
                     <li
                         v-for="(step, i) in [
-                            'Log in with GitHub.',
-                            'Fill in your mod’s listing.',
-                            'We open the pull request on the content index for you.',
-                            'Once it merges, your mod shows up here and in every client that reads the index.',
+                            $t('Log in with GitHub.'),
+                            $t('Fill in your mod’s listing.'),
+                            $t(
+                                'We open the pull request on the content index for you.',
+                            ),
+                            $t(
+                                'Once it merges, your mod shows up here and in every client that reads the index.',
+                            ),
                         ]"
                         :key="step"
                         class="flex gap-3"
@@ -375,14 +432,16 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                 </ol>
                 <!-- A plain link: it may go on to GitHub to sign in. -->
                 <a :href="create().url" :class="[button, 'mt-8']">
-                    Publish your mod
+                    {{ $t('Publish your mod') }}
                 </a>
             </div>
         </section>
 
         <!-- What people are saying, across every mod. -->
         <section class="mt-24">
-            <h2 :class="[sectionHeading, 'mb-6']">From the community</h2>
+            <h2 :class="[sectionHeading, 'mb-6']">
+                {{ $t('From the community') }}
+            </h2>
             <!-- One dense list, a change of pace from the card shelves above. -->
             <ul
                 v-if="community.length"
@@ -408,8 +467,8 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                                     post.author.name
                                 }}</span>
                                 <span :class="muted">
-                                    on {{ post.mod.name }} ·
-                                    {{ post.ago }}</span
+                                    {{ $t('on :mod', { mod: post.mod.name }) }}
+                                    · {{ post.ago }}</span
                                 >
                             </p>
                             <Stars
@@ -427,9 +486,12 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                 </li>
             </ul>
             <p v-else :class="muted">
-                Reviews and comments from every mod page show up here.
-                <Link :href="index()" :class="textLink"
-                    >Find a mod you use and say how it went</Link
+                {{
+                    $t('Reviews and comments from every mod page show up here.')
+                }}
+                <Link :href="index()" :class="textLink">{{
+                    $t('Find a mod you use and say how it went')
+                }}</Link
                 >.
             </p>
         </section>
@@ -443,12 +505,14 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
             >
                 <div>
                     <h2 :class="sectionHeading">
-                        Built on the KSAModding community’s work
+                        {{ $t('Built on the KSAModding community’s work') }}
                     </h2>
                     <p :class="['mt-2 max-w-2xl', muted]">
-                        ksamods.gg is an independent site. Every listing comes
-                        from KSAModding’s content index, and installs go through
-                        their Borea.
+                        {{
+                            $t(
+                                'ksamods.gg is an independent site. Every listing comes from KSAModding’s content index, and installs go through their Borea.',
+                            )
+                        }}
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-x-5 gap-y-2">
@@ -457,7 +521,7 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                         target="_blank"
                         rel="noopener noreferrer"
                         :class="textLink"
-                        >The content index</a
+                        >{{ $t('The content index') }}</a
                     >
                     <a
                         href="https://github.com/KSAModding/Borea"

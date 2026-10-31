@@ -48,7 +48,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 :class="['hover:underline', muted]"
                 @click="$emit('reply')"
             >
-                Reply
+                {{ $t('Reply') }}
             </button>
             <button
                 v-if="comment.mine && !editing"
@@ -56,7 +56,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 :class="['hover:underline', muted]"
                 @click="startEditing"
             >
-                Edit
+                {{ $t('Edit') }}
             </button>
         </template>
 
@@ -66,7 +66,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
             @submit.prevent="save"
         >
             <label>
-                <span class="sr-only">Edit your comment</span>
+                <span class="sr-only">{{ $t('Edit your comment') }}</span>
                 <textarea
                     v-model="form.body"
                     rows="3"
@@ -85,19 +85,19 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                     :disabled="form.processing"
                     class="rounded-md bg-[#1b1b18] px-4 py-2 font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                 >
-                    Save
+                    {{ $t('Save') }}
                 </button>
                 <button
                     type="button"
                     :class="['hover:underline', muted]"
                     @click="editing = false"
                 >
-                    Cancel
+                    {{ $t('Cancel') }}
                 </button>
             </div>
         </form>
         <p v-else-if="comment.deleted" :class="['mt-1 text-sm italic', muted]">
-            This comment was deleted.
+            {{ $t('This comment was deleted.') }}
         </p>
         <p v-else class="mt-1 text-sm break-words whitespace-pre-line">
             {{ comment.body }}

@@ -24,8 +24,8 @@ class ReleaseDigest extends Mailable
         $count = count($this->releases);
 
         return new Envelope(subject: $count === 1
-            ? "{$this->releases[0]['name']} {$this->releases[0]['version']} is out"
-            : "{$count} new releases on ksamods.gg");
+            ? __(':name :version is out', ['name' => $this->releases[0]['name'], 'version' => $this->releases[0]['version']])
+            : __(':count new releases on ksamods.gg', ['count' => $count]));
     }
 
     /**
@@ -44,7 +44,11 @@ class ReleaseDigest extends Mailable
         return new Content(markdown: 'mail.release-digest', with: [
             'name' => $this->user->name,
             'releases' => $this->releases,
-            'frequency' => $this->user->digest_frequency,
+            'frequency' => match ($this->user->digest_frequency) {
+                'daily' => __('You get this daily.'),
+                'monthly' => __('You get this monthly.'),
+                default => __('You get this weekly.'),
+            },
             'settings' => route('settings.notifications'),
             'unsubscribe' => $this->unsubscribeUrl(),
         ]);

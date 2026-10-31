@@ -115,8 +115,8 @@ class ShareController extends Controller
         }
 
         Inertia::flash('status', $pullRequest
-            ? 'Saved. The change is in the listing pull request; the index takes it once its checks pass.'
-            : 'Saved here. GitHub could not be reached, so the pull request follows shortly.');
+            ? __('Saved. The change is in the listing pull request; the index takes it once its checks pass.')
+            : __('Saved here. GitHub could not be reached, so the pull request follows shortly.'));
 
         return to_route('shares.show', ['types' => $types, 'id' => $id]);
     }
@@ -129,11 +129,11 @@ class ShareController extends Controller
         $share = $this->owned($request, $types, $id);
 
         if (ShareHost::listed($share)) {
-            throw ValidationException::withMessages(['listing' => 'This listing is in the index, so it cannot be deleted. Take its releases down instead.']);
+            throw ValidationException::withMessages(['listing' => __('This listing is in the index, so it cannot be deleted. Take its releases down instead.')]);
         }
 
         ShareHost::purge($share);
-        Inertia::flash('status', "Deleted {$share->name}.");
+        Inertia::flash('status', __('Deleted :name.', ['name' => $share->name]));
 
         return to_route('shares.index', $types);
     }
@@ -223,7 +223,7 @@ class ShareController extends Controller
             'dependencies.*.kind' => ['required', 'string'],
             'dependencies.*.min' => ['nullable', 'string'],
             'consent' => [$user->share_consented_at === null ? 'accepted' : 'nullable'],
-        ], ['consent.accepted' => 'Confirm that you understand the listing becomes public and keeps its history.']);
+        ], ['consent.accepted' => __('Confirm that you understand the listing becomes public and keeps its history.')]);
 
         if ($user->share_consented_at === null) {
             $user->forceFill(['share_consented_at' => now()])->save();
@@ -275,8 +275,8 @@ class ShareController extends Controller
         }
 
         Inertia::flash('status', $result['pull_request']
-            ? "Published {$result['version']}. The listing pull request is open; it merges by itself once its checks pass."
-            : "Published {$result['version']}. The index picks it up on its next check.");
+            ? __('Published :version. The listing pull request is open; it merges by itself once its checks pass.', ['version' => $result['version']])
+            : __('Published :version. The index picks it up on its next check.', ['version' => $result['version']]));
 
         return to_route('shares.show', ['types' => Share::FOLDERS[$result['type']], 'id' => $result['id']]);
     }

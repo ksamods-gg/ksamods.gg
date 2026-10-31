@@ -86,34 +86,34 @@ if (page.props.auth.user) {
                     class="ml-auto flex items-center justify-end gap-x-3 text-sm"
                 >
                     <div class="hidden sm:contents">
-                        <Link :href="index()" class="hover:underline"
-                            >Mods</Link
-                        >
+                        <Link :href="index()" class="hover:underline">{{
+                            $t('Mods')
+                        }}</Link>
                         <Link
                             :href="sharesIndex('vehicles')"
                             class="hover:underline"
-                            >Vehicles &amp; saves</Link
+                            >{{ $t('Vehicles & saves') }}</Link
                         >
                         <!-- A plain link: it may go on to GitHub to ask for pull request access. -->
                         <a :href="create().url" class="hover:underline">
-                            Publish a mod
+                            {{ $t('Publish a mod') }}
                         </a>
                         <template v-if="page.props.auth.user">
                             <Link :href="mine()" class="hover:underline">
-                                My mods
+                                {{ $t('My mods') }}
                             </Link>
                             <Link
                                 v-if="page.props.auth.user.role"
                                 :href="adminDashboard()"
                                 class="flex items-center gap-1.5 hover:underline"
                             >
-                                Admin
+                                {{ $t('Admin') }}
                                 <span
                                     v-if="page.props.openReports"
                                     class="rounded-full bg-accent px-1.5 text-xs leading-5 font-semibold text-white tabular-nums dark:text-[#0a0a0a]"
                                     >{{ page.props.openReports
                                     }}<span class="sr-only">
-                                        open reports</span
+                                        {{ $t('open reports') }}</span
                                     ></span
                                 >
                             </Link>
@@ -125,8 +125,10 @@ if (page.props.auth.user) {
                         class="relative rounded-md p-1 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
                         :aria-label="
                             unread
-                                ? `Notifications, ${unread} unread`
-                                : 'Notifications'
+                                ? $t('Notifications, :count unread', {
+                                      count: unread,
+                                  })
+                                : $t('Notifications')
                         "
                     >
                         <svg
@@ -169,7 +171,7 @@ if (page.props.auth.user) {
                                 as="button"
                                 class="rounded-md border border-[#19140035] px-3 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                             >
-                                Log out
+                                {{ $t('Log out') }}
                             </Link>
                         </template>
                         <Link
@@ -177,7 +179,7 @@ if (page.props.auth.user) {
                             :href="login()"
                             class="rounded-md border border-[#19140035] px-3 py-1.5 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                         >
-                            Log in
+                            {{ $t('Log in') }}
                         </Link>
                     </div>
                     <button
@@ -185,7 +187,9 @@ if (page.props.auth.user) {
                         class="relative rounded-md p-1 hover:bg-[#f4f3ef] sm:hidden dark:hover:bg-[#1c1c1a]"
                         aria-controls="mobile-menu"
                         :aria-expanded="menuOpen"
-                        :aria-label="menuOpen ? 'Close menu' : 'Open menu'"
+                        :aria-label="
+                            menuOpen ? $t('Close menu') : $t('Open menu')
+                        "
                         @click="menuOpen = !menuOpen"
                     >
                         <svg
@@ -216,7 +220,7 @@ if (page.props.auth.user) {
             <nav
                 v-if="menuOpen"
                 id="mobile-menu"
-                aria-label="Menu"
+                :aria-label="$t('Menu')"
                 class="border-t border-[#19140014] px-4 pb-4 text-sm sm:hidden dark:border-[#3E3E3A]/60"
                 @keydown.esc="menuOpen = false"
             >
@@ -225,21 +229,21 @@ if (page.props.auth.user) {
                         <Link
                             :href="index()"
                             class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >Mods</Link
+                            >{{ $t('Mods') }}</Link
                         >
                     </li>
                     <li>
                         <Link
                             :href="sharesIndex('vehicles')"
                             class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >Vehicles &amp; saves</Link
+                            >{{ $t('Vehicles & saves') }}</Link
                         >
                     </li>
                     <li>
                         <a
                             :href="create().url"
                             class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >Publish a mod</a
+                            >{{ $t('Publish a mod') }}</a
                         >
                     </li>
                     <template v-if="page.props.auth.user">
@@ -247,7 +251,7 @@ if (page.props.auth.user) {
                             <Link
                                 :href="mine()"
                                 class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                                >My mods</Link
+                                >{{ $t('My mods') }}</Link
                             >
                         </li>
                         <li v-if="page.props.auth.user.role">
@@ -255,13 +259,13 @@ if (page.props.auth.user) {
                                 :href="adminDashboard()"
                                 class="-mx-2 flex items-center gap-1.5 rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
                             >
-                                Admin
+                                {{ $t('Admin') }}
                                 <span
                                     v-if="page.props.openReports"
                                     class="rounded-full bg-accent px-1.5 text-xs leading-5 font-semibold text-white tabular-nums dark:text-[#0a0a0a]"
                                     >{{ page.props.openReports
                                     }}<span class="sr-only">
-                                        open reports</span
+                                        {{ $t('open reports') }}</span
                                     ></span
                                 >
                             </Link>
@@ -288,14 +292,14 @@ if (page.props.auth.user) {
                     as="button"
                     class="w-full rounded-md border border-[#19140035] px-3 py-2 hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                 >
-                    Log out
+                    {{ $t('Log out') }}
                 </Link>
                 <Link
                     v-else
                     :href="login()"
                     class="block w-full rounded-md border border-[#19140035] px-3 py-2 text-center hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                 >
-                    Log in
+                    {{ $t('Log in') }}
                 </Link>
             </nav>
         </header>

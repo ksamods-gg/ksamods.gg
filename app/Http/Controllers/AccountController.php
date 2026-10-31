@@ -51,7 +51,7 @@ class AccountController extends Controller
 
         // Without another linked account, nobody could sign in to this one again.
         if ($user->{$other} === null) {
-            return back()->withErrors(['link' => 'Link another account before you unlink your only way to sign in.']);
+            return back()->withErrors(['link' => __('Link another account before you unlink your only way to sign in.')]);
         }
 
         $user->forceFill(array_fill_keys(self::COLUMNS[$provider], null))->save();

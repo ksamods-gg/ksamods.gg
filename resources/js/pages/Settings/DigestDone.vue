@@ -18,11 +18,11 @@ defineProps<{ title: string; message: string }>();
                 <Link
                     :href="notifications()"
                     class="underline underline-offset-4"
-                    >Notification settings</Link
+                    >{{ $t('Notification settings') }}</Link
                 >
-                <Link :href="home()" class="underline underline-offset-4"
-                    >Home</Link
-                >
+                <Link :href="home()" class="underline underline-offset-4">{{
+                    $t('Home')
+                }}</Link>
             </p>
         </div>
     </AppLayout>

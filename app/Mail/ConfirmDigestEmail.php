@@ -17,7 +17,7 @@ class ConfirmDigestEmail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Confirm your email for ksamods.gg');
+        return new Envelope(subject: __('Confirm your email for ksamods.gg'));
     }
 
     public function content(): Content

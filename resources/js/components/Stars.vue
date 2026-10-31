@@ -10,7 +10,7 @@ const filled = computed(() => Math.round(props.rating));
     <span
         class="inline-flex items-center"
         role="img"
-        :aria-label="`${rating} out of 5 stars`"
+        :aria-label="$t(':rating out of 5 stars', { rating })"
     >
         <svg
             v-for="star in 5"

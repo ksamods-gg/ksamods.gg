@@ -17,12 +17,12 @@ const card =
 </script>
 
 <template>
-    <Head title="Sign in a client" />
+    <Head :title="$t('Sign in a client')" />
 
     <AppLayout>
         <div class="mx-auto max-w-md">
             <h1 class="text-2xl font-semibold tracking-tight">
-                Sign in a client
+                {{ $t('Sign in a client') }}
             </h1>
 
             <div
@@ -30,10 +30,13 @@ const card =
                 role="status"
                 :class="[card, 'mt-6']"
             >
-                <p class="font-semibold">You're signed in.</p>
+                <p class="font-semibold">{{ $t("You're signed in.") }}</p>
                 <p :class="['mt-1 text-sm', muted]">
-                    Go back to the client; it continues by itself. You can close
-                    this page.
+                    {{
+                        $t(
+                            'Go back to the client; it continues by itself. You can close this page.',
+                        )
+                    }}
                 </p>
             </div>
             <div
@@ -41,25 +44,28 @@ const card =
                 role="status"
                 :class="[card, 'mt-6']"
             >
-                <p class="font-semibold">Sign-in denied.</p>
+                <p class="font-semibold">{{ $t('Sign-in denied.') }}</p>
                 <p :class="['mt-1 text-sm', muted]">
-                    The client was not given access to your account.
+                    {{ $t('The client was not given access to your account.') }}
                 </p>
             </div>
 
             <template v-else>
                 <p :class="['mt-1 mb-6 text-sm', muted]">
-                    Enter the code your client shows, such as Borea when you
-                    share a vehicle or save.
+                    {{
+                        $t(
+                            'Enter the code your client shows, such as Borea when you share a vehicle or save.',
+                        )
+                    }}
                 </p>
                 <Form
                     v-bind="device.form()"
                     v-slot="{ errors }"
                     :class="[card, 'flex flex-col gap-3']"
                 >
-                    <label for="user_code" class="text-sm font-medium"
-                        >Code</label
-                    >
+                    <label for="user_code" class="text-sm font-medium">{{
+                        $t('Code')
+                    }}</label>
                     <input
                         id="user_code"
                         name="user_code"
@@ -76,14 +82,17 @@ const card =
                         v-if="errors.user_code"
                         class="text-xs text-[#f53003] dark:text-[#FF4433]"
                     >
-                        That code is not valid. Check it, or start the sign-in
-                        again in the client.
+                        {{
+                            $t(
+                                'That code is not valid. Check it, or start the sign-in again in the client.',
+                            )
+                        }}
                     </p>
                     <button
                         type="submit"
                         class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                     >
-                        Continue
+                        {{ $t('Continue') }}
                     </button>
                 </Form>
             </template>

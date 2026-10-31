@@ -148,7 +148,7 @@ Artisan::command('digests:send', function () {
         }
 
         if ($releases !== []) {
-            Mail::to((string) $user->digest_email)->send(new ReleaseDigest($user, $releases));
+            Mail::to((string) $user->digest_email)->locale($user->locale ?? 'en')->send(new ReleaseDigest($user, $releases));
             $this->line("{$user->id}: ".count($releases));
         }
 

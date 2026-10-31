@@ -34,13 +34,13 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
         @keydown.escape="emit('close')"
     >
         <label>
-            <span class="sr-only">Your reply</span>
+            <span class="sr-only">{{ $t('Your reply') }}</span>
             <textarea
                 ref="textarea"
                 v-model="form.body"
                 rows="2"
                 maxlength="2000"
-                placeholder="Write a reply…"
+                :placeholder="$t('Write a reply…')"
                 class="w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] dark:border-[#3E3E3A] dark:bg-[#0a0a0a] dark:focus:border-[#EDEDEC]"
             />
         </label>
@@ -55,14 +55,14 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 :disabled="form.processing || !form.body.trim()"
                 class="rounded-md bg-[#1b1b18] px-3 py-1.5 font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
             >
-                Reply
+                {{ $t('Reply') }}
             </button>
             <button
                 type="button"
                 :class="['hover:underline', muted]"
                 @click="emit('close')"
             >
-                Cancel
+                {{ $t('Cancel') }}
             </button>
         </div>
     </form>

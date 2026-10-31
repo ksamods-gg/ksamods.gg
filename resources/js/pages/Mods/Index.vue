@@ -7,6 +7,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { tagName } from '@/lib/format';
 import { fuzzyScore } from '@/lib/fuzzy';
 import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
+import { t } from '@/lib/i18n';
 import { mods as modsFeed } from '@/routes/feeds';
 import type { GameVersion, ModSummary } from '@/types';
 
@@ -80,16 +81,20 @@ const loaders = computed(() => [
     ),
     {
         value: NO_LOADER,
-        label: 'No loader',
+        label: t('No loader'),
         count: count((mod) => mod.loader === null),
     },
 ]);
 
 const types = computed(() => [
-    { value: 'mod', label: 'Mod', count: count((mod) => mod.type === 'mod') },
+    {
+        value: 'mod',
+        label: t('Mod'),
+        count: count((mod) => mod.type === 'mod'),
+    },
     {
         value: 'mod-loader',
-        label: 'Mod loader',
+        label: t('Mod loader'),
         count: count((mod) => mod.type === 'mod-loader'),
     },
 ]);
@@ -281,14 +286,18 @@ const pageButton =
 
 <template>
     <PageMeta
-        title="Mods"
-        description="Search and filter every Kitten Space Agency mod by game version, mod loader and category."
+        :title="$t('Mods')"
+        :description="
+            $t(
+                'Search and filter every Kitten Space Agency mod by game version, mod loader and category.',
+            )
+        "
     />
     <Head>
         <link
             rel="alternate"
             type="application/atom+xml"
-            title="New mod releases"
+            :title="$t('New mod releases')"
             :href="modsFeed('atom').url"
         />
     </Head>
@@ -296,14 +305,18 @@ const pageButton =
     <AppLayout>
         <div class="mb-6">
             <h1 class="text-2xl font-semibold tracking-tight">
-                Mods for Kitten Space Agency
+                {{ $t('Mods for Kitten Space Agency') }}
             </h1>
             <p :class="['mt-1 text-sm', muted]">
-                {{ mods.length }} listings from the community content index.
+                {{
+                    $t(':count listings from the community content index.', {
+                        count: mods.length,
+                    })
+                }}
                 <a
                     :href="modsFeed('atom').url"
                     class="underline underline-offset-4"
-                    >New releases feed</a
+                    >{{ $t('New releases feed') }}</a
                 >
             </p>
         </div>
@@ -321,7 +334,8 @@ const pageButton =
                 @click="filtersOpen = !filtersOpen"
             >
                 <span
-                    >Filters<template v-if="activeFilterCount">
+                    >{{ $t('Filters')
+                    }}<template v-if="activeFilterCount">
                         ({{ activeFilterCount }})</template
                     ></span
                 >
@@ -342,7 +356,7 @@ const pageButton =
 
             <aside
                 id="mod-filters"
-                aria-label="Filters"
+                :aria-label="$t('Filters')"
                 :class="[
                     'flex-col gap-3 lg:sticky lg:top-6 lg:flex',
                     filtersOpen ? 'flex' : 'hidden',
@@ -350,10 +364,10 @@ const pageButton =
             >
                 <details
                     v-for="group in [
-                        { id: 'version', title: 'Game version' },
-                        { id: 'loader', title: 'Loader' },
-                        { id: 'category', title: 'Category' },
-                        { id: 'type', title: 'Type' },
+                        { id: 'version', title: $t('Game version') },
+                        { id: 'loader', title: $t('Loader') },
+                        { id: 'category', title: $t('Category') },
+                        { id: 'type', title: $t('Type') },
                     ]"
                     :key="group.id"
                     :class="[panel, 'group p-3']"
@@ -379,7 +393,11 @@ const pageButton =
 
                         <template v-if="group.id === 'version'">
                             <p :class="['mb-1 px-2 text-xs', muted]">
-                                Hides mods that need a newer build than yours.
+                                {{
+                                    $t(
+                                        'Hides mods that need a newer build than yours.',
+                                    )
+                                }}
                             </p>
                             <div
                                 :class="
@@ -394,7 +412,7 @@ const pageButton =
                                         name="game-version"
                                         :value="null"
                                     />
-                                    Any version
+                                    {{ $t('Any version') }}
                                 </label>
                                 <label
                                     v-for="version in shownVersions"
@@ -415,7 +433,7 @@ const pageButton =
                                     v-model="showAllVersions"
                                     type="checkbox"
                                 />
-                                Show all versions
+                                {{ $t('Show all versions') }}
                             </label>
                         </template>
 
@@ -463,35 +481,45 @@ const pageButton =
                     :class="['self-start px-2 text-sm hover:underline', muted]"
                     @click="clearFilters"
                 >
-                    Clear filters
+                    {{ $t('Clear filters') }}
                 </button>
             </aside>
 
             <!-- Results: search, sort and pages over a list of rows. -->
             <section ref="resultsTop" class="min-w-0 scroll-mt-6">
                 <label class="block">
-                    <span class="sr-only">Search mods</span>
+                    <span class="sr-only">{{ $t('Search mods') }}</span>
                     <input
                         v-model="search"
                         type="search"
-                        placeholder="Search mods by name, description or author"
+                        :placeholder="
+                            $t('Search mods by name, description or author')
+                        "
                         :class="[control, 'w-full py-2.5']"
                     />
                 </label>
 
                 <div class="mt-3 flex flex-wrap items-center gap-3">
                     <label class="flex items-center gap-2 text-sm">
-                        <span :class="muted">Sort by</span>
+                        <span :class="muted">{{ $t('Sort by') }}</span>
                         <select v-model="sort" :class="[control, 'py-1.5']">
-                            <option value="relevance">Relevance</option>
-                            <option value="downloads">Most downloaded</option>
-                            <option value="rating">Highest rated</option>
-                            <option value="updated">Recently updated</option>
-                            <option value="name">Name</option>
+                            <option value="relevance">
+                                {{ $t('Relevance') }}
+                            </option>
+                            <option value="downloads">
+                                {{ $t('Most downloaded') }}
+                            </option>
+                            <option value="rating">
+                                {{ $t('Highest rated') }}
+                            </option>
+                            <option value="updated">
+                                {{ $t('Recently updated') }}
+                            </option>
+                            <option value="name">{{ $t('Name') }}</option>
                         </select>
                     </label>
                     <label class="flex items-center gap-2 text-sm">
-                        <span :class="muted">View</span>
+                        <span :class="muted">{{ $t('View') }}</span>
                         <select
                             v-model.number="pageSize"
                             :class="[control, 'py-1.5']"
@@ -502,13 +530,16 @@ const pageButton =
                         </select>
                     </label>
                     <p :class="['text-sm', muted]" aria-live="polite">
-                        {{ results.length }}
-                        {{ results.length === 1 ? 'mod' : 'mods' }}
+                        {{
+                            results.length === 1
+                                ? $t(':count mod', { count: results.length })
+                                : $t(':count mods', { count: results.length })
+                        }}
                     </p>
 
                     <nav
                         v-if="pageCount > 1"
-                        aria-label="Pages"
+                        :aria-label="$t('Pages')"
                         class="ml-auto flex items-center gap-1"
                     >
                         <button
@@ -532,13 +563,13 @@ const pageButton =
                         muted,
                     ]"
                 >
-                    No mods match.
+                    {{ $t('No mods match.') }}
                     <button
                         type="button"
                         class="underline underline-offset-4"
                         @click="clearFilters"
                     >
-                        Clear search and filters
+                        {{ $t('Clear search and filters') }}
                     </button>
                 </p>
 
@@ -550,7 +581,7 @@ const pageButton =
 
                 <nav
                     v-if="pageCount > 1"
-                    aria-label="Pages, bottom"
+                    :aria-label="$t('Pages, bottom')"
                     class="mt-6 flex justify-end gap-1"
                 >
                     <button

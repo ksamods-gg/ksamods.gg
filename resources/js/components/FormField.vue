@@ -15,7 +15,7 @@ defineProps<{
             <span
                 v-if="!required"
                 class="font-normal text-[#706f6c] dark:text-[#A1A09A]"
-                >(optional)</span
+                >{{ $t('(optional)') }}</span
             >
         </label>
         <slot />

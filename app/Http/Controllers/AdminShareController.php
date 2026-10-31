@@ -59,12 +59,12 @@ class AdminShareController extends Controller
 
     public function retryJob(string $uuid): RedirectResponse
     {
-        return $this->run(fn () => Artisan::call('queue:retry', ['id' => [$uuid]]), 'The job is back on the queue.');
+        return $this->run(fn () => Artisan::call('queue:retry', ['id' => [$uuid]]), __('The job is back on the queue.'));
     }
 
     public function forgetJob(string $uuid): RedirectResponse
     {
-        return $this->run(fn () => Artisan::call('queue:forget', ['id' => $uuid]), 'The failed job is gone.');
+        return $this->run(fn () => Artisan::call('queue:forget', ['id' => $uuid]), __('The failed job is gone.'));
     }
 
     /**
@@ -73,8 +73,8 @@ class AdminShareController extends Controller
     public function propose(Share $share): RedirectResponse
     {
         return $this->run(
-            fn () => ShareHost::propose($share, $share->pull_request_state !== 'merged') ?? throw new RuntimeException('GitHub could not be reached; a retry is queued.'),
-            "Proposed {$share->name}.",
+            fn () => ShareHost::propose($share, $share->pull_request_state !== 'merged') ?? throw new RuntimeException(__('GitHub could not be reached; a retry is queued.')),
+            __('Proposed :name.', ['name' => $share->name]),
         );
     }
 
@@ -82,18 +82,18 @@ class AdminShareController extends Controller
     {
         MirrorShareRelease::dispatch($release);
 
-        return $this->done("Mirroring {$release->share->name} {$release->version} from the queue.");
+        return $this->done(__('Mirroring :name :version from the queue.', ['name' => $release->share->name, 'version' => $release->version]));
     }
 
     public function purge(Share $share): RedirectResponse
     {
         return $this->run(function () use ($share) {
             if (ShareHost::listed($share)) {
-                throw new RuntimeException("{$share->name} is in the index; take its releases down instead.");
+                throw new RuntimeException(__(':name is in the index; take its releases down instead.', ['name' => $share->name]));
             }
 
             ShareHost::purge($share);
-        }, "Deleted {$share->name}.");
+        }, __('Deleted :name.', ['name' => $share->name]));
     }
 
     /**

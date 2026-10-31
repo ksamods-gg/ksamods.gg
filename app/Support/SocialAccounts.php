@@ -27,7 +27,7 @@ class SocialAccounts
         if ($current instanceof User) {
             if ($owner !== null && ! $owner->is($current)) {
                 throw ValidationException::withMessages([
-                    'link' => 'That account is already linked to another ksamods.gg account. Log in with it and unlink it there first.',
+                    'link' => __('That account is already linked to another ksamods.gg account. Log in with it and unlink it there first.'),
                 ]);
             }
 

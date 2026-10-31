@@ -24,37 +24,43 @@ const card =
 </script>
 
 <template>
-    <Head title="Approve sign-in" />
+    <Head :title="$t('Approve sign-in')" />
 
     <AppLayout>
         <div class="mx-auto max-w-md">
             <h1 class="text-2xl font-semibold tracking-tight">
-                Sign in {{ client }}?
+                {{ $t('Sign in :client?', { client }) }}
             </h1>
             <p :class="['mt-1 mb-6 text-sm', muted]">
-                Code
+                {{ $t('Code') }}
                 <span
                     class="font-mono tracking-widest text-[#1b1b18] dark:text-[#EDEDEC]"
                     >{{ userCode }}</span
                 >
-                — only approve if your client shows the same code.
+                {{ $t('— only approve if your client shows the same code.') }}
             </p>
 
             <section :class="[card, 'flex flex-col gap-4 text-sm']">
                 <p>
-                    <strong>{{ client }}</strong> will be able to share vehicles
-                    and saves on ksamods.gg as
+                    <strong>{{ client }}</strong>
+                    {{
+                        $t(
+                            'will be able to share vehicles and saves on ksamods.gg as',
+                        )
+                    }}
                     <strong>{{ page.props.auth.user?.name }}</strong
                     >.
                 </p>
                 <p :class="muted">
-                    What you publish goes into the public KSA content index,
-                    which keeps its history: the listing text stays visible in
-                    the index's history even after you change or remove it. Each
-                    release is also copied to the Internet Archive
-                    (archive.org). Read the
-                    <Link :href="policy()" class="underline underline-offset-4"
-                        >host policy</Link
+                    {{
+                        $t(
+                            "What you publish goes into the public KSA content index, which keeps its history: the listing text stays visible in the index's history even after you change or remove it. Each release is also copied to the Internet Archive (archive.org). Read the",
+                        )
+                    }}
+                    <Link
+                        :href="policy()"
+                        class="underline underline-offset-4"
+                        >{{ $t('host policy') }}</Link
                     >.
                 </p>
                 <div class="flex flex-wrap gap-3">
@@ -64,7 +70,7 @@ const card =
                         class="rounded-md bg-[#1b1b18] px-5 py-2.5 font-medium text-white hover:bg-black disabled:opacity-60 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                         @click="answer.post(approve().url)"
                     >
-                        Approve
+                        {{ $t('Approve') }}
                     </button>
                     <button
                         type="button"
@@ -72,7 +78,7 @@ const card =
                         class="rounded-md border border-[#19140035] px-5 py-2.5 font-medium hover:border-[#1915014a] disabled:opacity-60 dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                         @click="answer.delete(deny().url)"
                     >
-                        Deny
+                        {{ $t('Deny') }}
                     </button>
                 </div>
             </section>

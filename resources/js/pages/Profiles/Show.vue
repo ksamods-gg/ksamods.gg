@@ -8,6 +8,7 @@ import ShareRow from '@/components/ShareRow.vue';
 import Stars from '@/components/Stars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { ModSummary, ShareSummary } from '@/types';
 
 type ProfilePost = {
@@ -43,11 +44,11 @@ type Tab = 'mods' | 'vehicles' | 'saves' | 'reviews' | 'comments';
 const tabs = computed(() =>
     (
         [
-            { id: 'mods', label: 'Mods', items: props.mods },
-            { id: 'vehicles', label: 'Vehicles', items: props.vehicles },
-            { id: 'saves', label: 'Saves', items: props.saves },
-            { id: 'reviews', label: 'Reviews', items: props.reviews },
-            { id: 'comments', label: 'Comments', items: props.comments },
+            { id: 'mods', label: t('Mods'), items: props.mods },
+            { id: 'vehicles', label: t('Vehicles'), items: props.vehicles },
+            { id: 'saves', label: t('Saves'), items: props.saves },
+            { id: 'reviews', label: t('Reviews'), items: props.reviews },
+            { id: 'comments', label: t('Comments'), items: props.comments },
         ] as const
     )
         .filter((tab) => tab.items !== null)
@@ -108,7 +109,9 @@ const empty = [
         :title="`${profile.name} (@${profile.username})`"
         :description="
             profile.bio ??
-            `${profile.name} on ksamods.gg, the Kitten Space Agency mod site.`
+            $t(':name on ksamods.gg, the Kitten Space Agency mod site.', {
+                name: profile.name,
+            })
         "
         :image="profile.avatar"
     />
@@ -169,20 +172,30 @@ const empty = [
                         }}</span>
                     </li>
                     <li v-if="profile.joined">
-                        Joined {{ formatDate(profile.joined) }}
+                        {{
+                            $t('Joined :date', {
+                                date: formatDate(profile.joined),
+                            })
+                        }}
                     </li>
                 </ul>
             </aside>
 
             <div class="min-w-0">
                 <p v-if="!tabs.length" :class="empty">
-                    {{ profile.name }} keeps everything off their profile.
+                    {{
+                        $t(':name keeps everything off their profile.', {
+                            name: profile.name,
+                        })
+                    }}
                 </p>
 
                 <template v-else>
                     <div
                         role="tablist"
-                        :aria-label="`${profile.name}'s content`"
+                        :aria-label="
+                            $t(':name\'s content', { name: profile.name })
+                        "
                         class="mb-4 flex [scrollbar-width:none] gap-1 overflow-x-auto shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_rgba(62,62,58,0.6)]"
                     >
                         <button
@@ -226,7 +239,9 @@ const empty = [
                                     <ModRow :mod="mod" :tag-names="tagNames" />
                                 </li>
                             </ul>
-                            <p v-else :class="empty">No mods yet.</p>
+                            <p v-else :class="empty">
+                                {{ $t('No mods yet.') }}
+                            </p>
                         </template>
 
                         <template
@@ -254,7 +269,11 @@ const empty = [
                                 </li>
                             </ul>
                             <p v-else :class="empty">
-                                No {{ activeTab }} shared yet.
+                                {{
+                                    activeTab === 'vehicles'
+                                        ? $t('No vehicles shared yet.')
+                                        : $t('No saves shared yet.')
+                                }}
                             </p>
                         </template>
 
@@ -296,7 +315,13 @@ const empty = [
                                     </p>
                                 </li>
                             </ul>
-                            <p v-else :class="empty">No {{ activeTab }} yet.</p>
+                            <p v-else :class="empty">
+                                {{
+                                    activeTab === 'reviews'
+                                        ? $t('No reviews yet.')
+                                        : $t('No comments yet.')
+                                }}
+                            </p>
                         </template>
                     </section>
                 </template>

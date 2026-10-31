@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import FormField from '@/components/FormField.vue';
 import SettingsLayout from '@/layouts/SettingsLayout.vue';
+import { t } from '@/lib/i18n';
 import { update } from '@/routes/settings/notifications';
 
 const props = defineProps<{
@@ -16,16 +18,16 @@ const page = usePage();
 
 const form = useForm({ email: props.email ?? '', frequency: props.frequency });
 
-const frequencies = [
-    { value: 'off', label: 'Off', hint: 'Only the bell on the site.' },
+const frequencies = computed(() => [
+    { value: 'off', label: t('Off'), hint: t('Only the bell on the site.') },
     {
         value: 'daily',
-        label: 'Daily',
-        hint: 'One email a day with new releases.',
+        label: t('Daily'),
+        hint: t('One email a day with new releases.'),
     },
-    { value: 'weekly', label: 'Weekly', hint: 'One email a week.' },
-    { value: 'monthly', label: 'Monthly', hint: 'One email a month.' },
-] as const;
+    { value: 'weekly', label: t('Weekly'), hint: t('One email a week.') },
+    { value: 'monthly', label: t('Monthly'), hint: t('One email a month.') },
+]);
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const heading =
@@ -37,27 +39,28 @@ const option =
 </script>
 
 <template>
-    <Head title="Notification settings" />
+    <Head :title="$t('Notification settings')" />
 
     <SettingsLayout>
         <section>
-            <h1 :class="heading">Notifications</h1>
+            <h1 :class="heading">{{ $t('Notifications') }}</h1>
             <p :class="['text-sm', muted]">
-                New releases of the
-                {{ following }}
                 {{
                     following === 1
-                        ? 'mod, vehicle or save'
-                        : 'mods, vehicles and saves'
+                        ? $t(
+                              'New releases of the :count mod, vehicle or save you follow, replies, mentions and news about your shared listings show up in the bell. Follow something with the Follow button on its page.',
+                              { count: following },
+                          )
+                        : $t(
+                              'New releases of the :count mods, vehicles and saves you follow, replies, mentions and news about your shared listings show up in the bell. Follow something with the Follow button on its page.',
+                              { count: following },
+                          )
                 }}
-                you follow, replies, mentions and news about your shared
-                listings show up in the bell. Follow something with the Follow
-                button on its page.
             </p>
         </section>
 
         <section>
-            <h2 :class="heading">Email digest</h2>
+            <h2 :class="heading">{{ $t('Email digest') }}</h2>
 
             <p
                 v-if="page.flash.status"
@@ -74,15 +77,19 @@ const option =
                 "
             >
                 <FormField
-                    label="Email"
+                    :label="$t('Email')"
                     for="email"
                     :error="form.errors.email"
                     :hint="
                         confirmed
-                            ? 'Confirmed.'
+                            ? $t('Confirmed.')
                             : pending
-                              ? 'Waiting for you to click the link we sent. Saving another address sends a new one.'
-                              : 'We send a link to confirm it before any digest.'
+                              ? $t(
+                                    'Waiting for you to click the link we sent. Saving another address sends a new one.',
+                                )
+                              : $t(
+                                    'We send a link to confirm it before any digest.',
+                                )
                     "
                 >
                     <input
@@ -96,7 +103,9 @@ const option =
                 </FormField>
 
                 <fieldset>
-                    <legend class="mb-1 text-sm font-medium">How often</legend>
+                    <legend class="mb-1 text-sm font-medium">
+                        {{ $t('How often') }}
+                    </legend>
                     <label
                         v-for="item in frequencies"
                         :key="item.value"
@@ -124,7 +133,7 @@ const option =
                         :disabled="form.processing"
                         class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                     >
-                        Update digest
+                        {{ $t('Update digest') }}
                     </button>
                 </div>
             </form>

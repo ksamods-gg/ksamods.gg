@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import FormField from '@/components/FormField.vue';
 import SettingsLayout from '@/layouts/SettingsLayout.vue';
+import { t } from '@/lib/i18n';
 import { update } from '@/routes/settings/profile';
 
 const props = defineProps<{
@@ -29,13 +31,13 @@ const form = useForm({
     sections: { ...props.sections },
 });
 
-const sectionLabels = {
-    vehicles: 'Shared vehicles',
-    saves: 'Shared saves',
-    mods: 'My mods',
-    reviews: 'Reviews',
-    comments: 'Comments',
-} as const;
+const sectionLabels = computed(() => ({
+    vehicles: t('Shared vehicles'),
+    saves: t('Shared saves'),
+    mods: t('My mods'),
+    reviews: t('Reviews'),
+    comments: t('Comments'),
+}));
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const heading =
@@ -46,7 +48,7 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
 </script>
 
 <template>
-    <Head title="Public profile" />
+    <Head :title="$t('Public profile')" />
 
     <SettingsLayout>
         <form
@@ -54,7 +56,7 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
             @submit.prevent="form.put(update().url, { preserveScroll: true })"
         >
             <section>
-                <h1 :class="heading">Public profile</h1>
+                <h1 :class="heading">{{ $t('Public profile') }}</h1>
 
                 <p
                     v-if="page.flash.status"
@@ -66,7 +68,7 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                         v-if="url"
                         :href="url"
                         class="underline underline-offset-4"
-                        >View it</Link
+                        >{{ $t('View it') }}</Link
                     >
                 </p>
 
@@ -78,23 +80,29 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                             class="mt-0.5"
                         />
                         <span>
-                            <span class="font-medium"
-                                >Turn on my public profile</span
-                            >
+                            <span class="font-medium">{{
+                                $t('Turn on my public profile')
+                            }}</span>
                             <span :class="['block text-xs', muted]">
-                                Anyone can then see it, and your name on reviews
-                                and comments links to it. Off, the address shows
-                                nothing.
+                                {{
+                                    $t(
+                                        'Anyone can then see it, and your name on reviews and comments links to it. Off, the address shows nothing.',
+                                    )
+                                }}
                             </span>
                         </span>
                     </label>
 
                     <FormField
-                        label="Username"
+                        :label="$t('Username')"
                         for="username"
                         :required="form.enabled"
                         :error="form.errors.username"
-                        hint="3 to 30 letters, digits, - or _. Changing it changes your profile's address."
+                        :hint="
+                            $t(
+                                '3 to 30 letters, digits, - or _. Changing it changes your profile\'s address.',
+                            )
+                        "
                     >
                         <div
                             class="flex w-full items-center rounded-md border border-[#19140035] bg-white text-sm focus-within:border-[#1b1b18] sm:max-w-sm dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus-within:border-[#EDEDEC]"
@@ -112,10 +120,14 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                     </FormField>
 
                     <FormField
-                        label="Bio"
+                        :label="$t('Bio')"
                         for="bio"
                         :error="form.errors.bio"
-                        hint="A few words about yourself, up to 300 characters."
+                        :hint="
+                            $t(
+                                'A few words about yourself, up to 300 characters.',
+                            )
+                        "
                     >
                         <textarea
                             id="bio"
@@ -128,10 +140,10 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
 
                     <fieldset class="flex flex-col gap-2">
                         <legend class="mb-1.5 text-sm font-medium">
-                            Links
-                            <span :class="['font-normal', muted]"
-                                >(optional)</span
-                            >
+                            {{ $t('Links') }}
+                            <span :class="['font-normal', muted]">{{
+                                $t('(optional)')
+                            }}</span>
                         </legend>
                         <div
                             v-for="(_, i) in form.links"
@@ -152,14 +164,19 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                                     d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
                                 />
                             </svg>
-                            <label :for="`link-${i}`" class="sr-only"
-                                >Link {{ i + 1 }}</label
-                            >
+                            <label :for="`link-${i}`" class="sr-only">{{
+                                $t('Link :number', { number: i + 1 })
+                            }}</label>
                             <input
                                 :id="`link-${i}`"
                                 v-model="form.links[i]"
                                 type="url"
-                                :placeholder="`Link ${i + 1}, such as a website or YouTube channel`"
+                                :placeholder="
+                                    $t(
+                                        'Link :number, such as a website or YouTube channel',
+                                        { number: i + 1 },
+                                    )
+                                "
                                 :aria-invalid="
                                     !!(form.errors as Record<string, string>)[
                                         `links.${i}`
@@ -178,8 +195,12 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                             :key="`error-${i}`"
                             class="text-xs text-[#f53003] dark:text-[#FF4433]"
                         >
-                            Link {{ i + 1 }} must be a web address starting with
-                            https://.
+                            {{
+                                $t(
+                                    'Link :number must be a web address starting with https://.',
+                                    { number: i + 1 },
+                                )
+                            }}
                         </p>
                     </fieldset>
 
@@ -190,12 +211,15 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                             class="mt-0.5"
                         />
                         <span>
-                            <span class="font-medium"
-                                >Show my GitHub and Discord names</span
-                            >
+                            <span class="font-medium">{{
+                                $t('Show my GitHub and Discord names')
+                            }}</span>
                             <span :class="['block text-xs', muted]">
-                                The accounts linked to ksamods.gg, on your
-                                profile.
+                                {{
+                                    $t(
+                                        'The accounts linked to ksamods.gg, on your profile.',
+                                    )
+                                }}
                             </span>
                         </span>
                     </label>
@@ -203,10 +227,13 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
             </section>
 
             <section>
-                <h2 :class="heading">What your profile shows</h2>
+                <h2 :class="heading">{{ $t('What your profile shows') }}</h2>
                 <p :class="['mb-3 text-sm', muted]">
-                    Anything you turn off is left off your profile. Reviews and
-                    comments stay on the mod pages either way.
+                    {{
+                        $t(
+                            'Anything you turn off is left off your profile. Reviews and comments stay on the mod pages either way.',
+                        )
+                    }}
                 </p>
                 <label
                     v-for="(label, section) in sectionLabels"
@@ -228,7 +255,7 @@ const check = 'flex cursor-pointer items-start gap-2.5 py-1 text-sm';
                     :disabled="form.processing"
                     class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                 >
-                    Update profile
+                    {{ $t('Update profile') }}
                 </button>
             </div>
         </form>

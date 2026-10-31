@@ -65,7 +65,7 @@ class AppServiceProvider extends ServiceProvider
             }
 
             if ($known !== [] && $user->digest_email !== null && $user->digest_email_verified_at !== null) {
-                Mail::to($user->digest_email)->queue(new NewSignIn($user, Device::describe($agent), request()->ip()));
+                Mail::to($user->digest_email)->locale($user->locale ?? 'en')->queue(new NewSignIn($user, Device::describe($agent), request()->ip()));
             }
 
             $user->forceFill(['known_devices' => array_slice([$device, ...$known], 0, 20)])->saveQuietly();

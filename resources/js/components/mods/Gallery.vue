@@ -29,17 +29,30 @@ const control =
 </script>
 
 <template>
-    <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Screenshots">
+    <ul
+        class="grid grid-cols-2 gap-3 sm:grid-cols-3"
+        :aria-label="$t('Screenshots')"
+    >
         <li v-for="(image, index) in images" :key="image">
             <button
                 type="button"
                 class="block w-full overflow-hidden rounded-lg shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] hover:opacity-90 dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
-                :aria-label="`Open image ${index + 1} of ${images.length}`"
+                :aria-label="
+                    $t('Open image :number of :count', {
+                        number: index + 1,
+                        count: images.length,
+                    })
+                "
                 @click="open(index)"
             >
                 <img
                     :src="image"
-                    :alt="`${name}, screenshot ${index + 1}`"
+                    :alt="
+                        $t(':name, screenshot :number', {
+                            name,
+                            number: index + 1,
+                        })
+                    "
                     loading="lazy"
                     class="aspect-video w-full bg-[#f4f3ef] object-cover dark:bg-[#232321]"
                 />
@@ -49,7 +62,7 @@ const control =
 
     <dialog
         ref="viewer"
-        :aria-label="`${name} images`"
+        :aria-label="$t(':name images', { name })"
         class="m-auto max-h-none max-w-none bg-transparent p-0 backdrop:bg-black/80"
         @click="closeOnBackdrop"
         @keydown.left="step(-1)"
@@ -58,13 +71,19 @@ const control =
         <div class="relative flex items-center justify-center">
             <img
                 :src="images[current]"
-                :alt="`${name}, image ${current + 1} of ${images.length}`"
+                :alt="
+                    $t(':name, image :number of :count', {
+                        name,
+                        number: current + 1,
+                        count: images.length,
+                    })
+                "
                 class="max-h-[85vh] max-w-[92vw] rounded-lg object-contain"
             />
             <button
                 type="button"
                 :class="[control, 'absolute top-2 right-2']"
-                aria-label="Close"
+                :aria-label="$t('Close')"
                 @click="viewer?.close()"
             >
                 <svg
@@ -83,7 +102,7 @@ const control =
                 <button
                     type="button"
                     :class="[control, 'absolute left-2']"
-                    aria-label="Previous image"
+                    :aria-label="$t('Previous image')"
                     @click="step(-1)"
                 >
                     <svg
@@ -102,7 +121,7 @@ const control =
                 <button
                     type="button"
                     :class="[control, 'absolute right-2']"
-                    aria-label="Next image"
+                    :aria-label="$t('Next image')"
                     @click="step(1)"
                 >
                     <svg

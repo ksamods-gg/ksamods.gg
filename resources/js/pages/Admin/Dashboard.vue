@@ -24,14 +24,14 @@ const card =
 </script>
 
 <template>
-    <Head title="Admin" />
+    <Head :title="$t('Admin')" />
 
     <AppLayout>
         <AdminNav />
 
         <dl class="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <div :class="card">
-                <dt :class="['text-sm', muted]">Open reports</dt>
+                <dt :class="['text-sm', muted]">{{ $t('Open reports') }}</dt>
                 <dd class="mt-1 text-2xl font-semibold tabular-nums">
                     <Link :href="reports()" class="hover:underline">{{
                         formatNumber(stats.openReports)
@@ -39,30 +39,36 @@ const card =
                 </dd>
             </div>
             <div :class="card">
-                <dt :class="['text-sm', muted]">Users</dt>
+                <dt :class="['text-sm', muted]">{{ $t('Users') }}</dt>
                 <dd class="mt-1 text-2xl font-semibold tabular-nums">
                     <Link :href="users()" class="hover:underline">{{
                         formatNumber(stats.users)
                     }}</Link>
                 </dd>
                 <dd :class="['text-xs', muted]">
-                    {{ formatNumber(stats.newUsers) }} joined this week
+                    {{
+                        $t(':count joined this week', {
+                            count: formatNumber(stats.newUsers),
+                        })
+                    }}
                 </dd>
             </div>
             <div :class="card">
-                <dt :class="['text-sm', muted]">Mods in the index</dt>
+                <dt :class="['text-sm', muted]">
+                    {{ $t('Mods in the index') }}
+                </dt>
                 <dd class="mt-1 text-2xl font-semibold tabular-nums">
                     {{ formatNumber(stats.mods) }}
                 </dd>
             </div>
             <div :class="card">
-                <dt :class="['text-sm', muted]">Reviews</dt>
+                <dt :class="['text-sm', muted]">{{ $t('Reviews') }}</dt>
                 <dd class="mt-1 text-2xl font-semibold tabular-nums">
                     {{ formatNumber(stats.reviews) }}
                 </dd>
             </div>
             <div :class="card">
-                <dt :class="['text-sm', muted]">Comments</dt>
+                <dt :class="['text-sm', muted]">{{ $t('Comments') }}</dt>
                 <dd class="mt-1 text-2xl font-semibold tabular-nums">
                     {{ formatNumber(stats.comments) }}
                 </dd>
@@ -71,10 +77,13 @@ const card =
 
         <section :class="[card, 'mt-6 flex flex-col gap-3 p-5']">
             <div>
-                <h2 class="font-semibold">Content index</h2>
+                <h2 class="font-semibold">{{ $t('Content index') }}</h2>
                 <p :class="['mt-1 text-sm', muted]">
-                    The site rechecks the KSA content index every 10 minutes.
-                    Refresh now to show a newly merged listing right away.
+                    {{
+                        $t(
+                            'The site rechecks the KSA content index every 10 minutes. Refresh now to show a newly merged listing right away.',
+                        )
+                    }}
                 </p>
             </div>
             <p
@@ -98,7 +107,7 @@ const card =
                     preserve-scroll
                     class="rounded-md border border-[#19140035] px-4 py-2 text-sm font-medium hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
                 >
-                    Refresh content index
+                    {{ $t('Refresh content index') }}
                 </Link>
             </div>
         </section>

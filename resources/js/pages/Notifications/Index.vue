@@ -29,13 +29,13 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 </script>
 
 <template>
-    <Head title="Notifications" />
+    <Head :title="$t('Notifications')" />
 
     <AppLayout>
         <div class="mx-auto max-w-2xl">
             <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <h1 class="text-2xl font-semibold tracking-tight">
-                    Notifications
+                    {{ $t('Notifications') }}
                 </h1>
                 <div class="flex items-center gap-4">
                     <Link
@@ -45,13 +45,13 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                         preserve-scroll
                         :class="['text-sm hover:underline', muted]"
                     >
-                        Mark all as read
+                        {{ $t('Mark all as read') }}
                     </Link>
                     <Link
                         :href="settings()"
                         :class="['text-sm hover:underline', muted]"
                     >
-                        Email digest
+                        {{ $t('Email digest') }}
                     </Link>
                 </div>
             </div>
@@ -102,7 +102,7 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                             v-if="!notification.read"
                             class="mt-1.5 size-2 shrink-0 rounded-full bg-accent"
                         >
-                            <span class="sr-only">Unread</span>
+                            <span class="sr-only">{{ $t('Unread') }}</span>
                         </span>
                     </a>
                 </li>
@@ -114,9 +114,11 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                     muted,
                 ]"
             >
-                Nothing yet. You'll hear here when someone replies to you or
-                mentions you with @, when something you follow has a new
-                release, and about the vehicles and saves you share.
+                {{
+                    $t(
+                        "Nothing yet. You'll hear here when someone replies to you or mentions you with @, when something you follow has a new release, and about the vehicles and saves you share.",
+                    )
+                }}
             </p>
         </div>
     </AppLayout>

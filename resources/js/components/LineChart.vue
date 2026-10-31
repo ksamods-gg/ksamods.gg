@@ -111,7 +111,18 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 :viewBox="`0 0 ${W} ${H}`"
                 class="w-full overflow-visible text-[#119087] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:text-[#2aa9a0]"
                 role="img"
-                :aria-label="`${title}: from ${show(points[0].value)} on ${formatDate(points[0].date)} to ${show(points.at(-1)!.value)} on ${formatDate(points.at(-1)!.date)}. Use the arrow keys to read each day.`"
+                :aria-label="
+                    $t(
+                        ':title: from :from on :fromDate to :to on :toDate. Use the arrow keys to read each day.',
+                        {
+                            title,
+                            from: show(points[0].value),
+                            fromDate: formatDate(points[0].date),
+                            to: show(points.at(-1)!.value),
+                            toDate: formatDate(points.at(-1)!.date),
+                        },
+                    )
+                "
                 tabindex="0"
                 @pointermove="pointAt"
                 @pointerleave="active = null"
@@ -216,11 +227,13 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
         </div>
 
         <details :class="['text-xs', muted]">
-            <summary class="cursor-pointer">Show as a table</summary>
+            <summary class="cursor-pointer">
+                {{ $t('Show as a table') }}
+            </summary>
             <table class="mt-2 w-full max-w-sm text-left tabular-nums">
                 <thead>
                     <tr>
-                        <th class="py-1 font-medium">Date</th>
+                        <th class="py-1 font-medium">{{ $t('Date') }}</th>
                         <th class="py-1 text-right font-medium">{{ title }}</th>
                     </tr>
                 </thead>
