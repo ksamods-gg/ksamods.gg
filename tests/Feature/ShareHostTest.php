@@ -575,9 +575,9 @@ it('opens pull requests as the GitHub App, and pushes their branches with the fo
         // Committed as the App's bot user, not as the token's owner.
         ->and($this->commits[0]['author'])->toBe(['name' => 'ksamods-test[bot]', 'email' => config('share.bot_id').'+ksamods-test[bot]@users.noreply.github.com']);
 
-    // Pull requests with the App's installation token; everything on the fork with the fork's token.
+    // The authored repository with the App's installation token, which an org may require; the fork with the fork's token.
     foreach ($this->tokens as [$call, $token]) {
-        expect($token)->toBe(str_contains($call, '/pulls') ? 'Bearer installation-token' : 'Bearer fork-token', $call);
+        expect($token)->toBe(str_contains($call, ' /repos/ksamods-test/') ? 'Bearer installation-token' : 'Bearer fork-token', $call);
     }
 });
 

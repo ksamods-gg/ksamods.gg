@@ -45,7 +45,8 @@ class ShareBot
         } else {
             ListingPullRequest::syncFork($forkApi, $fork);
             $branch = "share/{$share->listing_id}-".now()->format('YmdHis');
-            $parent = $forkApi->get("/repos/{$repository}/git/ref/heads/main")->throw()->json('object.sha');
+            // The authored repository is read with the App alone: the fork's token is for the fork.
+            $parent = $github->get("/repos/{$repository}/git/ref/heads/main")->throw()->json('object.sha');
         }
 
         $baseTree = $forkApi->get("/repos/{$fork}/git/commits/{$parent}")->throw()->json('tree.sha');
