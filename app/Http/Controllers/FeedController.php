@@ -74,12 +74,12 @@ class FeedController extends Controller
     }
 
     /**
-     * @param  'atom'|'rss'  $format
-     * @param  Collection<int, Item>  $items
+     * @param  string  $format  atom or rss, as the route allows.
+     * @param  iterable<Item>  $items
      */
-    private function feed(string $format, string $title, string $alternate, Collection $items): Response
+    private function feed(string $format, string $title, string $alternate, iterable $items): Response
     {
-        $items = $items->sortByDesc(fn (array $item) => $item['date']->getTimestamp())->take(self::ITEMS)->values();
+        $items = collect($items)->sortByDesc(fn (array $item) => $item['date']->getTimestamp())->take(self::ITEMS)->values();
 
         return response()->view("feeds.{$format}", [
             'title' => $title,
