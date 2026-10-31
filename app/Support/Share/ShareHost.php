@@ -2,6 +2,7 @@
 
 namespace App\Support\Share;
 
+use App\Jobs\ListShareRelease;
 use App\Jobs\ProposeShareListing;
 use App\Models\Share;
 use App\Models\ShareRelease;
@@ -176,22 +177,28 @@ class ShareHost
         ]);
         $share->releases()->save($release);
 
-        // 2. The owner record of a new id. 3. The release list entry.
+        // 2. The owner record of a new id.
         if ($new) {
             DataFiles::writeOwnerRecord($share);
         }
 
-        DataFiles::writeReleaseList($share);
-
         $upload->forceFill(['published_at' => now(), 'share_id' => $share->id])->save();
         $disk->delete($upload->path);
 
-        // 4 and 5. A new listing, or a new dependency list, goes to the index by pull request.
-        $pullRequest = null;
+        // A new listing, or a new dependency list, goes to the index by pull request.
+        $propose = $new || $share->dependencies !== $upload->dependencies;
 
-        if ($new || $share->dependencies !== $upload->dependencies) {
+        if ($propose) {
             $share->forceFill(['dependencies' => $upload->dependencies])->save();
-            $pullRequest = self::propose($share, $new);
+        }
+
+        // 3 to 5. The mirror, the release list entry, the attestation and the pull request. With
+        // a mirror to upload they follow from the queue, and the pull request comes later.
+        if (ArchiveMirror::enabled()) {
+            ListShareRelease::dispatch($release, $propose, $new);
+            $pullRequest = null;
+        } else {
+            $pullRequest = ListShareRelease::run($release, $propose, $new);
         }
 
         return ['id' => $share->listing_id, 'type' => $share->type, 'version' => $version, 'pull_request' => $pullRequest];

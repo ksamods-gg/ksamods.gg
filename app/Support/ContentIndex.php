@@ -3,8 +3,10 @@
 namespace App\Support;
 
 use Illuminate\Contracts\Cache\Repository;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 /**
  * The KSA content index snapshot. Shape of the parts this app reads (RFC 0033):
@@ -67,7 +69,9 @@ class ContentIndex
         $file = $type === 'vehicle' ? 'vehicles' : 'saves';
 
         return self::cache()->flexible("content-index:v1:{$file}", self::CACHE_TTL, function () use ($file) {
-            $response = Http::timeout(15)->retry(2, 500, throw: false)
+            // A missing file is an answer, not a failure to retry.
+            $response = Http::timeout(15)
+                ->retry(2, 500, fn (Throwable $error) => ! ($error instanceof RequestException && $error->response->notFound()), throw: false)
                 ->get(str_replace('index.json', "snapshot-{$file}.json", self::URL));
 
             return $response->notFound() ? [] : ($response->throw()->json($file) ?? []);

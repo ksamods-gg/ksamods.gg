@@ -39,6 +39,9 @@
 #   SHARE_AUTHORED_REPOSITORY     a test repository until ksamods is registered in
 #                                 hosts.toml, then KSAModding/content-index
 #   SHARE_ABUSE_EMAIL, SHARE_DISCORD_URL   the contacts on /policy
+#   IA_ACCESS_KEY, IA_SECRET_KEY  https://archive.org/account/s3.php of the archive.org account
+#                                 that owns the mirrors (rule 19); empty turns mirroring off
+#   IA_COLLECTION                 opensource_media, or the collection archive.org gives you
 #   PASSPORT_PRIVATE_KEY, PASSPORT_PUBLIC_KEY
 #                                 php artisan passport:keys, then the two files' contents;
 #                                 they sign the upload API's tokens
@@ -102,6 +105,12 @@ services:
             - AWS_BUCKET=${AWS_BUCKET:?}
             - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-fsn1}
             - AWS_ENDPOINT=${AWS_ENDPOINT:-https://fsn1.your-objectstorage.com}
+            # Internet Archive mirrors (rule 19); mirroring is off while these are empty.
+            - IA_ACCESS_KEY=${IA_ACCESS_KEY:-}
+            - IA_SECRET_KEY=${IA_SECRET_KEY:-}
+            - IA_COLLECTION=${IA_COLLECTION:-opensource_media}
+            # A mirror upload may take 20 minutes; no other worker may take its job before then.
+            - DB_QUEUE_RETRY_AFTER=1500
 
     # Runs scheduled commands: discarding expired uploads and spent sign-ins.
     scheduler:

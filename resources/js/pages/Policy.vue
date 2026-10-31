@@ -17,7 +17,7 @@ defineProps<{
 <template>
     <LegalPage
         title="Host policy"
-        updated="23 October 2026"
+        updated="31 October 2026"
         description="How ksamods.gg handles takedowns, abuse reports and privacy for the vehicles and saves it hosts."
     >
         <p>
@@ -52,11 +52,12 @@ defineProps<{
 
         <h2>Takedowns</h2>
         <p>
-            When a release has to go, we delete its archive and remove it from
-            its release list. Its download address then answers that it is gone,
-            and the index marks the release as gone after its own waiting time.
-            Content that must go faster is delisted by the index's stewards. A
-            version number that was taken down is never given out again.
+            When a release has to go, we delete its archive and its copy on the
+            Internet Archive, and remove it from its release list. Its download
+            address then answers that it is gone, and the index marks the
+            release as gone after its own waiting time. Content that must go
+            faster is delisted by the index's stewards. A version number that
+            was taken down is never given out again.
         </p>
         <p>
             Copyright notices (DMCA) go to the same address. We act on valid
@@ -66,6 +67,15 @@ defineProps<{
             We may also remove a whole listing for repeated abuse. If you think
             we got it wrong, reply to our message or write to the address above,
             and we look at it again.
+        </p>
+
+        <h2>Copies on the Internet Archive</h2>
+        <p>
+            Every release is also uploaded to the
+            <a href="https://archive.org">Internet Archive</a> (archive.org) as
+            a public item of its own, under the license its author chose, so
+            players can still install it if ksamods.gg goes away. The index
+            lists that copy as a mirror. A takedown removes it there too.
         </p>
 
         <h2>Your privacy</h2>

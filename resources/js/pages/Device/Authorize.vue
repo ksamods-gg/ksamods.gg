@@ -50,8 +50,9 @@ const card =
                 <p :class="muted">
                     What you publish goes into the public KSA content index,
                     which keeps its history: the listing text stays visible in
-                    the index's history even after you change or remove it. Read
-                    the
+                    the index's history even after you change or remove it. Each
+                    release is also copied to the Internet Archive
+                    (archive.org). Read the
                     <Link :href="policy()" class="underline underline-offset-4"
                         >host policy</Link
                     >.

@@ -51,6 +51,18 @@ return [
     'bot_token' => env('SHARE_BOT_TOKEN'),
     'bot_id' => (int) env('SHARE_BOT_ID', 0),
 
+    /*
+     * Internet Archive mirrors (rule 19): every release is also uploaded to archive.org as an item
+     * of its own, before it enters the release list. Off until both keys are set; the keys come
+     * from https://archive.org/account/s3.php of the archive.org account that owns the uploads.
+     */
+    'mirror' => [
+        'access_key' => env('IA_ACCESS_KEY'),
+        'secret_key' => env('IA_SECRET_KEY'),
+        // Community Data, until archive.org gives the host a collection of its own.
+        'collection' => env('IA_COLLECTION', 'opensource_media'),
+    ],
+
     // The policy page (rule 2).
     'abuse_email' => env('SHARE_ABUSE_EMAIL', 'abuse@ksamods.gg'),
     'discord' => env('SHARE_DISCORD_URL'),

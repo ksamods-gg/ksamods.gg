@@ -6,6 +6,7 @@ use App\Models\Share;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
 use App\Support\ContentIndex;
+use App\Support\Share\ArchiveMirror;
 use App\Support\Share\DataFiles;
 use App\Support\Share\ShareError;
 use App\Support\Share\ShareHost;
@@ -185,8 +186,9 @@ class ShareController extends Controller
     }
 
     /**
-     * Takes one release down (rules 17, 18 and 31): its archive is deleted, its url answers 410,
-     * and the release list drops it and is signed again. The version is never given out again.
+     * Takes one release down (rules 17, 18 and 31): its archive and its Internet Archive mirror
+     * are deleted, its url answers 410, and the release list drops it and is signed again. The
+     * version is never given out again.
      */
     public function takeDown(Request $request, ShareRelease $release): RedirectResponse
     {
@@ -196,6 +198,11 @@ class ShareController extends Controller
             $release->forceFill(['taken_down_at' => now()])->save();
             DataFiles::disk()->delete($release->path);
             DataFiles::writeReleaseList($release->share);
+
+            // The mirror goes too (RFC 0094, Takedowns), retried from the queue if archive.org is slow.
+            if ($release->mirror_url !== null) {
+                dispatch(fn () => ArchiveMirror::delete($release));
+            }
         }
 
         return back();

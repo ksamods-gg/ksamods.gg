@@ -1,19 +1,23 @@
 <?php
 
 use App\Enums\Role;
+use App\Jobs\ListShareRelease;
 use App\Models\Share;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
 use App\Models\User;
 use App\Support\ContentIndex;
+use App\Support\Share\ArchiveMirror;
 use App\Support\Share\Attestation;
 use App\Support\Share\Signer;
+use Carbon\CarbonInterval;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Passport\Client;
@@ -42,6 +46,10 @@ beforeEach(function () {
     $this->pulls = [];
     $this->trees = [];
     $this->openBranch = null;
+    // archive.org: what was uploaded and deleted, and how many times a download is not served yet.
+    $this->mirrored = [];
+    $this->unmirrored = [];
+    $this->notServedYet = 0;
 
     Http::fake(function (HttpRequest $request) {
         $url = $request->url();
@@ -55,6 +63,27 @@ beforeEach(function () {
 
         if (str_contains($url, 'snapshot-')) {
             return Http::response(status: 404);
+        }
+
+        if (str_starts_with($url, 'https://s3.us.archive.org/')) {
+            $item = substr($url, strlen('https://s3.us.archive.org/'));
+            $request->method() === 'DELETE'
+                ? $this->unmirrored[] = $item
+                : $this->mirrored[$item] = ['headers' => $request->headers(), 'size' => (int) $request->header('x-archive-size-hint')[0]];
+
+            return Http::response('', 200);
+        }
+
+        if (str_starts_with($url, 'https://archive.org/download/')) {
+            $item = substr($url, strlen('https://archive.org/download/'));
+
+            if ($this->notServedYet > 0 || ! isset($this->mirrored[$item])) {
+                $this->notServedYet--;
+
+                return Http::response('', 404);
+            }
+
+            return Http::response('', 200, ['Content-Length' => $this->mirrored[$item]['size']]);
         }
 
         $path = parse_url($url, PHP_URL_PATH);
@@ -436,4 +465,67 @@ it('refuses to print a table hosts.toml would reject', function () {
 
     expect(Artisan::call('share:host'))->toBe(1)
         ->and(Artisan::output())->toContain('SHARE_BOT_ID')->toContain('APP_URL must be https');
+});
+
+describe('Internet Archive mirrors', function () {
+    beforeEach(function () {
+        config(['share.mirror.access_key' => 'ia-access', 'share.mirror.secret_key' => 'ia-secret']);
+        Sleep::fake();
+    });
+
+    it('mirrors a release to archive.org before listing it, with the mirror in its entry', function () {
+        publishVehicle(User::factory()->create(), ['name' => 'Ракета Rover'])
+            // The mirror and the pull request follow from the queue, so the answer has no pull request yet.
+            ->assertCreated()->assertJsonPath('pull_request', null);
+
+        $release = ShareRelease::sole();
+        $item = ArchiveMirror::identifier($release).'/ExampleRover-1.0.0.zip';
+        $headers = $this->mirrored[$item]['headers'];
+
+        expect($item)->toMatch('#^ksamods-vehicle-examplerover-1_0_0-[0-9a-f]{8}/#')
+            ->and($headers['Authorization'][0])->toBe('LOW ia-access:ia-secret')
+            ->and($headers['User-Agent'][0])->toStartWith('ksamods.gg/')
+            ->and($headers['x-archive-meta-collection'][0])->toBe('opensource_media')
+            ->and($headers['x-archive-meta-licenseurl'][0])->toBe('https://creativecommons.org/licenses/by/4.0/')
+            ->and($headers['x-archive-meta01-creator'][0])->toBe('Maxi')
+            // Anything but plain ASCII goes in archive.org's uri() form.
+            ->and($headers['x-archive-meta-title'][0])->toStartWith('uri(')->toContain(rawurlencode('Ракета'));
+
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0]['mirrors'])
+            ->toBe(['https://archive.org/download/'.$item])
+            ->and($release->fresh()->listed_at)->not->toBeNull()
+            ->and($this->pulls)->toHaveCount(1);
+    });
+
+    it('lists the release only once archive.org serves the mirror', function () {
+        $this->notServedYet = 3;
+
+        publishVehicle(User::factory()->create())->assertCreated();
+
+        // Three waits of 15 seconds for archive.org, then it served the file.
+        Sleep::assertSlept(fn (CarbonInterval $duration) => (int) $duration->totalSeconds === 15, 3);
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'])->toHaveCount(1);
+    });
+
+    it('lists a release without a mirror when archive.org keeps failing, rather than not at all', function () {
+        config(['share.mirror.access_key' => null]);
+        publishVehicle(User::factory()->create())->assertCreated();
+        $release = ShareRelease::sole();
+        // As if it had been waiting for archive.org.
+        $release->forceFill(['listed_at' => null])->save();
+        config(['share.mirror.access_key' => 'ia-access']);
+
+        (new ListShareRelease($release, false, false))->failed(new RuntimeException('archive.org is down'));
+
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->not->toHaveKey('mirrors');
+    });
+
+    it('deletes the mirror when a release is taken down', function () {
+        publishVehicle(User::factory()->create())->assertCreated();
+        $release = ShareRelease::sole();
+
+        $this->actingAs(User::factory()->create(['role' => Role::Moderator]))->post(route('shares.take-down', $release));
+
+        expect($this->unmirrored)->toBe([ArchiveMirror::identifier($release).'/ExampleRover-1.0.0.zip']);
+    });
 });
