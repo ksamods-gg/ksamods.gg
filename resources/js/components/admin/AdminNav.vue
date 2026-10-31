@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { dashboard, posts, reports, users } from '@/routes/admin';
+import shares from '@/routes/admin/shares';
 
 /**
  * The admin panel's tabs, at the top of each admin page.
@@ -15,6 +16,10 @@ const tabs = computed(() => [
     { label: 'Reviews', href: posts('reviews').url },
     { label: 'Comments', href: posts('comments').url },
     { label: 'Users', href: users().url },
+    // The share host's fixes are for admins.
+    ...(page.props.auth.user?.role === 'admin'
+        ? [{ label: 'Share host', href: shares.index().url }]
+        : []),
 ]);
 
 // The current tab: the longest tab address the page's address starts with.

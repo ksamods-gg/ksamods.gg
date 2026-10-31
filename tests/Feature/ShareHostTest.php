@@ -714,3 +714,32 @@ describe('owner tools', function () {
         expect(Share::count())->toBe(0)->and($this->closed)->toBe(['closed']);
     });
 });
+
+describe('the admin share panel', function () {
+    it('is for admins only', function () {
+        $this->actingAs(User::factory()->create(['role' => Role::Moderator]))->get('/admin/shares')->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => Role::Admin]))->get('/admin/shares')->assertOk();
+    });
+
+    it('shows the listings and fixes them: propose again, mirror again, delete', function () {
+        Queue::fake([MirrorShareRelease::class]);
+        publishVehicle(User::factory()->create())->assertCreated();
+        $admin = User::factory()->create(['role' => Role::Admin]);
+        $share = Share::sole();
+
+        $this->actingAs($admin)->get('/admin/shares')->assertInertia(fn (Assert $page) => $page
+            ->component('Admin/Shares')
+            ->where('listings.0.listing_id', 'ExampleRover')
+            ->where('listings.0.pull_request_state', 'open'));
+
+        $this->actingAs($admin)->post("/admin/shares/{$share->id}/propose")->assertSessionHasNoErrors();
+        // Pushed to the open pull request.
+        expect($this->pulls)->toHaveCount(1)->and($this->trees)->toHaveCount(2);
+
+        $this->actingAs($admin)->post('/admin/shares/releases/'.ShareRelease::sole()->id.'/mirror');
+        Queue::assertPushed(MirrorShareRelease::class);
+
+        $this->actingAs($admin)->delete("/admin/shares/{$share->id}")->assertSessionHasNoErrors();
+        expect(Share::count())->toBe(0);
+    });
+});

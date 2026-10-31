@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminShareController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\DigestController;
 use App\Http\Controllers\DiscordAuthController;
@@ -103,6 +104,16 @@ Route::middleware('auth')->group(function () {
         Route::patch('/reports/{report}/resolve', [AdminController::class, 'resolveReport'])->name('reports.resolve');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::patch('/users/{user}/role', [AdminController::class, 'updateRole'])->middleware('can:administer')->name('users.role');
+
+        // The share host's health, for admins.
+        Route::prefix('shares')->name('shares.')->middleware('can:administer')->group(function () {
+            Route::get('/', [AdminShareController::class, 'index'])->name('index');
+            Route::post('/jobs/{uuid}/retry', [AdminShareController::class, 'retryJob'])->name('jobs.retry');
+            Route::delete('/jobs/{uuid}', [AdminShareController::class, 'forgetJob'])->name('jobs.forget');
+            Route::post('/releases/{release}/mirror', [AdminShareController::class, 'mirror'])->name('mirror');
+            Route::post('/{share}/propose', [AdminShareController::class, 'propose'])->name('propose');
+            Route::delete('/{share}', [AdminShareController::class, 'purge'])->name('purge');
+        });
         Route::get('/{type}', [AdminController::class, 'posts'])->whereIn('type', ['reviews', 'comments'])->name('posts');
     });
 });
