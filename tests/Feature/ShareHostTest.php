@@ -410,15 +410,30 @@ it('rewrites the owner record when the owner links or unlinks GitHub, or deletes
     expect(signedFile('owners/vehicle/ExampleRover.json'))->toBe(['id' => 'ExampleRover', 'type' => 'vehicle', 'account' => $account]);
 });
 
-it('prints the hosts.toml table that registers this host', function () {
-    config(['share.bot_id' => 4242]);
+it('prints the hosts.toml table that registers this host, laid out as hosts.toml writes it', function () {
+    config(['share.bot_id' => 4242, 'app.url' => 'https://ksamods.gg']);
 
-    Artisan::call('share:host');
+    expect(Artisan::call('share:host'))->toBe(0)
+        ->and(trim(Artisan::output()))->toBe(implode("\n", [
+            '[ksamods]',
+            'kind = "share"',
+            'name = "ksamods.gg"',
+            'data = "https://files.test/"',
+            'downloads = ["https://ksamods.gg/share/files/", "https://files.test/archives/"]',
+            'key = "'.Signer::publicKey().'"',
+            'retired_keys = []',
+            'bot = 4242',
+            'api = "https://ksamods.gg/api/share/v1/"',
+            'types = ["vehicle", "save"]',
+            'max_bytes = { vehicle = 10485760, save = 104857600 }',
+            'new_listings_per_day = 5',
+            'policy = "https://ksamods.gg/policy"',
+        ]));
+});
 
-    expect(Artisan::output())
-        ->toContain('[ksamods]')
-        ->toContain('data = "https://files.test/"')
-        ->toContain('downloads = ["'.url('/share/files/').'/", "https://files.test/archives/"]')
-        ->toContain('key = "'.Signer::publicKey().'"')
-        ->toContain('bot = 4242');
+it('refuses to print a table hosts.toml would reject', function () {
+    config(['share.bot_id' => 0, 'app.url' => 'http://localhost']);
+
+    expect(Artisan::call('share:host'))->toBe(1)
+        ->and(Artisan::output())->toContain('SHARE_BOT_ID')->toContain('APP_URL must be https');
 });
