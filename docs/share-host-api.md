@@ -298,6 +298,40 @@ once the watcher sees it.
 
 The listing's page is `https://ksamods.gg/vehicles/{id}` or `https://ksamods.gg/saves/{id}`.
 
+## 4. Screenshots: `listings/{type}/{id}/images`
+
+A listing has up to 6 screenshots. The host converts each to WebP, fitting 1920 pixels, and puts it
+in the listing document as an RFC 0058 description image, so every client shows them. The first is
+the cover, and its square middle becomes the listing's icon. Each change goes to the index by pull
+request, as an edit to the listing. `{type}` is `vehicle` or `save`; only the listing's owner may
+use these.
+
+| Request                                         | Body                               | Answer                     |
+| ----------------------------------------------- | ---------------------------------- | -------------------------- |
+| `GET listings/{type}/{id}/images`               |                                    | `200`, the screenshots     |
+| `POST listings/{type}/{id}/images`              | `multipart/form-data`, file `image` | `201`, the screenshots     |
+| `DELETE listings/{type}/{id}/images/{image}`    |                                    | `204`                      |
+
+The screenshots, cover first:
+
+```json
+{
+    "images": [
+        {
+            "id": 12,
+            "url": "https://ksamods-share.fsn1.your-objectstorage.com/images/vehicle/ExampleRover/Xk3….webp",
+            "width": 1920,
+            "height": 1080,
+            "cover": true
+        }
+    ]
+}
+```
+
+A screenshot is a PNG, JPEG or WebP of at most 10 MB. A seventh, or one that is not an image,
+answers `422 invalid_request`; a larger one `413 too_large`. Choosing another cover is on the
+website for now.
+
 ## Errors
 
 Every error is JSON with a 4xx or 5xx status (rule 16):
@@ -331,6 +365,7 @@ The sign-in endpoints answer with OAuth's own errors (`error` and `error_descrip
 | Uploads and publishes | 30 an hour per account                                    |
 | New listings          | 5 a day per account (`new_listings_per_day`)              |
 | Archive size          | 10 MB for a vehicle, 100 MB for a save                    |
+| Screenshots           | 6 per listing, 10 MB each before conversion               |
 | Unpublished uploads   | Discarded after 48 hours                                  |
 
 ## Trying it

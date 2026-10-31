@@ -743,3 +743,75 @@ describe('the admin share panel', function () {
         expect(Share::count())->toBe(0);
     });
 });
+
+// A PNG of the given size, as an upload.
+function screenshotUpload(int $width = 3000, int $height = 1000): UploadedFile
+{
+    $image = imagecreatetruecolor($width, $height);
+    imagefilledrectangle($image, 0, 0, $width, $height, imagecolorallocate($image, 21, 115, 109));
+    ob_start();
+    imagepng($image);
+
+    return UploadedFile::fake()->createWithContent('shot.png', (string) ob_get_clean());
+}
+
+describe('screenshots', function () {
+    it('takes the owner\'s screenshots as WebP, cuts the icon from the cover, and proposes them', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+
+        $this->actingAs($owner)->post('/vehicles/ExampleRover/images', ['images' => [screenshotUpload(), screenshotUpload(800, 600)]])
+            ->assertSessionHasNoErrors();
+
+        $share = Share::sole();
+        [$first, $second] = $share->images()->get();
+        expect([$first->width, $first->height, $first->position, $second->position])->toBe([1920, 640, 0, 1])
+            ->and(substr((string) Storage::disk('public')->get($first->path), 8, 4))->toBe('WEBP')
+            ->and($share->icon)->toMatchArray(['width' => 512, 'height' => 512]);
+
+        // The listing document names both, and its description shows them.
+        $document = collect(end($this->trees))->firstWhere('path', 'vehicles/ExampleRover.toml')['content'];
+        expect($document)->toContain("ksa-image:screenshot-{$first->id}")
+            ->toContain('[images.icon]')
+            ->toContain('[[images.description]]')
+            ->toContain($first->sha256);
+    });
+
+    it('makes another screenshot the cover, and lets a moderator remove one', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        $this->actingAs($owner)->post('/vehicles/ExampleRover/images', ['images' => [screenshotUpload(), screenshotUpload(800, 600)]]);
+        [$first, $second] = Share::sole()->images()->get();
+
+        $this->actingAs($owner)->post(route('shares.images.cover', $second))->assertRedirect();
+        expect(Share::sole()->images()->first()->is($second))->toBeTrue();
+
+        $this->actingAs(User::factory()->create())->delete(route('shares.images.destroy', $first))->assertForbidden();
+        $this->actingAs(User::factory()->create(['role' => Role::Moderator]))->delete(route('shares.images.destroy', $first))->assertRedirect();
+
+        expect(Share::sole()->images()->pluck('id')->all())->toBe([$second->id]);
+        Storage::disk('public')->assertMissing($first->path);
+    });
+
+    it('takes screenshots from a client, up to six, and refuses what is not an image', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        Passport::actingAs($owner);
+
+        foreach (range(1, 6) as $n) {
+            $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/images', ['image' => screenshotUpload(400, 300)])->assertCreated();
+        }
+
+        $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/images', ['image' => screenshotUpload(400, 300)])
+            ->assertStatus(422)->assertJsonPath('error', 'invalid_request');
+        $this->getJson('/api/share/v1/listings/vehicle/ExampleRover/images')->assertOk()->assertJsonCount(6, 'images')->assertJsonPath('images.0.cover', true);
+
+        $id = Share::sole()->images()->first()->id;
+        $this->deleteJson("/api/share/v1/listings/vehicle/ExampleRover/images/{$id}")->assertNoContent();
+        $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/images', ['image' => UploadedFile::fake()->createWithContent('a.png', 'not an image')])
+            ->assertStatus(422);
+
+        Passport::actingAs(User::factory()->create());
+        $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/images', ['image' => screenshotUpload()])->assertForbidden();
+    });
+});

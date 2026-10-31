@@ -51,6 +51,8 @@ RUN mkdir -p /etc/s6-overlay/s6-rc.d/inertia-ssr/dependencies.d \
         > /etc/s6-overlay/s6-rc.d/inertia-ssr/run \
     && chmod +x /etc/s6-overlay/s6-rc.d/inertia-ssr/run \
     && echo 'session.upload_progress.enabled = 0' > /usr/local/etc/php/conf.d/zz-ksamods-security.ini
+# Screenshots of vehicles and saves are resized and converted to WebP with GD.
+RUN install-php-extensions gd
 USER www-data
 
 COPY --from=build --chown=www-data:www-data /var/www/html /var/www/html

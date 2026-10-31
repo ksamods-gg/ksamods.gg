@@ -95,6 +95,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/{types}/{id}/edit', [ShareController::class, 'edit'])->whereIn('types', ['vehicles', 'saves'])->name('shares.edit');
     Route::put('/{types}/{id}', [ShareController::class, 'update'])->whereIn('types', ['vehicles', 'saves'])->name('shares.update');
     Route::delete('/{types}/{id}', [ShareController::class, 'destroy'])->whereIn('types', ['vehicles', 'saves'])->name('shares.destroy');
+    Route::post('/{types}/{id}/images', [ShareController::class, 'storeImages'])->whereIn('types', ['vehicles', 'saves'])->middleware('throttle:share-uploads')->name('shares.images.store');
+    Route::delete('/share/images/{image}', [ShareController::class, 'destroyImage'])->name('shares.images.destroy');
+    Route::post('/share/images/{image}/cover', [ShareController::class, 'coverImage'])->name('shares.images.cover');
 
     Route::middleware('throttle:social')->group(function () {
         Route::put('/mods/{id}/review', [ReviewController::class, 'save'])->name('reviews.save');

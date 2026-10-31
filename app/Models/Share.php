@@ -32,7 +32,9 @@ use Illuminate\Support\Collection;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read User|null $user
+ * @property array{url: string, sha256: string, width: int, height: int, size: int}|null $icon
  * @property-read Collection<int, ShareRelease> $releases
+ * @property-read Collection<int, ShareImage> $images
  */
 class Share extends Model
 {
@@ -65,6 +67,16 @@ class Share extends Model
     }
 
     /**
+     * Screenshots, cover first.
+     *
+     * @return HasMany<ShareImage, $this>
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ShareImage::class)->orderBy('position');
+    }
+
+    /**
      * The listing's page on this site, which the listing names as its homepage.
      */
     public function url(): string
@@ -87,6 +99,6 @@ class Share extends Model
      */
     protected function casts(): array
     {
-        return ['authors' => 'array', 'tags' => 'array', 'dependencies' => 'array'];
+        return ['authors' => 'array', 'tags' => 'array', 'dependencies' => 'array', 'icon' => 'array'];
     }
 }

@@ -25,6 +25,8 @@ export type ShareSummary = {
     updated_at: string;
     // "3 days ago", worked out on the server.
     updated_ago: string;
+    // The cover screenshot's square crop.
+    icon: string | null;
 };
 
 export type ShareReleaseItem = {
@@ -46,4 +48,6 @@ export type ShareDetail = ShareSummary & {
     dependencies: ShareDependency[];
     pull_request_url: string | null;
     releases: ShareReleaseItem[];
+    // Screenshots, cover first.
+    images: { id: number; url: string }[];
 };

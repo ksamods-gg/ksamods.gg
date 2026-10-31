@@ -21,7 +21,7 @@ const chip =
     >
         <ModIcon
             :name="share.name"
-            :src="null"
+            :src="share.icon"
             class="size-14 rounded-xl text-xl sm:row-span-2 sm:size-20 sm:text-2xl"
         />
 

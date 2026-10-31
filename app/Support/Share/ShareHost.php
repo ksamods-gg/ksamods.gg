@@ -423,6 +423,9 @@ class ShareHost
             DataFiles::disk()->delete([$path, "{$path}.sig"]);
         }
 
+        // Its screenshots and every icon cut from them.
+        DataFiles::disk()->deleteDirectory("images/{$share->type}/{$share->listing_id}");
+
         $share->delete();
     }
 

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Share;
+use App\Models\ShareImage;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
 use App\Support\ContentIndex;
 use App\Support\Share\ArchiveMirror;
 use App\Support\Share\DataFiles;
+use App\Support\Share\Screenshots;
 use App\Support\Share\ShareError;
 use App\Support\Share\ShareHost;
 use App\Support\Toml;
@@ -57,6 +59,7 @@ class ShareController extends Controller
                 'license' => $share->license,
                 'dependencies' => $this->dependencies($share->dependencies),
                 'pull_request_url' => $share->pull_request_url,
+                'images' => $share->images()->get()->map(fn (ShareImage $image) => ['id' => $image->id, 'url' => $image->url()]),
                 'releases' => $share->releases->reverse()->values()->map(fn (ShareRelease $release) => [
                     'id' => $release->id,
                     'version' => $release->version,
@@ -133,6 +136,47 @@ class ShareController extends Controller
         Inertia::flash('status', "Deleted {$share->name}.");
 
         return to_route('shares.index', $types);
+    }
+
+    /**
+     * Adds screenshots from the owner, one or more at once.
+     */
+    public function storeImages(Request $request, string $types, string $id): RedirectResponse
+    {
+        $share = $this->owned($request, $types, $id);
+        $request->validate([
+            'images' => ['required', 'array', 'min:1', 'max:'.Screenshots::MAX],
+            'images.*' => ['file', 'max:'.(Screenshots::MAX_UPLOAD_BYTES / 1024)],
+        ]);
+
+        try {
+            foreach ($request->file('images') as $file) {
+                Screenshots::add($share, (string) $file->get());
+            }
+        } catch (ShareError $error) {
+            throw ValidationException::withMessages(['images' => $error->getMessage()]);
+        }
+
+        return back();
+    }
+
+    /**
+     * Removes a screenshot: its owner, or a moderator without taking a release down.
+     */
+    public function destroyImage(Request $request, ShareImage $image): RedirectResponse
+    {
+        abort_unless($image->share->user_id === $request->user()->id || $request->user()->canModerate(), 403);
+        Screenshots::remove($image);
+
+        return back();
+    }
+
+    public function coverImage(Request $request, ShareImage $image): RedirectResponse
+    {
+        abort_unless($image->share->user_id === $request->user()->id, 403);
+        Screenshots::makeCover($image);
+
+        return back();
     }
 
     private function owned(Request $request, string $types, string $id): Share
@@ -309,6 +353,8 @@ class ShareController extends Controller
             'tags' => $share->tags,
             'version' => $latest?->version,
             'game_version' => $latest?->game_version,
+            // The cover's square crop, for rows and headers.
+            'icon' => $share->icon['url'] ?? null,
             'download_url' => $latest?->url(),
             'updated_at' => $share->updated_at->toIso8601String(),
             'updated_ago' => $share->updated_at->diffForHumans(),

@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, useTemplateRef } from 'vue';
 import FollowButton from '@/components/FollowButton.vue';
 import ModIcon from '@/components/ModIcon.vue';
+import Gallery from '@/components/mods/Gallery.vue';
 import ModRelationGroups from '@/components/mods/ModRelationGroups.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate } from '@/lib/format';
 import { create, destroy, edit, index, takeDown } from '@/routes/shares';
+import {
+    cover as coverImage,
+    destroy as destroyImage,
+    store as storeImages,
+} from '@/routes/shares/images';
 import type { ShareDetail } from '@/types';
 
 const props = defineProps<{
@@ -93,8 +99,18 @@ const dependencyGroups = computed(() =>
         .filter((group) => group.items.length > 0),
 );
 
-type Tab = 'description' | 'dependencies' | 'releases';
+type Tab = 'description' | 'screenshots' | 'dependencies' | 'releases';
 const tabs = computed(() => [
+    // The owner sees the tab without screenshots too, to add the first.
+    ...(props.share.images.length || props.owns
+        ? [
+              {
+                  id: 'screenshots' as const,
+                  label: 'Screenshots',
+                  count: props.share.images.length,
+              },
+          ]
+        : []),
     ...(props.share.description
         ? [
               {
@@ -116,8 +132,31 @@ const tabs = computed(() => [
     },
 ]);
 const activeTab = ref<Tab>(
-    props.share.description ? 'description' : 'dependencies',
+    props.share.images.length
+        ? 'screenshots'
+        : props.share.description
+          ? 'description'
+          : 'dependencies',
 );
+
+// Screenshots: the owner adds them and picks the cover; the owner or a moderator removes one.
+const uploadForm = useForm<{ images: File[] }>({ images: [] });
+
+function addScreenshots(event: Event) {
+    const input = event.target as HTMLInputElement;
+    uploadForm.images = [...(input.files ?? [])];
+    uploadForm.post(storeImages({ types: listing, id: props.share.id }).url, {
+        preserveScroll: true,
+        forceFormData: true,
+        onFinish: () => (input.value = ''),
+    });
+}
+
+function removeScreenshot(id: number) {
+    if (confirm('Remove this screenshot? It also leaves the index listing.')) {
+        router.delete(destroyImage(id).url, { preserveScroll: true });
+    }
+}
 const tabButtons = useTemplateRef<HTMLButtonElement[]>('tabButtons');
 
 // Arrow keys, Home and End move between tabs, per the WAI-ARIA tabs pattern.
@@ -204,7 +243,7 @@ const card =
             <div class="flex gap-4">
                 <ModIcon
                     :name="share.name"
-                    :src="null"
+                    :src="share.icon"
                     class="size-20 text-3xl"
                 />
                 <div>
@@ -316,6 +355,102 @@ const card =
                     <p class="text-sm break-words whitespace-pre-line">
                         {{ share.description }}
                     </p>
+                </section>
+
+                <section
+                    v-if="share.images.length || owns"
+                    v-show="activeTab === 'screenshots'"
+                    id="panel-screenshots"
+                    role="tabpanel"
+                    aria-labelledby="tab-screenshots"
+                    tabindex="0"
+                    class="flex flex-col gap-4"
+                >
+                    <Gallery
+                        v-if="share.images.length"
+                        :images="share.images.map((image) => image.url)"
+                        :name="share.name"
+                    />
+
+                    <div
+                        v-if="owns || canTakeDown"
+                        :class="[card, 'flex flex-col gap-3']"
+                    >
+                        <p class="text-sm font-semibold">
+                            {{
+                                owns
+                                    ? 'Your screenshots'
+                                    : 'Moderate screenshots'
+                            }}
+                        </p>
+                        <p v-if="owns" :class="['text-xs', muted]">
+                            Up to 6 PNG, JPEG or WebP images, at most 10 MB
+                            each, converted to WebP. The first is the cover and
+                            its square middle is the icon. Changes go to the
+                            index by pull request.
+                        </p>
+                        <ul
+                            v-if="share.images.length"
+                            class="grid grid-cols-2 gap-3 sm:grid-cols-3"
+                        >
+                            <li
+                                v-for="(image, index) in share.images"
+                                :key="image.id"
+                                class="flex flex-col gap-1.5"
+                            >
+                                <img
+                                    :src="image.url"
+                                    :alt="`Screenshot ${index + 1}`"
+                                    class="aspect-video w-full rounded-md object-cover"
+                                />
+                                <span class="flex flex-wrap gap-x-3 text-xs">
+                                    <span v-if="index === 0" class="text-accent"
+                                        >Cover</span
+                                    >
+                                    <Link
+                                        v-else-if="owns"
+                                        :href="coverImage(image.id)"
+                                        as="button"
+                                        preserve-scroll
+                                        class="underline underline-offset-4"
+                                        >Make cover</Link
+                                    >
+                                    <button
+                                        type="button"
+                                        class="text-[#f53003] hover:underline dark:text-[#FF4433]"
+                                        @click="removeScreenshot(image.id)"
+                                    >
+                                        Remove
+                                    </button>
+                                </span>
+                            </li>
+                        </ul>
+                        <label
+                            v-if="owns && share.images.length < 6"
+                            class="cursor-pointer self-start rounded-md border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] dark:border-[#3E3E3A] dark:hover:border-[#62605b]"
+                        >
+                            {{
+                                uploadForm.processing
+                                    ? 'Uploading…'
+                                    : 'Add screenshots'
+                            }}
+                            <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                class="sr-only"
+                                :disabled="uploadForm.processing"
+                                @change="addScreenshots"
+                            />
+                        </label>
+                        <p
+                            v-if="uploadForm.errors.images"
+                            role="alert"
+                            class="text-xs text-[#f53003] dark:text-[#FF4433]"
+                        >
+                            {{ uploadForm.errors.images }}
+                        </p>
+                    </div>
                 </section>
 
                 <section

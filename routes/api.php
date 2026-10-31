@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ShareDeviceController;
+use App\Http\Controllers\Api\ShareImageController;
 use App\Http\Controllers\Api\ShareUploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,4 +17,9 @@ Route::middleware('throttle:share-sign-in')->group(function () {
 Route::middleware(['auth:api', 'throttle:share-uploads'])->group(function () {
     Route::post('/uploads', [ShareUploadController::class, 'store'])->name('share.api.uploads');
     Route::post('/uploads/{upload}/publish', [ShareUploadController::class, 'publish'])->name('share.api.publish');
+
+    // A listing's screenshots (RFC 0058 images).
+    Route::get('/listings/{type}/{id}/images', [ShareImageController::class, 'index'])->whereIn('type', ['vehicle', 'save'])->name('share.api.images');
+    Route::post('/listings/{type}/{id}/images', [ShareImageController::class, 'store'])->whereIn('type', ['vehicle', 'save'])->name('share.api.images.store');
+    Route::delete('/listings/{type}/{id}/images/{image}', [ShareImageController::class, 'destroy'])->whereIn('type', ['vehicle', 'save'])->whereNumber('image')->name('share.api.images.destroy');
 });
