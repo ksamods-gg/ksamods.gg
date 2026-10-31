@@ -77,8 +77,10 @@ class ShareBot
             'title' => $title,
             'head' => "{$owner}:{$branch}",
             'base' => 'main',
-            // No maintainer_can_modify: GitHub refuses it for a fork an organization owns (fork_collab).
             'body' => $body,
+            // Said explicitly: GitHub refuses maintainer edits (fork_collab) from an App that cannot
+            // push to the fork, and for a fork an organization owns.
+            'maintainer_can_modify' => false,
         ])->throw()->json('html_url');
 
         $share->forceFill(['branch' => $branch, 'pull_request_url' => $url])->save();
