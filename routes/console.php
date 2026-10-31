@@ -13,6 +13,7 @@ use App\Support\Share\ShareHost;
 use App\Support\Share\Signer;
 use App\Support\Toml;
 use Illuminate\Foundation\Inspiring;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
@@ -64,9 +65,7 @@ Artisan::command('mail:test {to : The address to send the test email to}', funct
     $this->line('From: '.config('mail.from.address').' ('.config('mail.from.name').')');
 
     try {
-        Mail::raw('This is a test email from ksamods.gg. If you can read it, sending email works.', fn ($message) => $message
-            ->to($to)
-            ->subject('ksamods.gg test email'));
+        Mail::to($to)->send((new Mailable)->subject('ksamods.gg test email')->markdown('mail.test'));
     } catch (Throwable $error) {
         $this->error('Sending failed: '.$error->getMessage());
 

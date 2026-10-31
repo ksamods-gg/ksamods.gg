@@ -1,0 +1,320 @@
+/*
+ * The email theme: the site's light palette (resources/css/app.css), inlined into each email. The
+ * dark palette is in the layout's <style>, for mail apps that follow the system's dark mode.
+ */
+
+/* Base */
+
+body,
+body *:not(html):not(style):not(br):not(tr):not(code) {
+    box-sizing: border-box;
+    font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+        sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    position: relative;
+}
+
+body {
+    -webkit-text-size-adjust: none;
+    background-color: #fdfdfc;
+    color: #4a4a46;
+    height: 100%;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    width: 100% !important;
+}
+
+p,
+ul,
+ol,
+blockquote {
+    line-height: 1.5;
+    text-align: start;
+}
+
+a {
+    color: #15736d;
+}
+
+a img {
+    border: none;
+}
+
+/* Typography */
+
+h1 {
+    color: #1b1b18;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 0;
+    margin-bottom: 16px;
+    text-align: start;
+}
+
+h2 {
+    color: #1b1b18;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 0;
+    text-align: start;
+}
+
+h3 {
+    color: #1b1b18;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 0;
+    text-align: start;
+}
+
+p {
+    font-size: 16px;
+    line-height: 1.6em;
+    margin-top: 0;
+    text-align: start;
+}
+
+ul,
+ol {
+    font-size: 16px;
+    margin-top: 0;
+    padding-left: 20px;
+}
+
+li {
+    margin-bottom: 6px;
+}
+
+li a {
+    font-weight: 600;
+}
+
+p.sub {
+    font-size: 12px;
+}
+
+img {
+    max-width: 100%;
+}
+
+/* Layout */
+
+.wrapper {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    background-color: #fdfdfc;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.content {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+/* Header: the site's logo and name, as in its top bar. */
+
+.header {
+    padding: 28px 0 20px;
+    text-align: center;
+}
+
+.header a {
+    color: #1b1b18;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+}
+
+.logo {
+    border-radius: 6px;
+    height: 28px;
+    margin-right: 8px;
+    vertical-align: middle;
+    width: 28px;
+}
+
+/* Body: a card, like the site's. */
+
+.body {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    background-color: #fdfdfc;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.inner-body {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 570px;
+    background-color: #ffffff;
+    border: 1px solid rgba(26, 26, 0, 0.16);
+    border-radius: 8px;
+    margin: 0 auto;
+    padding: 0;
+    width: 570px;
+}
+
+.inner-body a {
+    word-break: break-word;
+}
+
+/* Subcopy */
+
+.subcopy {
+    border-top: 1px solid rgba(25, 20, 0, 0.08);
+    margin-top: 24px;
+    padding-top: 20px;
+}
+
+.subcopy p {
+    color: #706f6c;
+    font-size: 14px;
+}
+
+/* Footer */
+
+.footer {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 570px;
+    margin: 0 auto;
+    padding: 0;
+    text-align: center;
+    width: 570px;
+}
+
+.footer p {
+    color: #706f6c;
+    font-size: 12px;
+    text-align: center;
+}
+
+.footer a {
+    color: #706f6c;
+    text-decoration: underline;
+}
+
+/* Tables */
+
+.table table {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 24px auto;
+    width: 100%;
+}
+
+.table th {
+    border-bottom: 1px solid rgba(25, 20, 0, 0.08);
+    color: #1b1b18;
+    margin: 0;
+    padding-bottom: 8px;
+}
+
+.table td {
+    color: #4a4a46;
+    font-size: 16px;
+    line-height: 18px;
+    margin: 0;
+    padding: 10px 0;
+}
+
+.content-cell {
+    max-width: 100vw;
+    padding: 32px;
+}
+
+/* Buttons: the site's primary button. */
+
+.action {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 28px auto;
+    padding: 0;
+    text-align: center;
+    width: 100%;
+    float: unset;
+}
+
+.button {
+    -webkit-text-size-adjust: none;
+    border-radius: 6px;
+    color: #ffffff;
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 500;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.button-blue,
+.button-primary {
+    background-color: #1b1b18;
+    border-bottom: 10px solid #1b1b18;
+    border-left: 20px solid #1b1b18;
+    border-right: 20px solid #1b1b18;
+    border-top: 10px solid #1b1b18;
+}
+
+.button-green,
+.button-success {
+    background-color: #15736d;
+    border-bottom: 10px solid #15736d;
+    border-left: 20px solid #15736d;
+    border-right: 20px solid #15736d;
+    border-top: 10px solid #15736d;
+}
+
+.button-red,
+.button-error {
+    background-color: #f53003;
+    border-bottom: 10px solid #f53003;
+    border-left: 20px solid #f53003;
+    border-right: 20px solid #f53003;
+    border-top: 10px solid #f53003;
+}
+
+/* Panels: the accent wash the site uses for notices. */
+
+.panel {
+    border-left: #15736d solid 3px;
+    margin: 20px 0;
+}
+
+.panel-content {
+    background-color: #e8f6f4;
+    color: #1b1b18;
+    padding: 14px 16px;
+}
+
+.panel-content p {
+    color: #1b1b18;
+}
+
+.panel-item {
+    padding: 0;
+}
+
+.panel-item p:last-of-type {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Utilities */
+
+.break-all {
+    word-break: break-all;
+}

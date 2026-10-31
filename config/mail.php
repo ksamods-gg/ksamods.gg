@@ -115,4 +115,14 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    | The site's own email theme (resources/views/mail/ksamods.css) and components
+    | (resources/views/vendor/mail): its logo, palette and footer.
+    */
+
+    'markdown' => [
+        'theme' => 'ksamods',
+        'paths' => [resource_path('views/vendor/mail')],
+    ],
+
 ];
