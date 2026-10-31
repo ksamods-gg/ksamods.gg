@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { useEchoNotification } from '@laravel/echo-vue';
 import { ref, watch } from 'vue';
 import {
@@ -10,6 +10,7 @@ import {
 import {
     accounts,
     home,
+    locale as switchLocale,
     login,
     logout,
     notifications as notificationsPage,
@@ -22,6 +23,7 @@ import { create } from '@/routes/listings';
 import { index, mine } from '@/routes/mods';
 import { open as openNotification } from '@/routes/notifications';
 import { index as sharesIndex } from '@/routes/shares';
+import { index as translateIndex } from '@/routes/translate';
 import type { NotificationData } from '@/types';
 
 const page = usePage();
@@ -306,11 +308,64 @@ if (page.props.auth.user) {
             <div
                 class="mx-auto flex max-w-6xl flex-wrap gap-x-4 gap-y-2 px-4 py-6 text-sm text-[#706f6c] sm:px-6 dark:text-[#A1A09A]"
             >
-                <Link :href="privacy()" class="hover:underline">Privacy</Link>
-                <Link :href="terms()" class="hover:underline">Terms</Link>
-                <Link :href="policy()" class="hover:underline"
-                    >Host policy</Link
-                >
+                <Link :href="privacy()" class="hover:underline">{{
+                    $t('Privacy')
+                }}</Link>
+                <Link :href="terms()" class="hover:underline">{{
+                    $t('Terms')
+                }}</Link>
+                <Link :href="policy()" class="hover:underline">{{
+                    $t('Host policy')
+                }}</Link>
+                <Link :href="translateIndex()" class="hover:underline">{{
+                    $t('Help translate')
+                }}</Link>
+
+                <!-- English, and every language an admin turned on, with how much of it is done. -->
+                <label class="ml-auto flex items-center gap-2">
+                    <span class="sr-only">{{ $t('Language') }}</span>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.75"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                        class="size-4"
+                    >
+                        <circle cx="12" cy="12" r="9" />
+                        <path
+                            d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"
+                        />
+                    </svg>
+                    <select
+                        :value="page.props.locale"
+                        class="rounded-md border border-[#19140035] bg-transparent px-2 py-1 text-sm dark:border-[#3E3E3A]"
+                        @change="
+                            router.post(
+                                switchLocale().url,
+                                {
+                                    locale: ($event.target as HTMLSelectElement)
+                                        .value,
+                                },
+                                { preserveScroll: true },
+                            )
+                        "
+                    >
+                        <option value="en">English</option>
+                        <option
+                            v-for="language in page.props.languages"
+                            :key="language.code"
+                            :value="language.code"
+                        >
+                            {{ language.native_name }}
+                            <template v-if="language.progress < 100"
+                                >({{ language.progress }}%)</template
+                            >
+                        </option>
+                    </select>
+                </label>
             </div>
         </footer>
 

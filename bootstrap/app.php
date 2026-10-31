@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\KeepPrivatePagesOutOfSearch;
+use App\Http\Middleware\SetLocale;
 use App\Support\Share\ShareError;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['github/webhook', 'digest/unsubscribe/*']);
 
         $middleware->web(append: [
+            SetLocale::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             KeepPrivatePagesOutOfSearch::class,

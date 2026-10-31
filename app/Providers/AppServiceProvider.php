@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Http\Controllers\Api\ShareDeviceController;
 use App\Mail\NewSignIn;
 use App\Models\User;
+use App\Support\DatabaseTranslationLoader;
 use App\Support\Device;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Events\Login;
@@ -33,7 +34,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The community's translations, as Laravel's JSON strings of each language.
+        $this->app->extend('translation.loader', fn ($loader, $app) => new DatabaseTranslationLoader($app['files'], $app['path.lang']));
     }
 
     /**

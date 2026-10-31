@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Report;
+use App\Support\Translations;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -51,6 +53,13 @@ class HandleInertiaRequests extends Middleware
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             // The header's Admin link, for moderators and admins.
             'openReports' => fn () => $request->user()?->canModerate() ? Report::open()->count() : null,
+            // The page's language, the languages to switch to, and the page language's texts:
+            // sent once per language and kept by the browser, refreshed after ten minutes.
+            'locale' => app()->getLocale(),
+            'languages' => fn () => Translations::languages(),
+            'translations' => Inertia::once(fn () => (object) Translations::live(app()->getLocale()))
+                ->as('translations-'.app()->getLocale())
+                ->until(600),
         ];
     }
 }

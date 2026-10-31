@@ -20,6 +20,7 @@ use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\TranslationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ModController::class, 'home'])->name('home');
@@ -40,6 +41,18 @@ Route::prefix('feeds')->name('feeds.')->whereIn('format', ['atom', 'rss'])->grou
 Route::get('/policy', [ShareController::class, 'policy'])->name('policy');
 Route::get('/{types}', [ShareController::class, 'index'])->whereIn('types', ['vehicles', 'saves'])->name('shares.index');
 Route::get('/{types}/{id}', [ShareController::class, 'show'])->whereIn('types', ['vehicles', 'saves'])->name('shares.show');
+// The site's language, and its community translation.
+Route::post('/locale', [TranslationController::class, 'switch'])->name('locale');
+Route::get('/translate', [TranslationController::class, 'index'])->name('translate.index');
+Route::get('/translate/{code}', [TranslationController::class, 'show'])->name('translate.show');
+Route::middleware(['auth', 'throttle:social'])->group(function () {
+    Route::post('/translate', [TranslationController::class, 'requestLanguage'])->name('translate.request');
+    Route::post('/translate/{code}', [TranslationController::class, 'suggest'])->name('translate.suggest');
+    Route::post('/translations/{translation}/vote', [TranslationController::class, 'vote'])->name('translate.vote');
+    Route::delete('/translations/{translation}', [TranslationController::class, 'destroy'])->name('translate.destroy');
+    Route::post('/languages/{language:code}/approve', [TranslationController::class, 'approve'])->middleware('can:administer')->name('translate.approve');
+    Route::delete('/languages/{language:code}', [TranslationController::class, 'destroyLanguage'])->middleware('can:administer')->name('translate.destroy-language');
+});
 // Public profiles, for players who turned theirs on.
 Route::get('/u/{username}', [ProfileController::class, 'show'])->name('profiles.show');
 // From emails, so without signing in: signed links instead.

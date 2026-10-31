@@ -26,6 +26,16 @@ declare module '@inertiajs/core' {
             // Open reports, for moderators and admins; null for everyone else.
             openReports: number | null;
             sidebarOpen: boolean;
+            // The page's language, the languages to switch to, and the live translations of
+            // the page's language (see lib/i18n.ts).
+            locale: string;
+            languages: {
+                code: string;
+                name: string;
+                native_name: string;
+                progress: number;
+            }[];
+            translations: Record<string, string>;
             [key: string]: unknown;
         };
         flashDataType: {
@@ -43,5 +53,7 @@ declare module 'vue' {
         $inertia: typeof Router;
         $page: Page;
         $headManager: ReturnType<typeof createHeadManager>;
+        // Translates an English text of the site; see lib/i18n.ts.
+        $t: (text: string, replace?: Record<string, string | number>) => string;
     }
 }

@@ -42,6 +42,7 @@ use Laravel\Passport\HasApiTokens;
  * @property array<string, bool>|null $profile_sections
  * @property list<string>|null $mod_ids
  * @property list<string>|null $known_devices
+ * @property string|null $locale
  * @property Carbon|null $email_verified_at
  * @property string|null $password
  * @property string|null $remember_token
