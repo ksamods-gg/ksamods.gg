@@ -231,6 +231,7 @@ describe('the upload API', function () {
             'type' => 'vehicle',
             'version' => '1.0.0',
             'pull_request' => 'https://github.com/ksamods-test/content-index/pull/1',
+            'page' => route('shares.show', ['types' => 'vehicles', 'id' => 'ExampleRover']),
         ]);
 
         $share = Share::sole();

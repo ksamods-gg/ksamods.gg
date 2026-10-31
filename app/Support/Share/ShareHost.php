@@ -116,7 +116,7 @@ class ShareHost
      * Publishes a checked upload as a release, and for a new id as a new listing.
      *
      * @param  array<string, mixed>  $input  `version`, `status`, and for a new id `id`, `name`, `authors`, `abstract`, `license`, `description`, `tags`.
-     * @return array{id: string, type: string, version: string, pull_request: string|null}
+     * @return array{id: string, type: string, version: string, pull_request: string|null, page: string}
      *
      * @throws ShareError
      */
@@ -207,7 +207,7 @@ class ShareHost
             MirrorShareRelease::dispatch($release);
         }
 
-        return ['id' => $share->listing_id, 'type' => $share->type, 'version' => $version, 'pull_request' => $pullRequest];
+        return ['id' => $share->listing_id, 'type' => $share->type, 'version' => $version, 'pull_request' => $pullRequest, 'page' => $share->url()];
     }
 
     /**

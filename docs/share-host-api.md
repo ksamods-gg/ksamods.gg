@@ -6,9 +6,8 @@ The API follows rules 15 and 16 of
 [spec/share-host.md](https://github.com/KSAModding/content-manager-design/blob/main/spec/share-host.md),
 so code written against this page should work with any other share host too.
 
-**Status:** live at the address below. Until ksamods is registered in `hosts.toml`, listing pull
-requests go to a test repository instead of `KSAModding/content-index`. Everything else behaves as
-it will after registration.
+**Status:** live at the address below. ksamods is registered in `hosts.toml`, and listing pull
+requests go to `KSAModding/content-index`.
 
 ## Base URL
 
@@ -278,9 +277,13 @@ Content-Type: application/json
     "id": "ExampleRover",
     "type": "vehicle",
     "version": "1.0.0",
-    "pull_request": "https://github.com/KSAModding/content-index/pull/123"
+    "pull_request": "https://github.com/KSAModding/content-index/pull/123",
+    "page": "https://ksamods.gg/vehicles/ExampleRover"
 }
 ```
+
+`page` is the listing's public page on ksamods.gg, to link the player to. Other share hosts may leave
+it out, so treat it as optional.
 
 `pull_request` is the listing pull request when publishing opened or updated one: always for a new
 listing, and for a new version only when its dependency list changed. It is `null` for a new
@@ -296,7 +299,8 @@ The release is downloadable from ksamods.gg as soon as this answer arrives. The 
 the index once its pull request merges (it merges by itself when its checks pass), and a new version
 once the watcher sees it.
 
-The listing's page is `https://ksamods.gg/vehicles/{id}` or `https://ksamods.gg/saves/{id}`.
+The listing's page is `https://ksamods.gg/vehicles/{id}` or `https://ksamods.gg/saves/{id}`, as
+`page` gives it.
 
 ## 4. Screenshots: `listings/{type}/{id}/images`
 
@@ -398,5 +402,6 @@ curl https://ksamods.gg/api/share/v1/uploads/<upload>/publish \
   -d '{"version":"1.0.0","id":"ExampleRover","name":"Example Rover","authors":["Maxi"],"abstract":"A six-wheel rover for the Moon.","license":"CC-BY-4.0"}'
 ```
 
-Until registration, published test listings only reach the test repository, so testing does not
-touch the real index. Questions and problems go to SafeShows on the KSAModding Discord.
+A published listing goes to the real index, and its pull request merges by itself once its checks
+pass, so test with a listing you mean to keep. A test listing that has not reached the index yet can
+still be deleted: ask SafeShows. Questions and problems go to SafeShows on the KSAModding Discord.
