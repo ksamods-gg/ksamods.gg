@@ -225,6 +225,7 @@ class ModController extends Controller
             'gameVersions' => $this->gameVersions($snapshot),
             'following' => $request->user()?->isFollowing('mod', $id) ?? false,
             'dependencyTree' => $this->dependencyTree($id, $listings->keyBy('id')),
+            'dependentTree' => $this->dependentTree($id, $listings->keyBy('id')),
             'stats' => $this->stats($listing),
             // The tab a link opens, such as a notification's link to a comment.
             'tab' => in_array($request->query('tab'), ['gallery', 'dependents', 'releases', 'stats', 'reviews', 'comments'], true) ? $request->query('tab') : null,
@@ -365,6 +366,65 @@ class ModController extends Controller
         }
 
         return ['nodes' => $nodes, 'conflicts' => $conflicts];
+    }
+
+    /**
+     * Everything that needs a listing: the mods whose newest release needs it as their loader or
+     * a required mod (or one of its alternatives), then the mods that need those, as a tree. A
+     * mod already shown higher up is marked rather than expanded again, which also stops cycles.
+     * Most downloaded first at each level.
+     *
+     * @param  Collection<string, Listing>  $listings  By id.
+     * @return list<array<string, mixed>>
+     */
+    private function dependentTree(string $id, Collection $listings): array
+    {
+        // Who needs whom, from every listing's newest release.
+        $neededBy = [];
+
+        foreach ($listings as $other) {
+            $release = $this->latestRelease($other);
+
+            if (isset($release['loader']['id'])) {
+                $neededBy[$release['loader']['id']][] = ['id' => $other['id'], 'kind' => 'loader', 'min' => $release['loader']['min'] ?? null, 'max' => null];
+            }
+
+            foreach ($release['dependencies'] ?? [] as $dependency) {
+                if ($dependency['kind'] !== 'required') {
+                    continue;
+                }
+
+                foreach (isset($dependency['id']) ? [$dependency] : ($dependency['any_of'] ?? []) as $need) {
+                    $neededBy[$need['id']][] = ['id' => $other['id'], 'kind' => 'required', 'min' => $need['min'] ?? null, 'max' => $need['max'] ?? null];
+                }
+            }
+        }
+
+        $seen = [$id => true];
+        $expand = function (string $id, int $depth) use (&$expand, &$seen, $neededBy, $listings): array {
+            if ($depth > 8) {
+                return [];
+            }
+
+            return array_values(collect($neededBy[$id] ?? [])
+                ->unique('id')
+                ->sortByDesc(fn (array $dependent) => $listings[$dependent['id']]['downloads']['total'] ?? 0)
+                ->map(function (array $dependent) use (&$expand, &$seen, $listings, $depth) {
+                    $repeat = isset($seen[$dependent['id']]);
+                    $seen[$dependent['id']] = true;
+
+                    return [
+                        ...$dependent,
+                        'name' => $listings[$dependent['id']]['authored']['name'] ?? null,
+                        'listed' => true,
+                        'repeat' => $repeat,
+                        'children' => $repeat ? [] : $expand($dependent['id'], $depth + 1),
+                    ];
+                })
+                ->all());
+        };
+
+        return $expand($id, 1);
     }
 
     /**

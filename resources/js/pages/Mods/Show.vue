@@ -43,6 +43,8 @@ const props = defineProps<{
         nodes: TreeNode[];
         conflicts: { a: string; b: string }[];
     };
+    // The mods that need this one, and the mods that need those.
+    dependentTree: TreeNode[];
     stats: {
         downloads: { date: string; value: number }[];
         rating: { date: string; value: number; count: number }[];
@@ -763,6 +765,31 @@ const card =
                         }}
                     </p>
                     <ModRelationGroups :groups="dependentGroups" />
+
+                    <!-- Only worth a tree when something needs the mods that need this one. -->
+                    <div
+                        v-if="
+                            dependentTree.some((node) => node.children.length)
+                        "
+                        class="mt-6 border-t border-[#19140014] pt-5 dark:border-[#3E3E3A]/60"
+                    >
+                        <h3 class="mb-1 text-sm font-semibold">
+                            {{ $t('Everything that needs it') }}
+                        </h3>
+                        <p :class="['mb-3 text-xs', muted]">
+                            {{
+                                $t(
+                                    'The mods that need :name, then the mods that need those in turn, most downloaded first.',
+                                    { name: mod.name },
+                                )
+                            }}
+                        </p>
+                        <DependencyTree
+                            :nodes="dependentTree"
+                            class="border-l-0 pl-0"
+                        />
+                    </div>
+
                     <Link
                         v-if="mod.type === 'mod-loader'"
                         :href="`${index().url}?loader=${encodeURIComponent(mod.id)}`"

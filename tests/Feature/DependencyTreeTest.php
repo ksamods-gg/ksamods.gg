@@ -47,3 +47,25 @@ it('shows everything a mod pulls in, marking repeats and conflicts', function ()
         ->has('dependencyTree.nodes', 2)
         ->where('dependencyTree.conflicts', [['a' => 'Fuel mod', 'b' => 'Loader mod']]));
 });
+
+it('shows everything that needs a mod, the mods that need those in turn', function () {
+    $this->withoutVite();
+    Http::fake([ContentIndex::URL => Http::response(['tags' => ['mod' => []], 'listings' => [
+        treeListing('Rockets', [['id' => 'Engines', 'kind' => 'required']], loader: 'Loader'),
+        // Fuel needs Rockets, and Engines needs Fuel: a cycle back to Engines.
+        treeListing('Fuel', [['id' => 'Rockets', 'kind' => 'required']]),
+        treeListing('Engines', [['id' => 'Fuel', 'kind' => 'required']], loader: 'Loader'),
+        treeListing('Paint', [['any_of' => [['id' => 'Engines'], ['id' => 'Wheels']], 'kind' => 'required']]),
+        treeListing('Loader', []),
+    ]])]);
+
+    $this->get(route('mods.show', 'Engines'))->assertInertia(fn (Assert $page) => $page
+        ->has('dependentTree', 2)
+        ->where('dependentTree.0.id', 'Rockets')
+        ->where('dependentTree.0.children.0.id', 'Fuel')
+        // Fuel is needed by Engines, the mod itself, shown at the top already.
+        ->where('dependentTree.0.children.0.children.0.id', 'Engines')
+        ->where('dependentTree.0.children.0.children.0.repeat', true)
+        // Needing Engines as one of its alternatives counts too.
+        ->where('dependentTree.1.id', 'Paint'));
+});
