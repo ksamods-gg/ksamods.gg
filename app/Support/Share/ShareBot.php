@@ -13,7 +13,9 @@ use RuntimeException;
 /**
  * The host's bot on GitHub (rule 4): a GitHub App, whose bot user (such as ksamods-gg[bot]) opens
  * listing pull requests on the authored repository from the host's fork, like any author, and
- * never merges, approves or labels (rule 14). It authenticates with installation tokens.
+ * never merges, approves or labels (rule 14). The App has no write access to code, since an App
+ * has the same permissions on every installation, the authored repository's included. Branches
+ * are pushed to the fork with a token for the fork alone.
  */
 class ShareBot
 {
@@ -29,6 +31,7 @@ class ShareBot
     public static function propose(Share $share, array $files, string $title, string $body): string
     {
         $github = self::github();
+        $forkApi = self::fork();
         $repository = config('share.authored_repository');
         $fork = (string) config('share.fork');
         $owner = strtok($fork, '/');
@@ -38,33 +41,37 @@ class ShareBot
 
         if ($open) {
             $branch = (string) $share->branch;
-            $parent = $github->get("/repos/{$fork}/git/ref/heads/{$branch}")->throw()->json('object.sha');
+            $parent = $forkApi->get("/repos/{$fork}/git/ref/heads/{$branch}")->throw()->json('object.sha');
         } else {
-            ListingPullRequest::syncFork($github, $fork);
+            ListingPullRequest::syncFork($forkApi, $fork);
             $branch = "share/{$share->listing_id}-".now()->format('YmdHis');
-            $parent = $github->get("/repos/{$repository}/git/ref/heads/main")->throw()->json('object.sha');
+            $parent = $forkApi->get("/repos/{$repository}/git/ref/heads/main")->throw()->json('object.sha');
         }
 
-        $baseTree = $github->get("/repos/{$fork}/git/commits/{$parent}")->throw()->json('tree.sha');
-        $tree = $github->post("/repos/{$fork}/git/trees", [
+        $baseTree = $forkApi->get("/repos/{$fork}/git/commits/{$parent}")->throw()->json('tree.sha');
+        $tree = $forkApi->post("/repos/{$fork}/git/trees", [
             'base_tree' => $baseTree,
             'tree' => array_map(fn (string $path, ?string $content) => $content === null
                 ? ['path' => $path, 'mode' => '100644', 'type' => 'blob', 'sha' => null]
                 : ['path' => $path, 'mode' => '100644', 'type' => 'blob', 'content' => $content], array_keys($files), $files),
         ])->throw()->json('sha');
-        $commit = $github->post("/repos/{$fork}/git/commits", [
+        // Committed as the bot, not as the person the fork's token belongs to.
+        $bot = ['name' => self::botLogin(), 'email' => config('share.bot_id').'+'.self::botLogin().'@users.noreply.github.com'];
+        $commit = $forkApi->post("/repos/{$fork}/git/commits", [
             'message' => $title,
             'tree' => $tree,
             'parents' => [$parent],
+            'author' => $bot,
+            'committer' => $bot,
         ])->throw()->json('sha');
 
         if ($open) {
-            $github->patch("/repos/{$fork}/git/refs/heads/{$branch}", ['sha' => $commit])->throw();
+            $forkApi->patch("/repos/{$fork}/git/refs/heads/{$branch}", ['sha' => $commit])->throw();
 
             return (string) $share->pull_request_url;
         }
 
-        $github->post("/repos/{$fork}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commit])->throw();
+        $forkApi->post("/repos/{$fork}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commit])->throw();
         $url = $github->post("/repos/{$repository}/pulls", [
             'title' => $title,
             'head' => "{$owner}:{$branch}",
@@ -109,11 +116,26 @@ class ShareBot
     }
 
     /**
-     * GitHub's API as the App's installation on the fork.
+     * GitHub's API as the App's installation on the authored repository, for its pull requests.
      */
     public static function github(): PendingRequest
     {
         return self::api()->withToken(self::installationToken());
+    }
+
+    /**
+     * GitHub's API with the fork's token: a fine-grained token for the fork alone, with Contents
+     * read and write.
+     */
+    private static function fork(): PendingRequest
+    {
+        $token = config('share.fork_token');
+
+        if (blank($token)) {
+            throw new RuntimeException('SHARE_FORK_TOKEN must be a token with Contents read and write on '.config('share.fork').'.');
+        }
+
+        return self::api()->withToken((string) $token);
     }
 
     /**
@@ -125,11 +147,20 @@ class ShareBot
     {
         return Cache::remember('share:github-installation-token', 3000, function () {
             $app = self::api()->withToken(self::appToken());
-            $installation = config('share.github_app.installation_id')
-                ?: $app->get('/repos/'.config('share.fork').'/installation')->throw()->json('id');
+            $installation = $app->get('/repos/'.config('share.authored_repository').'/installation')->throw()->json('id');
 
             return (string) $app->post("/app/installations/{$installation}/access_tokens")->throw()->json('token');
         });
+    }
+
+    /**
+     * The App's bot user, such as ksamods-gg[bot].
+     *
+     * @throws RequestException
+     */
+    private static function botLogin(): string
+    {
+        return Cache::rememberForever('share:github-app-bot', fn () => self::api()->withToken(self::appToken())->get('/app')->throw()->json('slug').'[bot]');
     }
 
     /**

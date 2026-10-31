@@ -47,14 +47,16 @@ beforeEach(function () {
         'share.fork' => 'ksamods-bot/content-index',
         'share.github_app.id' => '123456',
         'share.github_app.private_key' => $this->appKey,
+        'share.fork_token' => 'fork-token',
     ]);
-    // The App's token of each installation token request, and the token of each other request.
+    // The App's token of each installation token request, and the token of each other request by path.
     $this->appTokens = [];
     $this->tokens = [];
 
     // The pull requests the bot opened, and the files of each push.
     $this->pulls = [];
     $this->trees = [];
+    $this->commits = [];
     $this->openBranch = null;
     // archive.org: what was uploaded and deleted, and how many times a download is not served yet.
     $this->mirrored = [];
@@ -98,12 +100,13 @@ beforeEach(function () {
 
         $path = parse_url($url, PHP_URL_PATH);
 
-        if (str_starts_with($url, 'https://api.github.com/') && ! str_contains($path, '/access_tokens') && ! str_ends_with($path, '/installation')) {
-            $this->tokens[] = $request->header('Authorization')[0] ?? null;
+        if (str_starts_with($url, 'https://api.github.com/') && ! str_contains($path, '/access_tokens') && ! str_ends_with($path, '/installation') && $path !== '/app') {
+            $this->tokens[] = [$request->method().' '.$path, $request->header('Authorization')[0] ?? null];
         }
 
         return match (true) {
-            $path === '/repos/ksamods-bot/content-index/installation' => Http::response(['id' => 777]),
+            $path === '/repos/ksamods-test/content-index/installation' => Http::response(['id' => 777]),
+            $path === '/app' => Http::response(['slug' => 'ksamods-test']),
             $path === '/app/installations/777/access_tokens' => (function () use ($request) {
                 $this->appTokens[] = substr($request->header('Authorization')[0], 7);
 
@@ -118,7 +121,11 @@ beforeEach(function () {
 
                 return Http::response(['sha' => 'new-tree']);
             })(),
-            $path === '/repos/ksamods-bot/content-index/git/commits' => Http::response(['sha' => 'new-commit']),
+            $path === '/repos/ksamods-bot/content-index/git/commits' => (function () use ($request) {
+                $this->commits[] = $request->data();
+
+                return Http::response(['sha' => 'new-commit']);
+            })(),
             $path === '/repos/ksamods-bot/content-index/git/refs' => Http::response([], 201),
             str_starts_with($path, '/repos/ksamods-bot/content-index/git/refs/heads/') => Http::response([]),
             $path === '/repos/ksamods-test/content-index/pulls' && $request->method() === 'POST' => (function () use ($request) {
@@ -542,7 +549,7 @@ describe('Internet Archive mirrors', function () {
     });
 });
 
-it('opens pull requests as the GitHub App, with an installation token for the fork', function () {
+it('opens pull requests as the GitHub App, and pushes their branches with the fork\'s token', function () {
     publishVehicle(User::factory()->create())->assertCreated();
 
     // The App's JWT, signed with its key, as GitHub verifies it.
@@ -555,7 +562,12 @@ it('opens pull requests as the GitHub App, with an installation token for the fo
         ->and($claims['iss'])->toBe('123456')
         ->and($claims['exp'] - $claims['iat'])->toBeLessThanOrEqual(600)
         ->and(openssl_verify("{$header}.{$payload}", $decode($signature), $public, OPENSSL_ALGO_SHA256))->toBe(1)
-        // Every call that opens the pull request uses the installation token, and none forks.
-        ->and(array_unique(array_filter($this->tokens)))->toBe(['Bearer installation-token'])
-        ->and($this->pulls[0]['head'])->toStartWith('ksamods-bot:share/ExampleRover-');
+        ->and($this->pulls[0]['head'])->toStartWith('ksamods-bot:share/ExampleRover-')
+        // Committed as the App's bot user, not as the token's owner.
+        ->and($this->commits[0]['author'])->toBe(['name' => 'ksamods-test[bot]', 'email' => config('share.bot_id').'+ksamods-test[bot]@users.noreply.github.com']);
+
+    // Pull requests with the App's installation token; everything on the fork with the fork's token.
+    foreach ($this->tokens as [$call, $token]) {
+        expect($token)->toBe(str_contains($call, '/pulls') ? 'Bearer installation-token' : 'Bearer fork-token', $call);
+    }
 });

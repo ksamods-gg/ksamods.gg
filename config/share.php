@@ -48,18 +48,19 @@ return [
      * GitHub App used by this host only (rule 4).
      */
     'authored_repository' => env('SHARE_AUTHORED_REPOSITORY', 'KSAModding/content-index'),
-    // The fork of the authored repository the pull requests come from.
+    // The fork of the authored repository the pull requests come from, and a fine-grained token
+    // with Contents read and write on it alone, which pushes their branches.
     'fork' => env('SHARE_FORK', 'ksamods-gg/content-index'),
+    'fork_token' => env('SHARE_FORK_TOKEN'),
     // The numeric id of the account the pull requests are opened as: the GitHub App's bot user,
     // such as ksamods-gg[bot], whose id is the `bot` of hosts.toml.
     'bot_id' => (int) env('SHARE_BOT_ID', 0),
 
-    // The GitHub App the pull requests are opened with, installed on the fork. Its private key is
-    // the .pem GitHub gives; the installation is looked up from the fork when not set.
+    // The GitHub App the pull requests are opened with, installed on the authored repository with
+    // Pull requests read and write. Its private key is the .pem GitHub gives.
     'github_app' => [
         'id' => env('SHARE_GITHUB_APP_ID'),
         'private_key' => env('SHARE_GITHUB_APP_PRIVATE_KEY'),
-        'installation_id' => env('SHARE_GITHUB_INSTALLATION_ID'),
     ],
 
     /*

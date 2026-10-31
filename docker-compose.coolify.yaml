@@ -38,9 +38,13 @@
 #   SHARE_GITHUB_APP_ID, SHARE_GITHUB_APP_PRIVATE_KEY
 #                                 the GitHub App that opens listing pull requests (its App ID,
 #                                 and the .pem it generates, pasted as a multiline value);
-#                                 installed on SHARE_FORK with Contents and Pull requests write
+#                                 installed on the authored repository with Pull requests
+#                                 write, and no write access to code
 #   SHARE_FORK                    the host's fork of the authored repository, such as
 #                                 ksamods-gg/content-index
+#   SHARE_FORK_TOKEN              a fine-grained token, resource owner the fork's owner, for
+#                                 SHARE_FORK only, with Contents read and write; pushes the
+#                                 pull requests' branches
 #   SHARE_AUTHORED_REPOSITORY     a test repository until ksamods is registered in
 #                                 hosts.toml, then KSAModding/content-index
 #   SHARE_ABUSE_EMAIL, SHARE_DISCORD_URL   the contacts on /policy
@@ -105,6 +109,7 @@ services:
             - SHARE_GITHUB_APP_ID=${SHARE_GITHUB_APP_ID:?}
             - SHARE_GITHUB_APP_PRIVATE_KEY=${SHARE_GITHUB_APP_PRIVATE_KEY:?}
             - SHARE_FORK=${SHARE_FORK:-ksamods-gg/content-index}
+            - SHARE_FORK_TOKEN=${SHARE_FORK_TOKEN}
             - SHARE_BOT_ID=${SHARE_BOT_ID:?}
             - SHARE_AUTHORED_REPOSITORY=${SHARE_AUTHORED_REPOSITORY:?}
             - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
