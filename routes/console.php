@@ -15,6 +15,7 @@ use App\Support\Toml;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
 
@@ -57,6 +58,26 @@ Schedule::command('passport:purge')->daily();
  */
 Schedule::command('follows:check')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('digests:send')->hourly()->withoutOverlapping();
+
+/*
+ * Download history: the index publishes only each listing's total, so the site notes it daily.
+ */
+Schedule::command('stats:record')->dailyAt('03:00');
+
+Artisan::command('stats:record', function () {
+    $today = now()->toDateString();
+    $rows = collect(ContentIndex::refresh()['listings'])->map(fn (array $listing) => [
+        'listing_id' => $listing['id'],
+        'date' => $today,
+        'downloads' => (int) ($listing['downloads']['total'] ?? 0),
+    ]);
+
+    foreach ($rows->chunk(500) as $chunk) {
+        DB::table('download_stats')->upsert($chunk->all(), ['listing_id', 'date'], ['downloads']);
+    }
+
+    $this->info("Noted the downloads of {$rows->count()} listings for {$today}.");
+})->purpose('Note every listing\'s total downloads for today, for the download charts');
 
 Artisan::command('mail:test {to : The address to send the test email to}', function (string $to) {
     $mailer = (string) config('mail.default');

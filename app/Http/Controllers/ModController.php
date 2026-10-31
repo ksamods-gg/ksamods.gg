@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Review;
 use App\Support\ContentIndex;
 use App\Support\ListingOwnership;
 use App\Support\ModSocial;
@@ -10,6 +11,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -223,8 +225,9 @@ class ModController extends Controller
             'gameVersions' => $this->gameVersions($snapshot),
             'following' => $request->user()?->isFollowing('mod', $id) ?? false,
             'dependencyTree' => $this->dependencyTree($id, $listings->keyBy('id')),
+            'stats' => $this->stats($listing),
             // The tab a link opens, such as a notification's link to a comment.
-            'tab' => in_array($request->query('tab'), ['gallery', 'dependents', 'releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
+            'tab' => in_array($request->query('tab'), ['gallery', 'dependents', 'releases', 'stats', 'reviews', 'comments'], true) ? $request->query('tab') : null,
             // Adds reviews and comments.
             ...ModSocial::forListing($id, $request->user()),
         ]);
@@ -267,6 +270,33 @@ class ModController extends Controller
             'game_min' => $latest['game_min'] ?? null,
             'game_min_revision' => $latest['game_min_revision'] ?? null,
         ];
+    }
+
+    /**
+     * The listing's total downloads by day, as noted since the site began keeping them, with
+     * today's from the index; and its average rating after each day that brought reviews.
+     *
+     * @param  Listing  $listing
+     * @return array{downloads: list<array{date: string, value: int}>, rating: list<array{date: string, value: float, count: int}>}
+     */
+    private function stats(array $listing): array
+    {
+        $downloads = DB::table('download_stats')->where('listing_id', $listing['id'])->orderBy('date')->get()
+            ->map(fn (object $row) => ['date' => (string) $row->date, 'value' => (int) $row->downloads])
+            ->keyBy('date');
+        $downloads[now()->toDateString()] = ['date' => now()->toDateString(), 'value' => (int) ($listing['downloads']['total'] ?? 0)];
+
+        $rating = [];
+        $sum = 0;
+        $count = 0;
+
+        foreach (Review::where('listing_id', $listing['id'])->oldest()->get(['rating', 'created_at'])->groupBy(fn (Review $review) => $review->created_at->toDateString()) as $date => $reviews) {
+            $sum += $reviews->sum('rating');
+            $count += $reviews->count();
+            $rating[] = ['date' => (string) $date, 'value' => round($sum / $count, 2), 'count' => $count];
+        }
+
+        return ['downloads' => array_values($downloads->all()), 'rating' => $rating];
     }
 
     /**

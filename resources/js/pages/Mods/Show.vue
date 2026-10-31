@@ -2,6 +2,7 @@
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import FollowButton from '@/components/FollowButton.vue';
+import LineChart from '@/components/LineChart.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import CommentsPanel from '@/components/mods/CommentsPanel.vue';
 import Gallery from '@/components/mods/Gallery.vue';
@@ -40,6 +41,10 @@ const props = defineProps<{
     dependencyTree: {
         nodes: TreeNode[];
         conflicts: { a: string; b: string }[];
+    };
+    stats: {
+        downloads: { date: string; value: number }[];
+        rating: { date: string; value: number; count: number }[];
     };
 }>();
 
@@ -232,6 +237,7 @@ type Tab =
     | 'dependencies'
     | 'dependents'
     | 'releases'
+    | 'stats'
     | 'reviews'
     | 'comments';
 const tabs = computed(() => [
@@ -272,6 +278,7 @@ const tabs = computed(() => [
         label: 'Releases',
         count: props.mod.releases.length,
     },
+    { id: 'stats' as const, label: 'Stats', count: undefined },
     { id: 'reviews' as const, label: 'Reviews', count: props.reviews.count },
     { id: 'comments' as const, label: 'Comments', count: props.comments.count },
 ]);
@@ -783,6 +790,49 @@ const card =
                             </details>
                         </li>
                     </ul>
+                </section>
+
+                <section
+                    v-show="activeTab === 'stats'"
+                    id="panel-stats"
+                    role="tabpanel"
+                    aria-labelledby="tab-stats"
+                    tabindex="0"
+                    :class="[card, 'flex flex-col gap-8']"
+                >
+                    <div>
+                        <LineChart
+                            v-if="stats.downloads.length > 1"
+                            title="Downloads"
+                            :points="stats.downloads"
+                        />
+                        <template v-else>
+                            <p class="text-sm font-semibold">Downloads</p>
+                            <p :class="['mt-1 text-sm', muted]">
+                                {{
+                                    formatNumber(stats.downloads[0]?.value ?? 0)
+                                }}
+                                so far. ksamods.gg notes the total once a day,
+                                so the chart grows from here.
+                            </p>
+                        </template>
+                    </div>
+                    <div>
+                        <LineChart
+                            v-if="stats.rating.length"
+                            title="Average rating"
+                            :points="stats.rating"
+                            :min="1"
+                            :max="5"
+                            :format="(value: number) => value.toFixed(1)"
+                        />
+                        <template v-else>
+                            <p class="text-sm font-semibold">Average rating</p>
+                            <p :class="['mt-1 text-sm', muted]">
+                                No reviews yet.
+                            </p>
+                        </template>
+                    </div>
                 </section>
 
                 <section
