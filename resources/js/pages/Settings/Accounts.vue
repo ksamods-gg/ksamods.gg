@@ -85,7 +85,7 @@ const button =
                             <span
                                 v-if="provider.linkedAs"
                                 :class="['font-normal', muted]"
-                                >� {{ provider.linkedAs }}</span
+                                >· {{ provider.linkedAs }}</span
                             >
                         </p>
                         <p v-if="provider.note" :class="['text-xs', muted]">
@@ -136,7 +136,7 @@ const button =
                     :class="cn(button, danger)"
                     @click="confirmingDelete = true"
                 >
-                    Delete account�
+                    Delete account…
                 </button>
                 <div v-else class="flex w-full flex-wrap items-center gap-3">
                     <p class="w-full font-medium">
