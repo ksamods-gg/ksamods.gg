@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\Role;
-use App\Jobs\ListShareRelease;
+use App\Jobs\MirrorShareRelease;
 use App\Models\Share;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
@@ -16,6 +16,7 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Sleep;
 use Illuminate\Testing\TestResponse;
@@ -491,10 +492,16 @@ describe('Internet Archive mirrors', function () {
         Sleep::fake();
     });
 
-    it('mirrors a release to archive.org before listing it, with the mirror in its entry', function () {
+    it('mirrors a release to archive.org after its pull request, and adds the mirror to its entry', function () {
+        Queue::fake();
+
         publishVehicle(User::factory()->create(), ['name' => 'Ракета Rover'])
-            // The mirror and the pull request follow from the queue, so the answer has no pull request yet.
-            ->assertCreated()->assertJsonPath('pull_request', null);
+            // The pull request does not wait for the mirror.
+            ->assertCreated()->assertJsonPath('pull_request', fn ($url) => $url !== null);
+
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->not->toHaveKey('mirrors');
+        Queue::assertPushed(MirrorShareRelease::class);
+        Queue::pushed(MirrorShareRelease::class)->each(fn (MirrorShareRelease $job) => $job->handle());
 
         $release = ShareRelease::sole();
         $item = ArchiveMirror::identifier($release).'/ExampleRover-1.0.0.zip';
@@ -515,27 +522,14 @@ describe('Internet Archive mirrors', function () {
             ->and($this->pulls)->toHaveCount(1);
     });
 
-    it('lists the release only once archive.org serves the mirror', function () {
+    it('adds the mirror only once archive.org serves it', function () {
         $this->notServedYet = 3;
 
         publishVehicle(User::factory()->create())->assertCreated();
 
         // Three waits of 15 seconds for archive.org, then it served the file.
         Sleep::assertSlept(fn (CarbonInterval $duration) => (int) $duration->totalSeconds === 15, 3);
-        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'])->toHaveCount(1);
-    });
-
-    it('lists a release without a mirror when archive.org keeps failing, rather than not at all', function () {
-        config(['share.mirror.access_key' => null]);
-        publishVehicle(User::factory()->create())->assertCreated();
-        $release = ShareRelease::sole();
-        // As if it had been waiting for archive.org.
-        $release->forceFill(['listed_at' => null])->save();
-        config(['share.mirror.access_key' => 'ia-access']);
-
-        (new ListShareRelease($release, false, false))->failed(new RuntimeException('archive.org is down'));
-
-        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->not->toHaveKey('mirrors');
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->toHaveKey('mirrors');
     });
 
     it('deletes the mirror when a release is taken down', function () {

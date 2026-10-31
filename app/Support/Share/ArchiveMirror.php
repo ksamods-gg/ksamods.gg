@@ -126,7 +126,7 @@ class ArchiveMirror
 
     /**
      * archive.org accepts an upload before it serves it. The release list only names the mirror
-     * once a download works, since the index checks every mirror's bytes once.
+     * once a download works, since the watcher remembers a mirror whose bytes differ.
      */
     private static function waitUntilServed(ShareRelease $release): void
     {

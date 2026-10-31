@@ -288,11 +288,9 @@ version with the same dependencies, which the index picks up from the release li
 can also be `null` when GitHub was unreachable; the host then retries in the background, and the
 release is published regardless.
 
-Every release is also mirrored to the Internet Archive (rule 19). Its release list entry, and for a
-new listing the pull request, are written only once archive.org serves that copy, because an entry
-is never edited afterwards. That takes from seconds to a few minutes, so while mirroring is on,
-`pull_request` is always `null` here: link the player to the listing's page on ksamods.gg, which
-shows the pull request once it is open.
+Every release is also mirrored to the Internet Archive (rule 19). The upload runs in the background
+after this answer, and the copy joins the release list entry once archive.org serves it, which takes
+from seconds to a few minutes; the watcher appends it then.
 
 The release is downloadable from ksamods.gg as soon as this answer arrives. The listing appears in
 the index once its pull request merges (it merges by itself when its checks pass), and a new version

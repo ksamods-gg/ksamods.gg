@@ -23,13 +23,13 @@ class DataFiles
         self::write("releases/{$share->type}/{$share->listing_id}.json", [
             'id' => $share->listing_id,
             'type' => $share->type,
-            // Listed releases only: a release waits for its mirror, since an entry is never edited.
             'releases' => $share->releases()->whereNull('taken_down_at')->whereNotNull('listed_at')->get()->map(fn ($release) => array_filter([
                 'version' => $release->version,
                 'status' => $release->status,
                 'url' => $release->url(),
                 // When the archive first became downloadable, which never changes (rule 21).
                 'date' => $release->created_at->utc()->format('Y-m-d\TH:i:s\Z'),
+                // Added once archive.org serves the copy; the watcher appends a mirror that appears later.
                 'mirrors' => $release->mirror_url !== null ? [$release->mirror_url] : null,
             ], fn ($value) => $value !== null))->values()->all(),
         ]);

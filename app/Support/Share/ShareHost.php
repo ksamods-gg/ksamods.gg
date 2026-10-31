@@ -2,7 +2,7 @@
 
 namespace App\Support\Share;
 
-use App\Jobs\ListShareRelease;
+use App\Jobs\MirrorShareRelease;
 use App\Jobs\ProposeShareListing;
 use App\Models\Share;
 use App\Models\ShareRelease;
@@ -192,13 +192,14 @@ class ShareHost
             $share->forceFill(['dependencies' => $upload->dependencies])->save();
         }
 
-        // 3 to 5. The mirror, the release list entry, the attestation and the pull request. With
-        // a mirror to upload they follow from the queue, and the pull request comes later.
+        // 3 to 5. The release list entry, then the attestation and the pull request.
+        $release->forceFill(['listed_at' => now()])->save();
+        DataFiles::writeReleaseList($share);
+        $pullRequest = $propose ? self::propose($share, $new) : null;
+
+        // The Internet Archive copy follows from the queue, and joins the entry once it is served.
         if (ArchiveMirror::enabled()) {
-            ListShareRelease::dispatch($release, $propose, $new);
-            $pullRequest = null;
-        } else {
-            $pullRequest = ListShareRelease::run($release, $propose, $new);
+            MirrorShareRelease::dispatch($release);
         }
 
         return ['id' => $share->listing_id, 'type' => $share->type, 'version' => $version, 'pull_request' => $pullRequest];
