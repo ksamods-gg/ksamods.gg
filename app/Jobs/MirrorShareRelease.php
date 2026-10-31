@@ -19,6 +19,9 @@ class MirrorShareRelease implements ShouldQueue
 
     public int $tries = 6;
 
+    // A release deleted meanwhile (share:purge) has nothing left to mirror.
+    public bool $deleteWhenMissingModels = true;
+
     // The upload, and archive.org taking up to ten minutes to serve it.
     public int $timeout = 1200;
 

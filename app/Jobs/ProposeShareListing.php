@@ -21,6 +21,9 @@ class ProposeShareListing implements ShouldQueue
 
     public int $tries = 5;
 
+    // A listing deleted meanwhile (share:purge) has nothing left to propose.
+    public bool $deleteWhenMissingModels = true;
+
     /** @var list<int> */
     public array $backoff = [60, 300, 900, 3600];
 
