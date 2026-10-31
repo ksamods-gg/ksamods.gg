@@ -57,6 +57,27 @@ Schedule::command('passport:purge')->daily();
 Schedule::command('follows:check')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('digests:send')->hourly()->withoutOverlapping();
 
+Artisan::command('mail:test {to : The address to send the test email to}', function (string $to) {
+    $mailer = (string) config('mail.default');
+    $smtp = config('mail.mailers.smtp');
+    $this->line("Mailer: {$mailer}".($mailer === 'smtp' ? " ({$smtp['scheme']}://{$smtp['host']}:{$smtp['port']} as {$smtp['username']})" : ''));
+    $this->line('From: '.config('mail.from.address').' ('.config('mail.from.name').')');
+
+    try {
+        Mail::raw('This is a test email from ksamods.gg. If you can read it, sending email works.', fn ($message) => $message
+            ->to($to)
+            ->subject('ksamods.gg test email'));
+    } catch (Throwable $error) {
+        $this->error('Sending failed: '.$error->getMessage());
+
+        return 1;
+    }
+
+    $this->info($mailer === 'log' ? 'Written to the log, not sent: MAIL_MAILER is log.' : "Sent to {$to}. Check its inbox, and its spam folder.");
+
+    return 0;
+})->purpose('Send a test email, to check the mail settings');
+
 Artisan::command('follows:check', function () {
     $listings = collect(ContentIndex::snapshot()['listings'])->keyBy('id');
 
