@@ -5,6 +5,8 @@ import FollowButton from '@/components/FollowButton.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import CommentsPanel from '@/components/mods/CommentsPanel.vue';
 import Gallery from '@/components/mods/Gallery.vue';
+import DependencyTree from '@/components/mods/DependencyTree.vue';
+import type { TreeNode } from '@/components/mods/DependencyTree.vue';
 import ModRelationGroups from '@/components/mods/ModRelationGroups.vue';
 import ReviewsPanel from '@/components/mods/ReviewsPanel.vue';
 import PageMeta from '@/components/PageMeta.vue';
@@ -35,6 +37,10 @@ const props = defineProps<{
     dependents: Dependent[];
     gameVersions: GameVersion[];
     following: boolean;
+    dependencyTree: {
+        nodes: TreeNode[];
+        conflicts: { a: string; b: string }[];
+    };
 }>();
 
 const latest = computed(
@@ -653,6 +659,33 @@ const card =
                             button gets.
                         </p>
                         <ModRelationGroups :groups="dependencyGroups" />
+
+                        <div
+                            v-if="dependencyTree.nodes.length"
+                            class="mt-6 border-t border-[#19140014] pt-5 dark:border-[#3E3E3A]/60"
+                        >
+                            <h3 class="mb-1 text-sm font-semibold">
+                                Everything it pulls in
+                            </h3>
+                            <p :class="['mb-3 text-xs', muted]">
+                                Its loader and required mods, and theirs in
+                                turn, as a mod manager installs them.
+                            </p>
+                            <p
+                                v-for="conflict in dependencyTree.conflicts"
+                                :key="`${conflict.a}-${conflict.b}`"
+                                role="alert"
+                                class="mb-3 rounded-md bg-[#fff2f2] p-3 text-sm text-[#f53003] dark:bg-[#1D0002] dark:text-[#FF4433]"
+                            >
+                                {{ conflict.a }} conflicts with
+                                {{ conflict.b }}, which this mod also needs, so
+                                they can't be installed together.
+                            </p>
+                            <DependencyTree
+                                :nodes="dependencyTree.nodes"
+                                class="border-l-0 pl-0"
+                            />
+                        </div>
                     </template>
                     <p v-else :class="['text-sm', muted]">
                         This mod needs nothing besides the game.

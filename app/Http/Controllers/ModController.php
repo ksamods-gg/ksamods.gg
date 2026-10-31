@@ -222,6 +222,7 @@ class ModController extends Controller
             'tagNames' => $this->tagNames($snapshot),
             'gameVersions' => $this->gameVersions($snapshot),
             'following' => $request->user()?->isFollowing('mod', $id) ?? false,
+            'dependencyTree' => $this->dependencyTree($id, $listings->keyBy('id')),
             // The tab a link opens, such as a notification's link to a comment.
             'tab' => in_array($request->query('tab'), ['gallery', 'dependents', 'releases', 'reviews', 'comments'], true) ? $request->query('tab') : null,
             // Adds reviews and comments.
@@ -266,6 +267,74 @@ class ModController extends Controller
             'game_min' => $latest['game_min'] ?? null,
             'game_min_revision' => $latest['game_min_revision'] ?? null,
         ];
+    }
+
+    /**
+     * Everything installing a listing pulls in: its newest release's loader and required
+     * dependencies, then theirs, as a tree. A mod already shown higher up is marked rather than
+     * expanded again, which also stops cycles. Conflicts between any two mods in the tree are
+     * listed, since installing them together would not work.
+     *
+     * @param  Collection<string, Listing>  $listings  By id.
+     * @return array{nodes: list<array<string, mixed>>, conflicts: list<array{a: string, b: string}>}
+     */
+    private function dependencyTree(string $id, Collection $listings): array
+    {
+        $seen = [$id => true];
+        $names = $listings->map(fn (array $listing) => $listing['authored']['name']);
+
+        $expand = function (string $id, int $depth) use (&$expand, &$seen, $listings, $names): array {
+            $release = isset($listings[$id]) ? $this->latestRelease($listings[$id]) : null;
+
+            if ($release === null || $depth > 8) {
+                return [];
+            }
+
+            $needs = collect($release['dependencies'] ?? [])->where('kind', 'required')->values();
+
+            if (isset($release['loader'])) {
+                $needs->prepend(['id' => $release['loader']['id'], 'kind' => 'loader', 'min' => $release['loader']['min'] ?? null]);
+            }
+
+            return $needs->map(function (array $need) use (&$expand, &$seen, $listings, $names, $depth) {
+                // Any one of several will do: listed, not expanded, since the player picks one.
+                if (! isset($need['id'])) {
+                    return [
+                        'id' => null, 'name' => null, 'kind' => 'any_of', 'listed' => true, 'repeat' => false, 'children' => [],
+                        'any_of' => array_map(fn (array $alternative) => ['id' => $alternative['id'], 'name' => $names[$alternative['id']] ?? null], $need['any_of'] ?? []),
+                    ];
+                }
+
+                $repeat = isset($seen[$need['id']]);
+                $seen[$need['id']] = true;
+
+                return [
+                    'id' => $need['id'],
+                    'name' => $names[$need['id']] ?? null,
+                    'kind' => $need['kind'],
+                    'min' => $need['min'] ?? null,
+                    'max' => $need['max'] ?? null,
+                    'listed' => isset($listings[$need['id']]),
+                    'repeat' => $repeat,
+                    'children' => $repeat ? [] : $expand($need['id'], $depth + 1),
+                ];
+            })->values()->all();
+        };
+
+        $nodes = $expand($id, 1);
+        $conflicts = [];
+
+        foreach (array_keys($seen) as $member) {
+            $release = isset($listings[$member]) ? $this->latestRelease($listings[$member]) : null;
+
+            foreach ($release['dependencies'] ?? [] as $dependency) {
+                if ($dependency['kind'] === 'conflict' && isset($dependency['id'], $seen[$dependency['id']])) {
+                    $conflicts[] = ['a' => $names[$member] ?? $member, 'b' => $names[$dependency['id']] ?? $dependency['id']];
+                }
+            }
+        }
+
+        return ['nodes' => $nodes, 'conflicts' => $conflicts];
     }
 
     /**
