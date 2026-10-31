@@ -57,6 +57,8 @@ beforeEach(function () {
     $this->pulls = [];
     $this->trees = [];
     $this->commits = [];
+    $this->merged = false;
+    $this->closed = [];
     $this->openBranch = null;
     // archive.org: what was uploaded and deleted, and how many times a download is not served yet.
     $this->mirrored = [];
@@ -133,6 +135,13 @@ beforeEach(function () {
                 $this->openBranch = $request['head'];
 
                 return Http::response(['html_url' => 'https://github.com/ksamods-test/content-index/pull/'.count($this->pulls)], 201);
+            })(),
+            $path === '/repos/ksamods-test/content-index/pulls/1' => (function () use ($request) {
+                if ($request->method() === 'PATCH') {
+                    $this->closed[] = $request['state'];
+                }
+
+                return Http::response(['merged' => $this->merged]);
             })(),
             // Open pull requests: by head, the listing's own; otherwise none that add ids.
             $path === '/repos/ksamods-test/content-index/pulls' => Http::response(
@@ -570,4 +579,30 @@ it('opens pull requests as the GitHub App, and pushes their branches with the fo
     foreach ($this->tokens as [$call, $token]) {
         expect($token)->toBe(str_contains($call, '/pulls') ? 'Bearer installation-token' : 'Bearer fork-token', $call);
     }
+});
+
+it('purges a listing that never reached the index, with its files and pull request', function () {
+    publishVehicle(User::factory()->create())->assertCreated();
+    $share = Share::sole();
+    $branch = $share->branch;
+
+    $this->artisan('share:purge', ['type' => 'vehicle', 'id' => 'ExampleRover', '--force' => true])->assertSuccessful();
+
+    expect(Share::count())->toBe(0)->and(ShareRelease::count())->toBe(0)
+        ->and($this->closed)->toBe(['closed'])
+        ->and(collect($this->tokens)->pluck(0))->toContain("DELETE /repos/ksamods-bot/content-index/git/refs/heads/{$branch}");
+    Storage::disk('public')->assertMissing([
+        'archives/vehicle/ExampleRover/1.0.0/ExampleRover-1.0.0.zip',
+        'releases/vehicle/ExampleRover.json', 'releases/vehicle/ExampleRover.json.sig',
+        'owners/vehicle/ExampleRover.json', 'owners/vehicle/ExampleRover.json.sig',
+    ]);
+});
+
+it('refuses to purge a listing whose pull request was merged', function () {
+    publishVehicle(User::factory()->create())->assertCreated();
+    $this->merged = true;
+
+    $this->artisan('share:purge', ['type' => 'vehicle', 'id' => 'ExampleRover', '--force' => true])->assertFailed();
+
+    expect(Share::count())->toBe(1)->and($this->closed)->toBe([]);
 });

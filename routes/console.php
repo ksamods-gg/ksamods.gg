@@ -4,7 +4,10 @@ use App\Enums\Role;
 use App\Models\Share;
 use App\Models\ShareUpload;
 use App\Models\User;
+use App\Support\ContentIndex;
+use App\Support\Share\ArchiveMirror;
 use App\Support\Share\DataFiles;
+use App\Support\Share\ShareBot;
 use App\Support\Share\Signer;
 use App\Support\Toml;
 use Illuminate\Foundation\Inspiring;
@@ -119,3 +122,43 @@ Artisan::command('share:resign', function () {
 
     $this->info("Signed again: {$shares->count()} listings and their attestations.");
 })->purpose('Sign every data file again with the current key, after a key rotation (rule 24)');
+
+Artisan::command('share:purge {type : vehicle or save} {id : The listing id} {--force : Do not ask}', function (string $type, string $id) {
+    $share = Share::where('type', $type)->where('listing_id', $id)->first();
+
+    if ($share === null) {
+        $this->error("There is no {$type} {$id}.");
+
+        return 1;
+    }
+
+    // Only a listing that never reached the index: once it did, a release can only be taken down (rule 18).
+    if (in_array($id, array_column(ContentIndex::shared($share->type), 'id'), true) || ShareBot::merged($share)) {
+        $this->error("The {$type} {$id} is in the index, or its pull request was merged. Take its releases down instead.");
+
+        return 1;
+    }
+
+    if (! $this->option('force') && ! $this->confirm("Delete the {$type} {$id}, its {$share->releases()->count()} releases, data files and pull request for good?")) {
+        return 1;
+    }
+
+    ShareBot::withdraw($share);
+
+    foreach ($share->releases as $release) {
+        DataFiles::disk()->delete($release->path);
+
+        if ($release->mirror_url !== null) {
+            ArchiveMirror::delete($release);
+        }
+    }
+
+    foreach (["releases/{$type}/{$id}.json", "owners/{$type}/{$id}.json"] as $path) {
+        DataFiles::disk()->delete([$path, "{$path}.sig"]);
+    }
+
+    $share->delete();
+    $this->info("Deleted the {$type} {$id}. Its id is free again.");
+
+    return 0;
+})->purpose('Delete a shared vehicle or save that never reached the index, with everything it left');

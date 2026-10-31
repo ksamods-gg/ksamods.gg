@@ -110,6 +110,37 @@ class ShareBot
         });
     }
 
+    /**
+     * Whether the listing's pull request was merged, so the index has or will have it.
+     *
+     * @throws RequestException
+     */
+    public static function merged(Share $share): bool
+    {
+        return $share->pull_request_url !== null && (bool) self::github()
+            ->get('/repos/'.config('share.authored_repository').'/pulls/'.basename($share->pull_request_url))->throw()->json('merged');
+    }
+
+    /**
+     * Closes the listing's pull request and deletes its branch from the fork.
+     *
+     * @throws RequestException
+     */
+    public static function withdraw(Share $share): void
+    {
+        if ($share->pull_request_url !== null) {
+            self::github()->patch('/repos/'.config('share.authored_repository').'/pulls/'.basename($share->pull_request_url), ['state' => 'closed'])->throw();
+        }
+
+        if ($share->branch !== null) {
+            $response = self::fork()->delete('/repos/'.config('share.fork')."/git/refs/heads/{$share->branch}");
+
+            if ($response->status() !== 422) {
+                $response->throw();
+            }
+        }
+    }
+
     private static function isOpen(PendingRequest $github, string $repository, string $head): bool
     {
         return $github->get("/repos/{$repository}/pulls", ['state' => 'open', 'head' => $head])->throw()->json() !== [];
