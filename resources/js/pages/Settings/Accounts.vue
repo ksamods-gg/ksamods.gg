@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import AppLayout from '@/layouts/AppLayout.vue';
+import SettingsLayout from '@/layouts/SettingsLayout.vue';
+import { cn } from '@/lib/utils';
 import { destroy as deleteAccount } from '@/routes/account';
 import { unlink } from '@/routes/accounts';
 import { link as discordLink } from '@/routes/discord';
 import { link as githubLink } from '@/routes/github';
-import { notifications as notificationSettings } from '@/routes/settings';
 
 const props = defineProps<{
     github: { login: string | null; canOpenPullRequests: boolean } | null;
@@ -45,6 +45,10 @@ const linkedCount = computed(
 const confirmingDelete = ref(false);
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
+const heading =
+    'mb-4 border-b border-[#19140014] pb-2 text-xl font-semibold tracking-tight dark:border-[#3E3E3A]/60';
+const danger =
+    'border-[#f53003]/50 text-[#f53003] hover:border-[#f53003] dark:border-[#FF4433]/50 dark:text-[#FF4433] dark:hover:border-[#FF4433]';
 const button =
     'shrink-0 rounded-md border border-[#19140035] px-3 py-1.5 text-sm hover:border-[#1915014a] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3E3E3A] dark:hover:border-[#62605b]';
 </script>
@@ -52,18 +56,11 @@ const button =
 <template>
     <Head title="Account" />
 
-    <AppLayout>
-        <div class="mx-auto max-w-2xl">
-            <h1 class="text-2xl font-semibold tracking-tight">
-                Linked accounts
-            </h1>
-            <p :class="['mt-1 mb-6 text-sm', muted]">
+    <SettingsLayout>
+        <section>
+            <h1 :class="heading">Linked accounts</h1>
+            <p :class="['mb-4 text-sm', muted]">
                 Sign in to ksamods.gg with any account linked here.
-                <Link
-                    :href="notificationSettings()"
-                    class="underline underline-offset-4"
-                    >Notification settings</Link
-                >
             </p>
 
             <p
@@ -80,15 +77,15 @@ const button =
                 <li
                     v-for="provider in providers"
                     :key="provider.id"
-                    class="flex flex-wrap items-center justify-between gap-3 p-5"
+                    class="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5"
                 >
                     <div class="min-w-0">
-                        <p class="font-medium">
+                        <p class="text-sm font-medium">
                             {{ provider.name }}
                             <span
                                 v-if="provider.linkedAs"
                                 :class="['font-normal', muted]"
-                                >· {{ provider.linkedAs }}</span
+                                >� {{ provider.linkedAs }}</span
                             >
                         </p>
                         <p v-if="provider.note" :class="['text-xs', muted]">
@@ -116,33 +113,39 @@ const button =
                     </a>
                 </li>
             </ul>
+        </section>
 
-            <h2 class="mt-10 font-semibold">Delete account</h2>
+        <section>
+            <h2 :class="heading">Danger zone</h2>
             <div
-                class="mt-3 rounded-lg bg-white p-5 text-sm shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
+                class="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[#f53003]/50 px-4 py-3.5 text-sm dark:border-[#FF4433]/50"
             >
-                <p>
-                    Deletes your ksamods.gg account with your reviews, comments,
-                    reports and notifications. Replies other people wrote under
-                    your comments go too. Listings you submitted stay in the
-                    content index, and pull requests stay on GitHub.
-                </p>
+                <div class="min-w-0 flex-1 basis-72">
+                    <p class="font-medium">Delete this account</p>
+                    <p :class="['text-xs', muted]">
+                        Deletes your ksamods.gg account with your reviews,
+                        comments, reports, follows and notifications. Replies
+                        other people wrote under your comments go too. Listings
+                        you submitted stay in the content index, and pull
+                        requests stay on GitHub.
+                    </p>
+                </div>
                 <button
                     v-if="!confirmingDelete"
                     type="button"
-                    :class="[button, 'mt-4']"
+                    :class="cn(button, danger)"
                     @click="confirmingDelete = true"
                 >
-                    Delete account…
+                    Delete account�
                 </button>
-                <div v-else class="mt-4 flex flex-wrap items-center gap-3">
+                <div v-else class="flex w-full flex-wrap items-center gap-3">
                     <p class="w-full font-medium">
                         This cannot be undone. Delete your account?
                     </p>
                     <Link
                         :href="deleteAccount()"
                         as="button"
-                        class="rounded-md bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
+                        class="rounded-md bg-[#f53003] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#d42a02] dark:bg-[#FF4433] dark:text-[#0a0a0a]"
                     >
                         Yes, delete my account
                     </Link>
@@ -155,6 +158,6 @@ const button =
                     </button>
                 </div>
             </div>
-        </div>
-    </AppLayout>
+        </section>
+    </SettingsLayout>
 </template>

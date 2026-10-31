@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import FormField from '@/components/FormField.vue';
-import AppLayout from '@/layouts/AppLayout.vue';
-import { accounts } from '@/routes';
+import SettingsLayout from '@/layouts/SettingsLayout.vue';
 import { update } from '@/routes/settings/notifications';
 
 const props = defineProps<{
@@ -29,29 +28,36 @@ const frequencies = [
 ] as const;
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
-const card =
-    'flex flex-col gap-5 rounded-lg bg-white p-5 shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:bg-[#161615] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]';
+const heading =
+    'mb-4 border-b border-[#19140014] pb-2 text-xl font-semibold tracking-tight dark:border-[#3E3E3A]/60';
 const input =
-    'w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] aria-invalid:border-[#f53003] dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus:border-[#EDEDEC] dark:aria-invalid:border-[#FF4433]';
+    'w-full rounded-md border border-[#19140035] bg-white px-3 py-2 text-sm outline-none focus:border-[#1b1b18] aria-invalid:border-[#f53003] sm:max-w-sm dark:border-[#3E3E3A] dark:bg-[#161615] dark:focus:border-[#EDEDEC] dark:aria-invalid:border-[#FF4433]';
 const option =
-    'flex cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]';
+    'flex cursor-pointer items-start gap-2.5 rounded-md py-1.5 text-sm';
 </script>
 
 <template>
     <Head title="Notification settings" />
 
-    <AppLayout>
-        <div class="mx-auto max-w-2xl">
-            <h1 class="text-2xl font-semibold tracking-tight">
-                Notification settings
-            </h1>
-            <p :class="['mt-1 mb-6 text-sm', muted]">
-                New releases of the {{ following }} mods, vehicles and saves you
-                follow show up in the bell. An email digest can gather them too.
-                <Link :href="accounts()" class="underline underline-offset-4"
-                    >Linked accounts</Link
-                >
+    <SettingsLayout>
+        <section>
+            <h1 :class="heading">Notifications</h1>
+            <p :class="['text-sm', muted]">
+                New releases of the
+                {{ following }}
+                {{
+                    following === 1
+                        ? 'mod, vehicle or save'
+                        : 'mods, vehicles and saves'
+                }}
+                you follow, replies, mentions and news about your shared
+                listings show up in the bell. Follow something with the Follow
+                button on its page.
             </p>
+        </section>
+
+        <section>
+            <h2 :class="heading">Email digest</h2>
 
             <p
                 v-if="page.flash.status"
@@ -62,13 +68,11 @@ const option =
             </p>
 
             <form
-                :class="card"
+                class="flex flex-col gap-6"
                 @submit.prevent="
                     form.put(update().url, { preserveScroll: true })
                 "
             >
-                <h2 class="font-semibold">Email digest</h2>
-
                 <FormField
                     label="Email"
                     for="email"
@@ -77,7 +81,7 @@ const option =
                         confirmed
                             ? 'Confirmed.'
                             : pending
-                              ? 'Waiting for you to click the link we sent. Saving again sends a new one if you change it.'
+                              ? 'Waiting for you to click the link we sent. Saving another address sends a new one.'
                               : 'We send a link to confirm it before any digest.'
                     "
                 >
@@ -92,9 +96,7 @@ const option =
                 </FormField>
 
                 <fieldset>
-                    <legend class="mb-1.5 text-sm font-medium">
-                        How often
-                    </legend>
+                    <legend class="mb-1 text-sm font-medium">How often</legend>
                     <label
                         v-for="item in frequencies"
                         :key="item.value"
@@ -122,10 +124,10 @@ const option =
                         :disabled="form.processing"
                         class="rounded-md bg-[#1b1b18] px-5 py-2.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
                     >
-                        Save
+                        Update digest
                     </button>
                 </div>
             </form>
-        </div>
-    </AppLayout>
+        </section>
+    </SettingsLayout>
 </template>
