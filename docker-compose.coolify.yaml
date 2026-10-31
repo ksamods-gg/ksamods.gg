@@ -45,6 +45,8 @@
 #   SHARE_FORK_TOKEN              a fine-grained token, resource owner the fork's owner, for
 #                                 SHARE_FORK only, with Contents read and write; pushes the
 #                                 pull requests' branches
+#   SHARE_GITHUB_WEBHOOK_SECRET   the App's webhook secret (website only); webhook URL
+#                                 https://ksamods.gg/github/webhook, Pull request events
 #   SHARE_AUTHORED_REPOSITORY     a test repository until ksamods is registered in
 #                                 hosts.toml, then KSAModding/content-index
 #   SHARE_ABUSE_EMAIL, SHARE_DISCORD_URL   the contacts on /policy

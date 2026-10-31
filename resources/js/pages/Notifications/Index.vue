@@ -5,7 +5,12 @@ import { computed } from 'vue';
 import ModIcon from '@/components/ModIcon.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate } from '@/lib/format';
-import { notificationChannel, notificationText } from '@/lib/notifications';
+import {
+    notificationChannel,
+    notificationExcerpt,
+    notificationPicture,
+    notificationText,
+} from '@/lib/notifications';
 import { open, readAll } from '@/routes/notifications';
 import type { AppNotification } from '@/types';
 
@@ -56,8 +61,8 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                         class="flex gap-3 p-4 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
                     >
                         <ModIcon
-                            :name="notification.data.actor.name"
-                            :src="notification.data.actor.avatar"
+                            :name="notificationPicture(notification.data).name"
+                            :src="notificationPicture(notification.data).src"
                             class="size-8 rounded-full text-sm"
                         />
                         <div class="min-w-0 flex-1">
@@ -70,12 +75,13 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                                 {{ notificationText(notification.data) }}
                             </p>
                             <p
+                                v-if="notificationExcerpt(notification.data)"
                                 :class="[
                                     'mt-0.5 line-clamp-2 text-sm break-words',
                                     muted,
                                 ]"
                             >
-                                {{ notification.data.excerpt }}
+                                {{ notificationExcerpt(notification.data) }}
                             </p>
                             <time
                                 :datetime="notification.created_at"
@@ -100,7 +106,8 @@ const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
                 ]"
             >
                 Nothing yet. You'll hear here when someone replies to you or
-                mentions you with @.
+                mentions you with @, when something you follow has a new
+                release, and about the vehicles and saves you share.
             </p>
         </div>
     </AppLayout>

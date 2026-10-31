@@ -203,6 +203,10 @@ class ShareController extends Controller
             if ($release->mirror_url !== null) {
                 dispatch(fn () => ArchiveMirror::delete($release));
             }
+
+            if ($release->share->user_id !== $request->user()->id) {
+                $release->share->notifyOwner('share_taken_down', $release->version);
+            }
         }
 
         return back();

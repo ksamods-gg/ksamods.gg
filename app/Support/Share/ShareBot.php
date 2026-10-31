@@ -83,7 +83,7 @@ class ShareBot
             'maintainer_can_modify' => false,
         ])->throw()->json('html_url');
 
-        $share->forceFill(['branch' => $branch, 'pull_request_url' => $url])->save();
+        $share->forceFill(['branch' => $branch, 'pull_request_url' => $url, 'pull_request_state' => 'open'])->save();
 
         return $url;
     }

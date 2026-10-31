@@ -114,14 +114,27 @@ export type Dependent = ModLink & {
     max: string | null;
 };
 
-export type NotificationData = {
-    kind: 'reply' | 'review_reply' | 'mention';
-    actor: { name: string; avatar: string | null };
-    mod: { id: string; name: string };
-    excerpt: string;
-    comment_id: number;
-    tab: 'comments' | 'reviews';
-};
+export type NotificationData =
+    | {
+          kind: 'reply' | 'review_reply' | 'mention';
+          actor: { name: string; avatar: string | null };
+          mod: { id: string; name: string };
+          excerpt: string;
+          comment_id: number;
+          tab: 'comments' | 'reviews';
+      }
+    // Something happened to a mod, vehicle or save the user owns or follows.
+    | {
+          kind:
+              | 'release'
+              | 'share_merged'
+              | 'share_closed'
+              | 'share_mirrored'
+              | 'share_taken_down';
+          subject: { name: string; icon: string | null };
+          version: string | null;
+          url: string;
+      };
 
 export type AppNotification = {
     id: string;

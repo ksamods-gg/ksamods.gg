@@ -61,6 +61,9 @@ return [
     'github_app' => [
         'id' => env('SHARE_GITHUB_APP_ID'),
         'private_key' => env('SHARE_GITHUB_APP_PRIVATE_KEY'),
+        // The App's webhook secret: GitHub signs each event with it. The webhook URL is
+        // https://ksamods.gg/github/webhook, with Pull request events.
+        'webhook_secret' => env('SHARE_GITHUB_WEBHOOK_SECRET'),
     ],
 
     /*

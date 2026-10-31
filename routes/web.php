@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\DiscordAuthController;
 use App\Http\Controllers\GitHubAuthController;
+use App\Http\Controllers\GitHubWebhookController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\ListingController;
 use App\Http\Controllers\ModController;
@@ -26,6 +27,8 @@ Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 Route::get('/policy', [ShareController::class, 'policy'])->name('policy');
 Route::get('/{types}', [ShareController::class, 'index'])->whereIn('types', ['vehicles', 'saves'])->name('shares.index');
 Route::get('/{types}/{id}', [ShareController::class, 'show'])->whereIn('types', ['vehicles', 'saves'])->name('shares.show');
+// The GitHub App's webhook, signed with its secret.
+Route::post('/github/webhook', GitHubWebhookController::class)->name('github.webhook');
 // A release's url in the release list: it never changes, and answers 410 once taken down.
 Route::get('/share/files/{type}/{id}/{version}', [ShareController::class, 'download'])
     ->whereIn('type', ['vehicle', 'save'])

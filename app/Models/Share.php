@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\SiteActivity;
 use Database\Factories\ShareFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,7 @@ use Illuminate\Support\Collection;
  * @property list<string> $tags
  * @property list<array{id: string, kind: string, min?: string, max?: string}> $dependencies
  * @property string|null $pull_request_url
+ * @property 'open'|'merged'|'closed'|null $pull_request_state
  * @property string|null $branch
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -68,6 +70,16 @@ class Share extends Model
     public function url(): string
     {
         return route('shares.show', ['types' => self::FOLDERS[$this->type], 'id' => $this->listing_id]);
+    }
+
+    /**
+     * Tells the owner, in the bell, what happened to their listing.
+     *
+     * @param  'share_merged'|'share_closed'|'share_mirrored'|'share_taken_down'  $kind
+     */
+    public function notifyOwner(string $kind, ?string $version = null, ?string $url = null): void
+    {
+        $this->user?->notify(new SiteActivity($kind, $this->name, $url ?? $this->url(), $version));
     }
 
     /**

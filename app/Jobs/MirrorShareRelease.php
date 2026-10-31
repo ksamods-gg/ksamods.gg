@@ -40,5 +40,6 @@ class MirrorShareRelease implements ShouldQueue
 
         $this->release->forceFill(['mirror_url' => ArchiveMirror::upload($this->release)])->save();
         DataFiles::writeReleaseList($this->release->share);
+        $this->release->share->notifyOwner('share_mirrored', $this->release->version);
     }
 }

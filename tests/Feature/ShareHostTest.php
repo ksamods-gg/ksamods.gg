@@ -608,3 +608,56 @@ it('refuses to purge a listing whose pull request was merged', function () {
 
     expect(Share::count())->toBe(1)->and($this->closed)->toBe([]);
 });
+
+describe('owner notifications', function () {
+    beforeEach(fn () => config(['share.github_app.webhook_secret' => 'hook-secret']));
+
+    $webhook = function (array $payload, string $secret = 'hook-secret', string $event = 'pull_request') {
+        $body = (string) json_encode($payload);
+
+        return test()->call('POST', '/github/webhook', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_GITHUB_EVENT' => $event,
+            'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, $secret),
+        ], $body);
+    };
+
+    it('tells the owner when the listing is merged into the index', function () use ($webhook) {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        $url = Share::sole()->pull_request_url;
+
+        $webhook(['action' => 'closed', 'pull_request' => ['html_url' => $url, 'merged' => true]])->assertOk();
+
+        expect(Share::sole()->pull_request_state)->toBe('merged')
+            ->and($owner->notifications()->sole()->data)->toMatchArray(['kind' => 'share_merged', 'url' => Share::sole()->url()]);
+    });
+
+    it('tells the owner when the pull request closes without merging, linking to it', function () use ($webhook) {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        $url = Share::sole()->pull_request_url;
+
+        $webhook(['action' => 'closed', 'pull_request' => ['html_url' => $url, 'merged' => false]])->assertOk();
+
+        expect(Share::sole()->pull_request_state)->toBe('closed')
+            ->and($owner->notifications()->sole()->data)->toMatchArray(['kind' => 'share_closed', 'url' => $url]);
+    });
+
+    it('refuses a webhook call that GitHub did not sign', function () use ($webhook) {
+        publishVehicle(User::factory()->create())->assertCreated();
+
+        $webhook(['action' => 'closed', 'pull_request' => ['html_url' => Share::sole()->pull_request_url, 'merged' => true]], 'wrong')->assertUnauthorized();
+
+        expect(Share::sole()->pull_request_state)->toBe('open');
+    });
+
+    it('tells the owner when a moderator takes a release down', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+
+        $this->actingAs(User::factory()->create(['role' => Role::Moderator]))->post(route('shares.take-down', ShareRelease::sole()));
+
+        expect($owner->notifications()->sole()->data)->toMatchArray(['kind' => 'share_taken_down', 'version' => '1.0.0']);
+    });
+});

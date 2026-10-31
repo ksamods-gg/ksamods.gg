@@ -2,7 +2,11 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { useEchoNotification } from '@laravel/echo-vue';
 import { ref, watch } from 'vue';
-import { notificationChannel, notificationText } from '@/lib/notifications';
+import {
+    notificationChannel,
+    notificationExcerpt,
+    notificationText,
+} from '@/lib/notifications';
 import {
     accounts,
     home,
@@ -323,9 +327,10 @@ if (page.props.auth.user) {
             >
                 <p class="font-medium">{{ notificationText(toast) }}</p>
                 <p
+                    v-if="notificationExcerpt(toast)"
                     class="mt-0.5 line-clamp-2 break-words text-[#706f6c] dark:text-[#A1A09A]"
                 >
-                    {{ toast.excerpt }}
+                    {{ notificationExcerpt(toast) }}
                 </p>
             </a>
         </div>

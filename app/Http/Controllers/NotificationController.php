@@ -27,7 +27,7 @@ class NotificationController extends Controller
     }
 
     /**
-     * Marks the notification read and goes to the comment it is about.
+     * Marks the notification read and goes to what it is about: its own url, or the comment.
      */
     public function open(Request $request, string $id): RedirectResponse
     {
@@ -35,6 +35,10 @@ class NotificationController extends Controller
         $notification->markAsRead();
 
         $data = $notification->data;
+
+        if (isset($data['url'])) {
+            return redirect()->to($data['url']);
+        }
 
         return redirect()->to(
             route('mods.show', ['id' => $data['mod']['id'], 'tab' => $data['tab']]).'#comment-'.$data['comment_id']
