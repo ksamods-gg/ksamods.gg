@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\DigestController;
 use App\Http\Controllers\DiscordAuthController;
+use App\Http\Controllers\FeedController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\GitHubAuthController;
 use App\Http\Controllers\GitHubWebhookController;
@@ -24,6 +25,13 @@ Route::get('/mods/{id}', [ModController::class, 'show'])->name('mods.show');
 Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+
+// Atom and RSS feeds of new releases.
+Route::prefix('feeds')->name('feeds.')->whereIn('format', ['atom', 'rss'])->group(function () {
+    Route::get('/mods.{format}', [FeedController::class, 'mods'])->name('mods');
+    Route::get('/mods/{id}.{format}', [FeedController::class, 'mod'])->where('id', '[A-Za-z0-9._-]+')->name('mod');
+    Route::get('/shares.{format}', [FeedController::class, 'shares'])->name('shares');
+});
 
 // Vehicles and saves, shared through ksamods.gg as a share host (RFC 0094).
 Route::get('/policy', [ShareController::class, 'policy'])->name('policy');

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Pager from '@/components/admin/Pager.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import ShareRow from '@/components/ShareRow.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { shares as sharesFeed } from '@/routes/feeds';
 import { create, index } from '@/routes/shares';
 import type { Paginated, ShareSummary } from '@/types';
 
@@ -47,6 +48,14 @@ const control =
                 : 'Save games shared by Kitten Space Agency players, with the mods each one needs.'
         "
     />
+    <Head>
+        <link
+            rel="alternate"
+            type="application/atom+xml"
+            title="New vehicles and saves"
+            :href="sharesFeed('atom').url"
+        />
+    </Head>
 
     <AppLayout>
         <div class="flex flex-wrap items-end justify-between gap-4">
@@ -58,6 +67,11 @@ const control =
                 <p :class="['mt-1 text-sm', muted]">
                     {{ shares.total }} shared by players, with the mods each one
                     needs. Your mod manager installs those mods first.
+                    <a
+                        :href="sharesFeed('atom').url"
+                        class="underline underline-offset-4"
+                        >New releases feed</a
+                    >
                 </p>
             </div>
             <Link

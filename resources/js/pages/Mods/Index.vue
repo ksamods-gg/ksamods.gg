@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { router, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue';
 import ModRow from '@/components/ModRow.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { tagName } from '@/lib/format';
 import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
+import { mods as modsFeed } from '@/routes/feeds';
 import type { GameVersion, ModSummary } from '@/types';
 
 const props = defineProps<{
@@ -273,6 +274,14 @@ const pageButton =
         title="Mods"
         description="Search and filter every Kitten Space Agency mod by game version, mod loader and category."
     />
+    <Head>
+        <link
+            rel="alternate"
+            type="application/atom+xml"
+            title="New mod releases"
+            :href="modsFeed('atom').url"
+        />
+    </Head>
 
     <AppLayout>
         <div class="mb-6">
@@ -281,6 +290,11 @@ const pageButton =
             </h1>
             <p :class="['mt-1 text-sm', muted]">
                 {{ mods.length }} listings from the community content index.
+                <a
+                    :href="modsFeed('atom').url"
+                    class="underline underline-offset-4"
+                    >New releases feed</a
+                >
             </p>
         </div>
 

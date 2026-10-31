@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
 import FollowButton from '@/components/FollowButton.vue';
 import ModIcon from '@/components/ModIcon.vue';
@@ -20,6 +20,7 @@ import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate, formatNumber, tagName } from '@/lib/format';
 import { rememberedGameVersion, rememberGameVersion } from '@/lib/gameVersion';
 import { cn } from '@/lib/utils';
+import { mod as modFeed } from '@/routes/feeds';
 import { edit } from '@/routes/listings';
 import { index, show } from '@/routes/mods';
 import type { Comments, Dependent, GameVersion, Mod, Reviews } from '@/types';
@@ -357,6 +358,14 @@ const card =
         "
         :image="mod.icon"
     />
+    <Head>
+        <link
+            rel="alternate"
+            type="application/atom+xml"
+            :title="`${mod.name} releases`"
+            :href="modFeed({ id: mod.id, format: 'atom' }).url"
+        />
+    </Head>
 
     <AppLayout>
         <Link :href="index()" :class="['text-sm hover:underline', muted]">
@@ -843,16 +852,21 @@ const card =
                         </li>
                     </ul>
 
-                    <!-- A plain link: guests get redirected to GitHub to log in. -->
-                    <a
-                        :href="edit(mod.id).url"
-                        :class="[
-                            'mt-4 inline-block text-xs underline underline-offset-4',
-                            muted,
-                        ]"
-                    >
-                        Edit this listing
-                    </a>
+                    <p class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <!-- A plain link: guests get redirected to GitHub to log in. -->
+                        <a
+                            :href="edit(mod.id).url"
+                            :class="['underline underline-offset-4', muted]"
+                        >
+                            Edit this listing
+                        </a>
+                        <a
+                            :href="modFeed({ id: mod.id, format: 'atom' }).url"
+                            :class="['underline underline-offset-4', muted]"
+                        >
+                            Releases feed
+                        </a>
+                    </p>
                 </section>
 
                 <section v-if="Object.keys(mod.links).length" :class="card">
