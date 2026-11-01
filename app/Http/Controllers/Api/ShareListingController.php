@@ -7,17 +7,58 @@ use App\Models\Share;
 use App\Models\ShareImage;
 use App\Support\Share\Screenshots;
 use App\Support\Share\ShareError;
+use App\Support\Share\ShareHost;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 
 /**
- * Screenshots of the signed-in player's listing, for clients such as Borea: list, add (one per
- * request, multipart field `image`), and remove. Each change goes to the index by pull request.
+ * The signed-in player's own listing, for clients such as Borea, as on its page on the site:
+ * change its text, take a version down, and list, add (one per request, multipart field `image`)
+ * and remove its screenshots. Each change of the listing goes to the index by pull request.
  */
-class ShareImageController extends Controller
+class ShareListingController extends Controller
 {
+    /**
+     * Changes the listing's text: any of name, abstract, description, license and tags; the
+     * others stay as they are. Proposed to the index like an edit on the site.
+     */
+    public function update(Request $request, string $type, string $id): JsonResponse
+    {
+        $share = $this->owned($request, $type, $id);
+        $input = [
+            'name' => $share->name,
+            'abstract' => $share->abstract,
+            'description' => $share->description,
+            'license' => $share->license,
+            'tags' => $share->tags,
+            ...$request->only(['name', 'abstract', 'description', 'license', 'tags']),
+        ];
+
+        return response()->json([
+            'id' => $share->listing_id,
+            'type' => $share->type,
+            'pull_request' => ShareHost::amend($share, $input),
+            'page' => $share->url(),
+        ]);
+    }
+
+    /**
+     * Takes one of the listing's versions down, as on the site: its download answers 410 and it
+     * leaves the release list. It cannot be undone, and the version is never given out again.
+     */
+    public function takeDown(Request $request, string $type, string $id, string $version): JsonResponse
+    {
+        $share = $this->owned($request, $type, $id);
+        $release = $share->releases()->where('version', $version)->first()
+            ?? throw new ShareError('invalid_request', "{$id} has no version {$version}.", 404);
+
+        ShareHost::takeDown($release, $request->user());
+
+        return response()->json(['id' => $share->listing_id, 'type' => $share->type, 'version' => $release->version, 'taken_down' => true]);
+    }
+
     public function index(Request $request, string $type, string $id): JsonResponse
     {
         return response()->json(['images' => $this->records($this->owned($request, $type, $id))]);

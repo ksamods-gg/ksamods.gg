@@ -336,6 +336,52 @@ A screenshot is a PNG, JPEG or WebP of at most 10 MB. A seventh, or one that is 
 answers `422 invalid_request`; a larger one `413 too_large`. Choosing another cover is on the
 website for now.
 
+## 5. The listing: `listings/{type}/{id}`
+
+The same as **Edit the listing** and **Take down** on the listing's page, for its owner.
+
+### Change its text: `PATCH listings/{type}/{id}`
+
+JSON with any of `name`, `abstract`, `description`, `license` and `tags`, under the rules of a new
+listing; a field left out stays as it is. The change goes to the index by pull request, or joins
+the listing's open one.
+
+```json
+{ "abstract": "A sturdier six-wheel rover for the Moon.", "tags": ["rover", "moon"] }
+```
+
+`200`:
+
+```json
+{
+    "id": "ExampleRover",
+    "type": "vehicle",
+    "pull_request": "https://github.com/KSAModding/content-index/pull/130",
+    "page": "https://ksamods.gg/vehicles/ExampleRover"
+}
+```
+
+`pull_request` is `null` when GitHub could not be reached; the host retries in the background.
+
+### Take a version down: `POST listings/{type}/{id}/releases/{version}/take-down`
+
+No body. The version's download answers `410 Gone`, it leaves the release list, and its archive and
+Internet Archive copy are deleted. This cannot be undone, and the version is never given out again:
+ask the player to confirm first. An unknown version answers `404 invalid_request`.
+
+`200`:
+
+```json
+{ "id": "ExampleRover", "type": "vehicle", "version": "1.1.0", "taken_down": true }
+```
+
+## Downloads
+
+A release's `url` (`https://ksamods.gg/share/files/{type}/{id}/{version}`) redirects to the archive,
+or answers `410 Gone` once the release was taken down. It sets no cookies and may be cached for 10
+minutes, so fetching many of them, such as small vehicles for thumbnails, is cheap; a takedown can
+take up to 10 minutes to show there.
+
 ## Errors
 
 Every error is JSON with a 4xx or 5xx status (rule 16):

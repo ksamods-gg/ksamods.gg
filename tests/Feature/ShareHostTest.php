@@ -816,3 +816,44 @@ describe('screenshots', function () {
         $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/images', ['image' => screenshotUpload()])->assertForbidden();
     });
 });
+
+describe('the owner\'s listing over the API', function () {
+    it('changes the listing text, keeping the fields left out', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        Passport::actingAs($owner);
+
+        $this->patchJson('/api/share/v1/listings/vehicle/ExampleRover', ['abstract' => 'A sturdier rover.'])
+            ->assertOk()
+            ->assertJsonPath('page', route('shares.show', ['types' => 'vehicles', 'id' => 'ExampleRover']));
+
+        expect(Share::sole())->abstract->toBe('A sturdier rover.')->name->toBe('Example Rover');
+        $this->patchJson('/api/share/v1/listings/vehicle/ExampleRover', ['license' => 'not a license!'])
+            ->assertStatus(422)->assertJsonPath('error', 'invalid_request');
+
+        Passport::actingAs(User::factory()->create());
+        $this->patchJson('/api/share/v1/listings/vehicle/ExampleRover', ['name' => 'Mine now'])->assertForbidden();
+    });
+
+    it('takes a version down for its owner', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        Passport::actingAs($owner);
+
+        $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/releases/9.9.9/take-down')->assertNotFound();
+        $this->postJson('/api/share/v1/listings/vehicle/ExampleRover/releases/1.0.0/take-down')
+            ->assertOk()->assertJson(['version' => '1.0.0', 'taken_down' => true]);
+
+        expect(ShareRelease::sole()->taken_down_at)->not->toBeNull();
+        $this->get('/share/files/vehicle/ExampleRover/1.0.0')->assertStatus(410);
+    });
+});
+
+it('serves a release download without a session, so a CDN can cache it', function () {
+    publishVehicle(User::factory()->create())->assertCreated();
+
+    $response = $this->get('/share/files/vehicle/ExampleRover/1.0.0')->assertRedirect();
+
+    expect($response->headers->getCookies())->toBe([])
+        ->and($response->headers->get('Cache-Control'))->toContain('max-age=600')->toContain('public');
+});

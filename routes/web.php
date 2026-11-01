@@ -60,11 +60,7 @@ Route::get('/digest/confirm/{user}', [DigestController::class, 'confirm'])->midd
 Route::match(['get', 'post'], '/digest/unsubscribe/{user}', [DigestController::class, 'unsubscribe'])->middleware('signed')->name('digest.unsubscribe');
 // The GitHub App's webhook, signed with its secret.
 Route::post('/github/webhook', GitHubWebhookController::class)->name('github.webhook');
-// A release's url in the release list: it never changes, and answers 410 once taken down.
-Route::get('/share/files/{type}/{id}/{version}', [ShareController::class, 'download'])
-    ->whereIn('type', ['vehicle', 'save'])
-    ->where('version', '[0-9A-Za-z.+-]+')
-    ->name('shares.download');
+// A release's url in the release list lives in routes/files.php, outside the web group.
 
 Route::middleware('guest')->group(function () {
     Route::inertia('/login', 'Auth/Login')->name('login');

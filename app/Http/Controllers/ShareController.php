@@ -7,7 +7,6 @@ use App\Models\ShareImage;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
 use App\Support\ContentIndex;
-use App\Support\Share\ArchiveMirror;
 use App\Support\Share\DataFiles;
 use App\Support\Share\Screenshots;
 use App\Support\Share\ShareError;
@@ -291,11 +290,14 @@ class ShareController extends Controller
             ->whereHas('share', fn ($query) => $query->where('type', $type)->where('listing_id', $id))
             ->firstOrFail();
 
+        // Cacheable by a CDN for ten minutes, so a takedown's 410 reaches cached copies within that.
         if ($release->taken_down_at !== null) {
-            return response('This release was taken down.', 410)->header('Content-Type', 'text/plain');
+            return response('This release was taken down.', 410)
+                ->header('Content-Type', 'text/plain')
+                ->header('Cache-Control', 'public, max-age=600');
         }
 
-        return redirect()->away(DataFiles::url($release->path));
+        return redirect()->away(DataFiles::url($release->path))->header('Cache-Control', 'public, max-age=600');
     }
 
     /**
@@ -307,21 +309,7 @@ class ShareController extends Controller
     {
         // Moderators, and the owner for their own releases.
         abort_unless($request->user()->canModerate() || $release->share->user_id === $request->user()->id, 403);
-
-        if ($release->taken_down_at === null) {
-            $release->forceFill(['taken_down_at' => now()])->save();
-            DataFiles::disk()->delete($release->path);
-            DataFiles::writeReleaseList($release->share);
-
-            // The mirror goes too (RFC 0094, Takedowns), retried from the queue if archive.org is slow.
-            if ($release->mirror_url !== null) {
-                dispatch(fn () => ArchiveMirror::delete($release));
-            }
-
-            if ($release->share->user_id !== $request->user()->id) {
-                $release->share->notifyOwner('share_taken_down', $release->version);
-            }
-        }
+        ShareHost::takeDown($release, $request->user());
 
         return back();
     }

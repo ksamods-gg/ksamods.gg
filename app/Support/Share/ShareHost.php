@@ -393,6 +393,31 @@ class ShareHost
     }
 
     /**
+     * Takes one release down (rules 17, 18 and 31): its archive and its Internet Archive mirror
+     * are deleted, its url answers 410, and the release list drops it and is signed again. The
+     * version is never given out again. The owner hears about it when someone else did it.
+     */
+    public static function takeDown(ShareRelease $release, User $by): void
+    {
+        if ($release->taken_down_at !== null) {
+            return;
+        }
+
+        $release->forceFill(['taken_down_at' => now()])->save();
+        DataFiles::disk()->delete($release->path);
+        DataFiles::writeReleaseList($release->share);
+
+        // The mirror goes too (RFC 0094, Takedowns), retried from the queue if archive.org is slow.
+        if ($release->mirror_url !== null) {
+            dispatch(fn () => ArchiveMirror::delete($release));
+        }
+
+        if ($release->share->user_id !== $by->id) {
+            $release->share->notifyOwner('share_taken_down', $release->version);
+        }
+    }
+
+    /**
      * Whether the listing reached the index: in its snapshot, or its pull request merged. Such a
      * listing can only lose releases by takedown (rule 18), never be deleted.
      */

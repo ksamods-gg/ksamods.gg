@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ShareDeviceController;
-use App\Http\Controllers\Api\ShareImageController;
+use App\Http\Controllers\Api\ShareListingController;
 use App\Http\Controllers\Api\ShareUploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,8 +18,10 @@ Route::middleware(['auth:api', 'throttle:share-uploads'])->group(function () {
     Route::post('/uploads', [ShareUploadController::class, 'store'])->name('share.api.uploads');
     Route::post('/uploads/{upload}/publish', [ShareUploadController::class, 'publish'])->name('share.api.publish');
 
-    // A listing's screenshots (RFC 0058 images).
-    Route::get('/listings/{type}/{id}/images', [ShareImageController::class, 'index'])->whereIn('type', ['vehicle', 'save'])->name('share.api.images');
-    Route::post('/listings/{type}/{id}/images', [ShareImageController::class, 'store'])->whereIn('type', ['vehicle', 'save'])->name('share.api.images.store');
-    Route::delete('/listings/{type}/{id}/images/{image}', [ShareImageController::class, 'destroy'])->whereIn('type', ['vehicle', 'save'])->whereNumber('image')->name('share.api.images.destroy');
+    // The owner's own listing: its text, taking a version down, and its screenshots (RFC 0058 images).
+    Route::patch('/listings/{type}/{id}', [ShareListingController::class, 'update'])->whereIn('type', ['vehicle', 'save'])->name('share.api.listings.update');
+    Route::post('/listings/{type}/{id}/releases/{version}/take-down', [ShareListingController::class, 'takeDown'])->whereIn('type', ['vehicle', 'save'])->where('version', '[0-9A-Za-z.+-]+')->name('share.api.releases.take-down');
+    Route::get('/listings/{type}/{id}/images', [ShareListingController::class, 'index'])->whereIn('type', ['vehicle', 'save'])->name('share.api.images');
+    Route::post('/listings/{type}/{id}/images', [ShareListingController::class, 'store'])->whereIn('type', ['vehicle', 'save'])->name('share.api.images.store');
+    Route::delete('/listings/{type}/{id}/images/{image}', [ShareListingController::class, 'destroy'])->whereIn('type', ['vehicle', 'save'])->whereNumber('image')->name('share.api.images.destroy');
 });
