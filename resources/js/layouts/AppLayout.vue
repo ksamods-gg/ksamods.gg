@@ -2,7 +2,9 @@
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { useEchoNotification } from '@laravel/echo-vue';
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+import CookieConsent from '@/components/CookieConsent.vue';
 import ModIcon from '@/components/ModIcon.vue';
+import { consentOpen } from '@/lib/consent';
 import {
     notificationChannel,
     notificationExcerpt,
@@ -456,6 +458,14 @@ if (page.props.auth.user) {
                 <Link :href="translateIndex()" class="hover:underline">{{
                     $t('Help translate')
                 }}</Link>
+                <button
+                    v-if="page.props.analytics.google"
+                    type="button"
+                    class="hover:underline"
+                    @click="consentOpen = true"
+                >
+                    {{ $t('Cookie settings') }}
+                </button>
 
                 <!-- English, and every language an admin turned on, with how much of it is done. -->
                 <label class="ml-auto flex items-center gap-2">
@@ -504,6 +514,8 @@ if (page.props.auth.user) {
                 </label>
             </div>
         </footer>
+
+        <CookieConsent />
 
         <div
             role="status"

@@ -45,8 +45,9 @@ class SocialAccounts
 
         $user->save();
 
+        // Kept signed in past the session only when the player ticked "Keep me signed in".
         if (! $current) {
-            Auth::login($user, remember: true);
+            Auth::login($user, remember: (bool) session()->pull('auth.remember', false));
         }
 
         return $user;

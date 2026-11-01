@@ -20,7 +20,7 @@ defineProps<{ operator: LegalOperator }>();
         <p>
             {{
                 $t(
-                    'This policy explains what personal data ksamods.gg processes, why, and what rights you have. ksamods.gg has no advertising, analytics or tracking, and never sells your data.',
+                    'This policy explains what personal data ksamods.gg processes, why, and what rights you have. ksamods.gg has no advertising, uses visitor statistics only if you allow them, and never sells your data.',
                 )
             }}
         </p>
@@ -48,10 +48,45 @@ defineProps<{ operator: LegalOperator }>();
                 )
             }}
         </p>
+
+        <h2>{{ $t('Cookies') }}</h2>
+        <p>
+            {{ $t('These are strictly necessary, so they need no consent:') }}
+        </p>
+        <ul>
+            <li>
+                {{
+                    $t(
+                        'a session cookie that keeps you signed in, and a security cookie that protects forms against cross-site request forgery;',
+                    )
+                }}
+            </li>
+            <li>
+                {{
+                    $t(
+                        'a remember cookie that keeps you signed in for weeks, only if you tick "Keep me signed in" when you log in;',
+                    )
+                }}
+            </li>
+            <li>
+                {{
+                    $t(
+                        'a language cookie, only once you pick a language, and a consent cookie that stores your cookie choice for six months;',
+                    )
+                }}
+            </li>
+            <li>
+                {{
+                    $t(
+                        "the game version you filter by, kept in your browser's local storage and never sent to the server.",
+                    )
+                }}
+            </li>
+        </ul>
         <p>
             {{
                 $t(
-                    'The site sets two cookies, and both are strictly necessary: a session cookie that keeps you signed in, and a security cookie that protects forms against cross-site request forgery. It sets no other cookies, so it asks for no cookie consent.',
+                    'Statistics cookies are set only if you allow them: Google Analytics (cookies named _ga and _ga_…, kept for up to two years) counts visits and pages viewed, so we know what to improve. Google receives your IP address, browser details and the pages you view. Without your consent, Google Analytics is not loaded at all. You can change your choice any time under Cookie settings at the bottom of every page; withdrawing removes its cookies.',
                 )
             }}
         </p>
@@ -146,7 +181,7 @@ defineProps<{ operator: LegalOperator }>();
         <p>
             {{
                 $t(
-                    'Providing your account and the features you use is necessary to perform our agreement with you (Art. 6(1)(b) GDPR). Sessions, security logs and moderation rest on the legitimate interest in running a safe, working site (Art. 6(1)(f) GDPR).',
+                    'Providing your account and the features you use is necessary to perform our agreement with you (Art. 6(1)(b) GDPR). Sessions, security logs and moderation rest on the legitimate interest in running a safe, working site (Art. 6(1)(f) GDPR). Statistics rest on your consent (Art. 6(1)(a) GDPR), which you can withdraw at any time.',
                 )
             }}
         </p>
@@ -194,11 +229,15 @@ defineProps<{ operator: LegalOperator }>();
                     )
                 }}
             </li>
+            <li>
+                <strong>{{ $t('Google') }}</strong>
+                {{ $t('(Google Analytics), only if you allow statistics.') }}
+            </li>
         </ul>
         <p>
             {{
                 $t(
-                    'GitHub and Discord are based in the United States. Transfers to them rely on the EU–US Data Privacy Framework or standard contractual clauses.',
+                    'GitHub, Discord and Google are based in the United States. Transfers to them rely on the EU–US Data Privacy Framework or standard contractual clauses.',
                 )
             }}
         </p>

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\GithubProvider;
 use Laravel\Socialite\Two\User as SocialiteUser;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 uses(RefreshDatabase::class);
 
@@ -57,6 +58,28 @@ it('updates the existing user on repeat login', function () {
         ->name->toBe('octocat')
         ->github_token->toBe('gho_secret');
 });
+
+it('keeps the player signed in only when they ticked the box', function (bool $remember) {
+    $provider = Mockery::mock(GithubProvider::class);
+    $provider->shouldReceive('redirect')->andReturn(new RedirectResponse('https://github.com/login'));
+    $provider->shouldReceive('user')->andReturn((new SocialiteUser)->map(['id' => '42', 'nickname' => 'octocat'])->setToken('gho_secret')->setApprovedScopes([]));
+    Socialite::shouldReceive('driver')->andReturn($provider);
+
+    // The login link carries the choice to the redirect, which keeps it for the callback.
+    $this->get(route('github.login', $remember ? ['remember' => 1] : []))->assertSessionHas('auth.remember', $remember);
+    $response = $this->withSession(['auth.remember' => $remember])->get('/auth/github/callback')->assertRedirect(route('home'));
+
+    $cookies = collect($response->headers->getCookies())->map->getName();
+    expect($cookies->contains(fn ($name) => str_starts_with($name, 'remember_web_')))->toBe($remember);
+})->with([true, false]);
+
+it('shares the analytics id only when one is configured', function (?string $id) {
+    $this->withoutVite();
+    Http::fake(['*' => ['listings' => [], 'tags' => []]]);
+    config(['services.google_analytics.id' => $id]);
+
+    $this->get(route('home'))->assertInertia(fn ($page) => $page->where('analytics.google', $id));
+})->with(['G-TEST', null]);
 
 it('logs out', function () {
     $this->actingAs(User::factory()->create())

@@ -53,6 +53,8 @@ class HandleInertiaRequests extends Middleware
             'unreadNotifications' => fn () => $request->user()?->unreadNotifications()->count() ?? 0,
             // The header's Admin link, for moderators and admins.
             'openReports' => fn () => $request->user()?->canModerate() ? Report::open()->count() : null,
+            // What the cookie consent banner asks about: statistics, while Google Analytics is set up.
+            'analytics' => ['google' => config('services.google_analytics.id') ?: null],
             // The page's language, the languages to switch to, and the page language's texts:
             // sent once per language and kept by the browser, refreshed after ten minutes.
             'locale' => app()->getLocale(),

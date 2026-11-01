@@ -47,4 +47,10 @@ return [
         'redirect' => '/auth/discord/callback',
     ],
 
+    // Visitor statistics, loaded in the browser only after the visitor consents to statistics.
+    // The measurement ID is public. Set GOOGLE_ANALYTICS_ID empty to turn statistics off.
+    'google_analytics' => [
+        'id' => env('GOOGLE_ANALYTICS_ID', env('APP_ENV') === 'production' ? 'G-MYSC4GDY4Y' : null),
+    ],
+
 ];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\SocialAccounts;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
 use LogicException;
@@ -12,8 +13,11 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse
 
 class DiscordAuthController extends Controller
 {
-    public function redirect(): SymfonyRedirectResponse
+    public function redirect(Request $request): SymfonyRedirectResponse
     {
+        // Whether to keep the player signed in, as they chose on the login page; read at sign-in.
+        $request->session()->put('auth.remember', $request->boolean('remember'));
+
         return $this->discord()->redirect();
     }
 

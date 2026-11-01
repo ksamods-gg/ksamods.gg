@@ -26,6 +26,8 @@ declare module '@inertiajs/core' {
             // Open reports, for moderators and admins; null for everyone else.
             openReports: number | null;
             sidebarOpen: boolean;
+            // Google Analytics' measurement ID, or null while statistics are off (see lib/consent.ts).
+            analytics: { google: string | null };
             // The page's language, the languages to switch to, and the live translations of
             // the page's language (see lib/i18n.ts).
             locale: string;

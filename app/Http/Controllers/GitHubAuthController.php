@@ -15,8 +15,11 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse
 
 class GitHubAuthController extends Controller
 {
-    public function redirect(): SymfonyRedirectResponse
+    public function redirect(Request $request): SymfonyRedirectResponse
     {
+        // Whether to keep the player signed in, as they chose on the login page; read at sign-in.
+        $request->session()->put('auth.remember', $request->boolean('remember'));
+
         return $this->github()->redirect();
     }
 
