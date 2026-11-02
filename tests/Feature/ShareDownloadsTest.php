@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Share;
+use App\Support\Share\Signer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -65,4 +67,40 @@ it('counts an IPv6 connection once, whichever address of its /64 it uses', funct
     }
 
     expect($share->fresh()->downloads)->toBe(2);
+});
+
+it('counts the version a download names, or else the newest release still up', function () {
+    $share = downloadableShare();
+    $share->releases()->create([
+        'version' => '1.1.0', 'status' => 'stable', 'path' => 'archives/y.zip', 'size' => 1, 'sha256' => str_repeat('0', 64),
+        'folder' => $share->name, 'game_version' => '2026.10.10.5554', 'dependencies' => [],
+    ]);
+    $url = route('share.api.downloads', ['type' => $share->type, 'id' => $share->listing_id]);
+
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.1'])->postJson($url, ['version' => '1.0.0'])->assertNoContent();
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.2'])->post($url)->assertNoContent();
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.3'])->postJson($url, ['version' => '9.9.9'])->assertNoContent();
+
+    expect($share->fresh()->downloads)->toBe(3)
+        ->and($share->releases()->pluck('downloads', 'version')->all())->toBe(['1.0.0' => 1, '1.1.0' => 2]);
+});
+
+it('publishes the counts in the signed release list once a day, only for lists whose total changed', function () {
+    $this->freezeTime();
+    Storage::fake('public');
+    config(['share.disk' => 'public', 'share.signing_key' => Signer::generate()]);
+    $share = downloadableShare(release: ['listed_at' => now()]);
+    $quiet = downloadableShare(['listing_id' => 'Quiet'], ['listed_at' => now()]);
+    $this->post(route('share.api.downloads', ['type' => $share->type, 'id' => $share->listing_id]))->assertNoContent();
+
+    $this->artisan('shares:publish-downloads')->expectsOutput('Published the download counts of 1 listings.')->assertSuccessful();
+
+    $path = "releases/{$share->type}/{$share->listing_id}.json";
+    $bytes = (string) Storage::disk('public')->get($path);
+    expect(Signer::verify($bytes, (string) Storage::disk('public')->get("{$path}.sig"), Signer::publicKey()))->toBeTrue()
+        ->and(json_decode($bytes, true)['downloads'])->toBe(['total' => 1, 'versions' => ['1.0.0' => 1], 'updated' => now()->utc()->format('Y-m-d\TH:i:s\Z')])
+        ->and(Storage::disk('public')->exists("releases/{$quiet->type}/Quiet.json"))->toBeFalse();
+
+    // Nothing new: nothing to sign again.
+    $this->artisan('shares:publish-downloads')->expectsOutput('Published the download counts of 0 listings.');
 });

@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $game_version
  * @property list<array{id: string, kind: string, min?: string, max?: string}> $dependencies
  * @property string|null $mirror_url
+ * @property int $downloads
  * @property Carbon|null $listed_at
  * @property Carbon|null $taken_down_at
  * @property Carbon $created_at
@@ -55,6 +56,6 @@ class ShareRelease extends Model
      */
     protected function casts(): array
     {
-        return ['size' => 'integer', 'dependencies' => 'array', 'listed_at' => 'datetime', 'taken_down_at' => 'datetime'];
+        return ['size' => 'integer', 'downloads' => 'integer', 'dependencies' => 'array', 'listed_at' => 'datetime', 'taken_down_at' => 'datetime'];
     }
 }

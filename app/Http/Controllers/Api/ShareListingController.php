@@ -22,14 +22,18 @@ class ShareListingController extends Controller
 {
     /**
      * Counts a download, for the site's download buttons and for clients that install a listing.
-     * No sign-in: a player counts once a day per listing, however often this is called.
+     * No sign-in: a player counts once a day per listing, however often this is called. The
+     * optional `version` says which release; without it, or for a version not up, the newest
+     * release still up gets the download.
      */
     public function download(Request $request, string $type, string $id): Response
     {
-        $share = Share::where('type', $type)->where('listing_id', $id)
-            ->whereHas('releases', fn ($query) => $query->whereNull('taken_down_at'))
-            ->firstOrFail();
-        $share->countDownload((string) $request->ip());
+        $share = Share::where('type', $type)->where('listing_id', $id)->firstOrFail();
+        $releases = $share->releases()->reorder()->whereNull('taken_down_at')->latest('id');
+        $release = $releases->clone()->where('version', (string) $request->input('version'))->first()
+            ?? $releases->first()
+            ?? abort(404);
+        $share->countDownload((string) $request->ip(), $release);
 
         return response()->noContent();
     }

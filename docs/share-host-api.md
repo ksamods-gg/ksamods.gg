@@ -389,9 +389,24 @@ the count. When a player installs a listing, report it:
 POST /api/share/v1/listings/{type}/{id}/downloads
 ```
 
-No sign-in and no body; it answers `204 No Content`, or `404` for a listing with no release still up.
-A player counts once a day per listing, however often this is called, so report every install and
-leave deduplication to the host. The count shows on the listing's page and orders "Most downloaded".
+No sign-in. The body is optional: `{ "version": "1.0.0" }` says which version was installed; without
+it, or for a version that is not up, the newest release still up gets the download. It answers
+`204 No Content`, or `404` for a listing with no release still up. A player counts once a day per
+listing (by IP address, an IPv6 address by its /64), however often this is called, so report every
+install and leave deduplication to the host. The count shows on the listing's page and orders "Most
+downloaded".
+
+The counts are also published, signed, in the listing's release list
+(`{data}releases/{type}/{id}.json`), so the index and clients can show and sort by them like mod
+downloads:
+
+```json
+"downloads": { "total": 12, "versions": { "1.0.0": 12 }, "updated": "2026-11-02T20:00:00Z" }
+```
+
+`total` counts every download of the listing, including versions taken down since; `versions` has
+each version in the list. Counts only go up. The host rewrites a list whose total changed once a day,
+just after midnight UTC, and whenever the list changes for another reason.
 
 ## Errors
 

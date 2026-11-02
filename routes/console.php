@@ -53,6 +53,25 @@ Schedule::command('model:prune', ['--model' => [ShareUpload::class]])->hourly();
 Schedule::command('passport:purge')->daily();
 
 /*
+ * Download counts go into each release list, which the index reads about once a day; the lists
+ * whose total changed are signed again just after the day's counting ends.
+ */
+Schedule::command('shares:publish-downloads')->dailyAt('00:10');
+
+Artisan::command('shares:publish-downloads', function () {
+    $count = 0;
+
+    Share::whereColumn('downloads', '!=', 'published_downloads')
+        ->whereHas('releases', fn ($query) => $query->whereNull('taken_down_at')->whereNotNull('listed_at'))
+        ->each(function (Share $share) use (&$count) {
+            DataFiles::writeReleaseList($share);
+            $count++;
+        });
+
+    $this->info("Published the download counts of {$count} listings.");
+})->purpose('Write the download counts into the release lists whose total changed');
+
+/*
  * Following: a new release of a followed mod shows up in its followers' bell, and an email digest
  * gathers those for the players who asked for one.
  */

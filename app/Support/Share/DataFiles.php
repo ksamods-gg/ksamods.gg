@@ -16,14 +16,27 @@ class DataFiles
 {
     /**
      * releases/<type>/<id>.json: every release not taken down, oldest first. The list only grows,
-     * except that a takedown removes its entry (rules 10 and 18).
+     * except that a takedown removes its entry (rules 10 and 18). `downloads` gives the listing's
+     * total and each listed version's count as of `updated`; counts only go up, and the total
+     * keeps the downloads of versions taken down since. The daily shares:publish-downloads
+     * rewrites lists whose total changed.
      */
     public static function writeReleaseList(Share $share): void
     {
+        $releases = $share->releases()->whereNull('taken_down_at')->whereNotNull('listed_at')->get();
+        // Read now rather than from $share, which may have been loaded before the latest downloads.
+        $total = (int) $share->newQuery()->whereKey($share->id)->value('downloads');
+
         self::write("releases/{$share->type}/{$share->listing_id}.json", [
             'id' => $share->listing_id,
             'type' => $share->type,
-            'releases' => $share->releases()->whereNull('taken_down_at')->whereNotNull('listed_at')->get()->map(fn ($release) => array_filter([
+            'downloads' => [
+                'total' => $total,
+                // An object even when empty, which a JSON array would not be.
+                'versions' => (object) $releases->mapWithKeys(fn ($release) => [$release->version => $release->downloads])->all(),
+                'updated' => now()->utc()->format('Y-m-d\TH:i:s\Z'),
+            ],
+            'releases' => $releases->map(fn ($release) => array_filter([
                 'version' => $release->version,
                 'status' => $release->status,
                 'url' => $release->url(),
@@ -33,6 +46,9 @@ class DataFiles
                 'mirrors' => $release->mirror_url !== null ? [$release->mirror_url] : null,
             ], fn ($value) => $value !== null))->values()->all(),
         ]);
+
+        // Not touching updated_at, which says when the listing itself changed.
+        $share->newQuery()->whereKey($share->id)->toBase()->update(['published_downloads' => $total]);
     }
 
     /**

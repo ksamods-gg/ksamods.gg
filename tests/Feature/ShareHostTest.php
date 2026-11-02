@@ -15,6 +15,7 @@ use Carbon\CarbonInterval;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -248,7 +249,9 @@ describe('the upload API', function () {
         expect(signedFile('owners/vehicle/ExampleRover.json'))->toBe([
             'id' => 'ExampleRover', 'type' => 'vehicle', 'account' => $user->fresh()->share_account, 'github_id' => 777,
         ]);
-        expect(signedFile('releases/vehicle/ExampleRover.json'))->toBe([
+        $releaseList = signedFile('releases/vehicle/ExampleRover.json');
+        expect($releaseList['downloads'])->toMatchArray(['total' => 0, 'versions' => ['1.0.0' => 0]]);
+        expect(Arr::except($releaseList, 'downloads'))->toBe([
             'id' => 'ExampleRover',
             'type' => 'vehicle',
             'releases' => [[

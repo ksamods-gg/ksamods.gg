@@ -83,10 +83,12 @@ const latest = computed(() =>
 
 // Counted on click rather than at the file's url, which a CDN caches and clients fetch for
 // thumbnails. keepalive lets the count finish while the browser follows the download.
-function counted(): void {
+function counted(version: string): void {
     fetch(countDownload({ type: kind, id: props.share.id }).url, {
         method: 'POST',
         keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version }),
     }).catch(() => {});
 }
 
@@ -304,7 +306,7 @@ const card =
                     v-if="!mobile && latest.url"
                     :href="latest.url"
                     :class="primaryButton"
-                    @click="counted"
+                    @click="counted(latest.version)"
                 >
                     {{ $t('Download v:version', { version: latest.version }) }}
                 </a>
@@ -580,7 +582,7 @@ const card =
                                     v-else-if="release.url && !mobile"
                                     :href="release.url"
                                     class="underline underline-offset-4"
-                                    @click="counted"
+                                    @click="counted(release.version)"
                                     >{{
                                         $t('Download (:size)', {
                                             size: formatBytes(release.size),

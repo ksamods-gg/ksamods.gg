@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A vehicle or save listing on ksamods.gg as a share host (RFC 0094).
@@ -31,6 +32,7 @@ use Illuminate\Support\Facades\Cache;
  * @property 'open'|'merged'|'closed'|null $pull_request_state
  * @property string|null $branch
  * @property int $downloads
+ * @property int $published_downloads
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read User|null $user
@@ -97,15 +99,19 @@ class Share extends Model
     }
 
     /**
-     * Counts a download by the player at this IP address, once a day. Only a hash of the address
-     * is kept, in the cache, until the day ends. The listing's updated_at stays as it is.
+     * Counts a download of the release by the player at this IP address, once a day per listing.
+     * Only a hash of the address is kept, in the cache, until the day ends. The listing's total
+     * and the release's own count go up together; updated_at stays as it is on both.
      */
-    public function countDownload(string $ip): void
+    public function countDownload(string $ip, ShareRelease $release): void
     {
         $key = 'share-download:'.$this->id.':'.hash_hmac('sha256', self::downloader($ip), (string) config('app.key'));
 
         if (Cache::add($key, true, now()->endOfDay())) {
-            $this->newQuery()->whereKey($this->id)->toBase()->increment('downloads');
+            DB::transaction(function () use ($release) {
+                $this->newQuery()->whereKey($this->id)->toBase()->increment('downloads');
+                $release->newQuery()->whereKey($release->id)->toBase()->increment('downloads');
+            });
         }
     }
 
