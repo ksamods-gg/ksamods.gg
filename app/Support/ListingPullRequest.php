@@ -8,6 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
 
 /**
@@ -120,8 +121,10 @@ class ListingPullRequest
     }
 
     /**
-     * A new fork takes a few seconds to become usable, so this waits for it. A fork whose own
-     * main has diverged cannot sync, which is fine: the branch starts from upstream's commit.
+     * A new fork takes a few seconds to become usable, so this waits for it while GitHub answers
+     * 404. A fork whose own main has diverged cannot sync, which is fine: the branch starts from
+     * upstream's commit. Any other refusal is logged, since a fork left behind can make the branch
+     * push fail later for reasons that only this answer shows.
      */
     public static function syncFork(PendingRequest $github, string $fork): void
     {
@@ -132,7 +135,18 @@ class ListingPullRequest
                 return;
             }
 
+            if ($response->status() !== 404) {
+                break;
+            }
+
             Sleep::for(2)->seconds();
         }
+
+        Log::warning("GitHub did not sync the fork {$fork} with its upstream.", [
+            'status' => $response->status(),
+            'message' => $response->json('message'),
+            // The permissions GitHub wanted for this call, as it says on a refusal.
+            'accepted_permissions' => $response->header('X-Accepted-GitHub-Permissions'),
+        ]);
     }
 }

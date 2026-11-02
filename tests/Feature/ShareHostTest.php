@@ -132,7 +132,7 @@ beforeEach(function () {
                 return Http::response(['sha' => 'new-commit']);
             })(),
             $path === '/repos/ksamods-bot/content-index/git/refs' => $this->refsRefused
-                ? Http::response(['message' => 'Resource not accessible by personal access token'], 403)
+                ? Http::response(['message' => 'Resource not accessible by personal access token'], 403, ['X-Accepted-GitHub-Permissions' => 'contents=write; workflows=write'])
                 : Http::response([], 201),
             str_starts_with($path, '/repos/ksamods-bot/content-index/git/refs/heads/') => Http::response([]),
             $path === '/repos/ksamods-test/content-index/pulls' && $request->method() === 'POST' => (function () use ($request) {
@@ -587,7 +587,7 @@ it('opens pull requests as the GitHub App, and pushes their branches with the fo
     }
 });
 
-it('says the fork\'s token needs Workflows when GitHub refuses its branch', function () {
+it('names the permissions GitHub wants when it refuses the fork\'s branch', function () {
     Queue::fake();
     $this->refsRefused = true;
     publishVehicle(User::factory()->create());
@@ -595,7 +595,7 @@ it('says the fork\'s token needs Workflows when GitHub refuses its branch', func
     // Publishing reports the failure and queues the proposal; the queued run fails the same way.
     Queue::assertPushed(ProposeShareListing::class);
     expect(fn () => ProposeShareListing::run(Share::sole(), true))
-        ->toThrow(RuntimeException::class, 'Give the token Workflows read and write');
+        ->toThrow(RuntimeException::class, 'permissions it accepts: contents=write; workflows=write');
 });
 
 it('purges a listing that never reached the index, with its files and pull request', function () {

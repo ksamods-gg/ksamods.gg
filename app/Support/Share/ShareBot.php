@@ -157,18 +157,22 @@ class ShareBot
     }
 
     /**
-     * Checks a branch push to the fork. A 403 there, after the same token made the commit, means
-     * the branch brings in commits of the authored repository that change .github/workflows, which
-     * GitHub lets a token push only with the Workflows permission; that is spelled out, since
-     * GitHub's own answer ("Resource not accessible by personal access token") does not say it.
+     * Checks a branch push to the fork. GitHub's refusal ("Resource not accessible by personal
+     * access token") does not say what is missing, so the permissions it names in its
+     * X-Accepted-GitHub-Permissions header go into the error. The usual cause: the branch brings
+     * in commits of the authored repository that change .github/workflows, which a token may push
+     * only with Workflows; and a fine-grained token's new permissions on an organization's
+     * repository apply only once the organization approves them.
      *
      * @throws RequestException
      */
     private static function pushed(Response $response, string $fork): void
     {
         if ($response->status() === 403) {
-            throw new RuntimeException("GitHub refused SHARE_FORK_TOKEN pushing a branch to {$fork} (\"{$response->json('message')}\"). "
-                ."Give the token Workflows read and write as well as Contents read and write on {$fork}: the branch carries commits that change .github/workflows.");
+            $accepted = $response->header('X-Accepted-GitHub-Permissions') ?: 'not given';
+
+            throw new RuntimeException("GitHub refused SHARE_FORK_TOKEN pushing a branch to {$fork} (\"{$response->json('message')}\"; permissions it accepts: {$accepted}). "
+                ."The token needs Contents and Workflows read and write on {$fork}, approved by the organization if it owns the fork.");
         }
 
         $response->throw();
