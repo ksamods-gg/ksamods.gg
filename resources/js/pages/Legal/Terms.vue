@@ -10,7 +10,7 @@ defineProps<{ operator: LegalOperator }>();
 <template>
     <LegalPage
         :title="$t('Terms of use')"
-        updated="14 October 2026"
+        updated="2 November 2026"
         :description="
             $t(
                 'The terms for using ksamods.gg, the Kitten Space Agency mod site.',
@@ -112,6 +112,15 @@ defineProps<{ operator: LegalOperator }>();
             {{
                 $t(
                     "Submitting or editing a listing opens a pull request on the content index from your GitHub account. Its maintainers decide whether it is accepted, under the index's own rules. Only submit mods you have the right to list.",
+                )
+            }}
+        </p>
+
+        <h2>{{ $t('Download counts') }}</h2>
+        <p>
+            {{
+                $t(
+                    'Download counts are approximate: each player counts once a day per listing, told apart by IP address as the privacy policy describes. Do not inflate a count, for example by scripting download reports or by reporting installs that did not happen. Moderators may correct counts that were inflated, and treat inflating them like any other breach of these terms.',
                 )
             }}
         </p>

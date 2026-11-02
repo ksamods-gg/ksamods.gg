@@ -10,7 +10,7 @@ defineProps<{ operator: LegalOperator }>();
 <template>
     <LegalPage
         :title="$t('Privacy policy')"
-        updated="1 November 2026"
+        updated="2 November 2026"
         :description="
             $t(
                 'What ksamods.gg stores about you, why, and how to have it deleted.',
@@ -45,6 +45,22 @@ defineProps<{ operator: LegalOperator }>();
             {{
                 $t(
                     "To deliver pages, the server receives your IP address and your browser's user agent. They are stored with your session, which expires after two hours of inactivity and is then deleted. The hosting infrastructure may also keep short-lived technical logs to keep the site running and secure.",
+                )
+            }}
+        </p>
+
+        <h2>{{ $t('Download counts') }}</h2>
+        <p>
+            {{
+                $t(
+                    'Vehicles and saves show how often they were downloaded. A download counts when you use a download button on the site, or when a client such as Borea reports that it installed one; fetching a file by itself, such as for a preview, does not count. Each player counts once a day per listing, and since no sign-in is needed, players are told apart by IP address (for IPv6, its /64 network).',
+                )
+            }}
+        </p>
+        <p>
+            {{
+                $t(
+                    'For this, ksamods.gg keeps only a hash of the address and the listing, made with a secret key, never the address itself, and does not link it to your account. The hash is deleted at the end of the day (midnight UTC). To prevent abuse, these reports are also limited per address, with a counter that lasts about a minute.',
                 )
             }}
         </p>
@@ -181,7 +197,7 @@ defineProps<{ operator: LegalOperator }>();
         <p>
             {{
                 $t(
-                    'Providing your account and the features you use is necessary to perform our agreement with you (Art. 6(1)(b) GDPR). Sessions, security logs and moderation rest on the legitimate interest in running a safe, working site (Art. 6(1)(f) GDPR). Statistics rest on your consent (Art. 6(1)(a) GDPR), which you can withdraw at any time.',
+                    'Providing your account and the features you use is necessary to perform our agreement with you (Art. 6(1)(b) GDPR). Sessions, security logs and moderation rest on the legitimate interest in running a safe, working site, and download counts on the legitimate interest in showing honest download numbers (Art. 6(1)(f) GDPR). Statistics rest on your consent (Art. 6(1)(a) GDPR), which you can withdraw at any time.',
                 )
             }}
         </p>
@@ -190,7 +206,7 @@ defineProps<{ operator: LegalOperator }>();
         <p>
             {{
                 $t(
-                    'Your account data, posts and reports are kept until you delete them or delete your account. When you delete a comment that has replies, it is hidden but kept so the thread still reads, until your account is deleted. Deleting your account removes your reviews, comments, reports, follows, digest email address and notifications, the replies other people wrote under your comments, and the notifications others got about your comments.',
+                    'Your account data, posts and reports are kept until you delete them or delete your account. When you delete a comment that has replies, it is hidden but kept so the thread still reads, until your account is deleted. Deleting your account removes your reviews, comments, reports, follows, digest email address and notifications, the replies other people wrote under your comments, and the notifications others got about your comments. The hashes used to count downloads are deleted at the end of each day.',
                 )
             }}
         </p>
