@@ -49,7 +49,9 @@ return [
      */
     'authored_repository' => env('SHARE_AUTHORED_REPOSITORY', 'KSAModding/content-index'),
     // The fork of the authored repository the pull requests come from, and a fine-grained token
-    // with Contents read and write on it alone, which pushes their branches.
+    // with Contents and Workflows read and write on it alone, which pushes their branches.
+    // Workflows too, because the branches carry the authored repository's commits, and GitHub
+    // refuses a branch whose new commits change .github/workflows from a token without it.
     'fork' => env('SHARE_FORK', 'ksamods-gg/content-index'),
     'fork_token' => env('SHARE_FORK_TOKEN'),
     // The numeric id of the account the pull requests are opened as: the GitHub App's bot user,

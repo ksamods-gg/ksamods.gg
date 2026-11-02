@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Jobs\MirrorShareRelease;
+use App\Jobs\ProposeShareListing;
 use App\Models\Share;
 use App\Models\ShareRelease;
 use App\Models\ShareUpload;
@@ -60,6 +61,8 @@ beforeEach(function () {
     $this->merged = false;
     $this->closed = [];
     $this->openBranch = null;
+    // Whether GitHub refuses the fork's token creating a branch, as for a token without Workflows.
+    $this->refsRefused = false;
     // archive.org: what was uploaded and deleted, and how many times a download is not served yet.
     $this->mirrored = [];
     $this->unmirrored = [];
@@ -128,7 +131,9 @@ beforeEach(function () {
 
                 return Http::response(['sha' => 'new-commit']);
             })(),
-            $path === '/repos/ksamods-bot/content-index/git/refs' => Http::response([], 201),
+            $path === '/repos/ksamods-bot/content-index/git/refs' => $this->refsRefused
+                ? Http::response(['message' => 'Resource not accessible by personal access token'], 403)
+                : Http::response([], 201),
             str_starts_with($path, '/repos/ksamods-bot/content-index/git/refs/heads/') => Http::response([]),
             $path === '/repos/ksamods-test/content-index/pulls' && $request->method() === 'POST' => (function () use ($request) {
                 $this->pulls[] = $request->data();
@@ -580,6 +585,17 @@ it('opens pull requests as the GitHub App, and pushes their branches with the fo
     foreach ($this->tokens as [$call, $token]) {
         expect($token)->toBe(str_contains($call, ' /repos/ksamods-test/') ? 'Bearer installation-token' : 'Bearer fork-token', $call);
     }
+});
+
+it('says the fork\'s token needs Workflows when GitHub refuses its branch', function () {
+    Queue::fake();
+    $this->refsRefused = true;
+    publishVehicle(User::factory()->create());
+
+    // Publishing reports the failure and queues the proposal; the queued run fails the same way.
+    Queue::assertPushed(ProposeShareListing::class);
+    expect(fn () => ProposeShareListing::run(Share::sole(), true))
+        ->toThrow(RuntimeException::class, 'Give the token Workflows read and write');
 });
 
 it('purges a listing that never reached the index, with its files and pull request', function () {

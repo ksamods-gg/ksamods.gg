@@ -6,6 +6,7 @@ use App\Models\Share;
 use App\Support\ListingPullRequest;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -67,12 +68,12 @@ class ShareBot
         ])->throw()->json('sha');
 
         if ($open) {
-            $forkApi->patch("/repos/{$fork}/git/refs/heads/{$branch}", ['sha' => $commit])->throw();
+            self::pushed($forkApi->patch("/repos/{$fork}/git/refs/heads/{$branch}", ['sha' => $commit]), $fork);
 
             return (string) $share->pull_request_url;
         }
 
-        $forkApi->post("/repos/{$fork}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commit])->throw();
+        self::pushed($forkApi->post("/repos/{$fork}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commit]), $fork);
         $url = $github->post("/repos/{$repository}/pulls", [
             'title' => $title,
             'head' => "{$owner}:{$branch}",
@@ -155,6 +156,24 @@ class ShareBot
         return "/repos/{$match[1]}/pulls/{$match[2]}";
     }
 
+    /**
+     * Checks a branch push to the fork. A 403 there, after the same token made the commit, means
+     * the branch brings in commits of the authored repository that change .github/workflows, which
+     * GitHub lets a token push only with the Workflows permission; that is spelled out, since
+     * GitHub's own answer ("Resource not accessible by personal access token") does not say it.
+     *
+     * @throws RequestException
+     */
+    private static function pushed(Response $response, string $fork): void
+    {
+        if ($response->status() === 403) {
+            throw new RuntimeException("GitHub refused SHARE_FORK_TOKEN pushing a branch to {$fork} (\"{$response->json('message')}\"). "
+                ."Give the token Workflows read and write as well as Contents read and write on {$fork}: the branch carries commits that change .github/workflows.");
+        }
+
+        $response->throw();
+    }
+
     private static function isOpen(PendingRequest $github, string $repository, string $head): bool
     {
         return $github->get("/repos/{$repository}/pulls", ['state' => 'open', 'head' => $head])->throw()->json() !== [];
@@ -170,14 +189,15 @@ class ShareBot
 
     /**
      * GitHub's API with the fork's token: a fine-grained token for the fork alone, with Contents
-     * read and write.
+     * and Workflows read and write (Workflows, because branches carry the authored repository's
+     * commits, and some of those change its workflows).
      */
     private static function fork(): PendingRequest
     {
         $token = config('share.fork_token');
 
         if (blank($token)) {
-            throw new RuntimeException('SHARE_FORK_TOKEN must be a token with Contents read and write on '.config('share.fork').'.');
+            throw new RuntimeException('SHARE_FORK_TOKEN must be a token with Contents and Workflows read and write on '.config('share.fork').'.');
         }
 
         return self::api()->withToken((string) $token);
