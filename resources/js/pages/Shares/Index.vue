@@ -13,15 +13,20 @@ import type { Paginated, ShareSummary } from '@/types';
 const props = defineProps<{
     types: 'vehicles' | 'saves';
     search: string;
+    sort: 'updated' | 'downloads';
     shares: Paginated<ShareSummary>;
 }>();
 
 const query = ref(props.search);
+const sort = ref(props.sort);
 
 function apply() {
     router.get(
         index(props.types).url,
-        { q: query.value || undefined },
+        {
+            q: query.value || undefined,
+            sort: sort.value === 'downloads' ? 'downloads' : undefined,
+        },
         { preserveState: true },
     );
 }
@@ -143,6 +148,21 @@ const control =
                     "
                     :class="[control, 'w-full py-2.5']"
                 />
+            </label>
+            <label class="mt-3 flex items-center gap-2 text-sm">
+                <span :class="muted">{{ $t('Sort by') }}</span>
+                <select
+                    v-model="sort"
+                    :class="[control, 'py-1.5']"
+                    @change="apply"
+                >
+                    <option value="updated">
+                        {{ $t('Recently updated') }}
+                    </option>
+                    <option value="downloads">
+                        {{ $t('Most downloaded') }}
+                    </option>
+                </select>
             </label>
         </form>
         <p :class="['mt-3 text-sm', muted]" aria-live="polite">

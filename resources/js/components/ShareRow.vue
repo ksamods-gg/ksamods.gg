@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import ModIcon from '@/components/ModIcon.vue';
+import { formatNumber } from '@/lib/format';
 import { show } from '@/routes/shares';
 import type { ShareSummary } from '@/types';
 
 /**
  * One vehicle or save in its list, laid out like a mod's row: name, summary and tags, with the
- * game build it needs and when it last changed on the right.
+ * game build it needs, its downloads and when it last changed on the right.
  */
 defineProps<{ share: ShareSummary }>();
 
@@ -77,6 +78,24 @@ const chip =
                     class="font-medium text-[#1b1b18] tabular-nums dark:text-[#EDEDEC]"
                 >
                     {{ share.game_version }}
+                </dd>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <dt class="sr-only">{{ $t('Downloads') }}</dt>
+                <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    class="size-3.5"
+                >
+                    <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
+                </svg>
+                <dd class="tabular-nums">
+                    {{ formatNumber(share.downloads) }}
                 </dd>
             </div>
             <div class="flex items-center gap-1.5">

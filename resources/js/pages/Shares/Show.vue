@@ -8,7 +8,7 @@ import ModRelationGroups from '@/components/mods/ModRelationGroups.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { isMobileDevice } from '@/lib/device';
-import { formatBytes, formatDate } from '@/lib/format';
+import { formatBytes, formatDate, formatNumber } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { create, destroy, edit, index, takeDown } from '@/routes/shares';
 import {
@@ -16,6 +16,7 @@ import {
     destroy as destroyImage,
     store as storeImages,
 } from '@/routes/shares/images';
+import { downloads as countDownload } from '@/routes/share/api';
 import type { ShareDetail } from '@/types';
 
 const props = defineProps<{
@@ -79,6 +80,15 @@ const jsonLd = computed(() => {
 const latest = computed(() =>
     props.share.releases.find((release) => !release.taken_down),
 );
+
+// Counted on click rather than at the file's url, which a CDN caches and clients fetch for
+// thumbnails. keepalive lets the count finish while the browser follows the download.
+function counted(): void {
+    fetch(countDownload({ type: kind, id: props.share.id }).url, {
+        method: 'POST',
+        keepalive: true,
+    }).catch(() => {});
+}
 
 // A vehicle or save goes into the game's folders on a desktop, so phones get a note instead.
 const mobile = isMobileDevice(page.props.userAgent);
@@ -294,6 +304,7 @@ const card =
                     v-if="!mobile && latest.url"
                     :href="latest.url"
                     :class="primaryButton"
+                    @click="counted"
                 >
                     {{ $t('Download v:version', { version: latest.version }) }}
                 </a>
@@ -569,6 +580,7 @@ const card =
                                     v-else-if="release.url && !mobile"
                                     :href="release.url"
                                     class="underline underline-offset-4"
+                                    @click="counted"
                                     >{{
                                         $t('Download (:size)', {
                                             size: formatBytes(release.size),
@@ -605,6 +617,10 @@ const card =
                     >
                         <dt :class="muted">{{ $t('Updated') }}</dt>
                         <dd>{{ formatDate(share.updated_at) }}</dd>
+                        <dt :class="muted">{{ $t('Downloads') }}</dt>
+                        <dd class="tabular-nums">
+                            {{ formatNumber(share.downloads) }}
+                        </dd>
                         <template v-if="share.game_version">
                             <dt :class="muted">{{ $t('Game') }}</dt>
                             <dd>

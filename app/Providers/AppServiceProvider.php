@@ -144,6 +144,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('share-sign-in', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         // A limit of the host besides new_listings_per_day (rule 16, rate_limited).
         RateLimiter::for('share-uploads', fn (Request $request) => Limit::perHour(30)->by($request->user()?->id ?: $request->ip()));
+        // Counted once a day each anyway; this only keeps a flood off the cache.
+        RateLimiter::for('share-downloads', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
     }
 
     /**

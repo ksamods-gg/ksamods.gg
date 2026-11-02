@@ -21,6 +21,20 @@ use Illuminate\Http\UploadedFile;
 class ShareListingController extends Controller
 {
     /**
+     * Counts a download, for the site's download buttons and for clients that install a listing.
+     * No sign-in: a player counts once a day per listing, however often this is called.
+     */
+    public function download(Request $request, string $type, string $id): Response
+    {
+        $share = Share::where('type', $type)->where('listing_id', $id)
+            ->whereHas('releases', fn ($query) => $query->whereNull('taken_down_at'))
+            ->firstOrFail();
+        $share->countDownload((string) $request->ip());
+
+        return response()->noContent();
+    }
+
+    /**
      * Changes the listing's text: any of name, abstract, description, license and tags; the
      * others stay as they are. Proposed to the index like an edit on the site.
      */

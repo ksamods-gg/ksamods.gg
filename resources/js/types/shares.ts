@@ -22,6 +22,8 @@ export type ShareSummary = {
     version: string | null;
     game_version: string | null;
     download_url: string | null;
+    // Players who downloaded it, each counted once a day.
+    downloads: number;
     updated_at: string;
     // "3 days ago", worked out on the server.
     updated_ago: string;

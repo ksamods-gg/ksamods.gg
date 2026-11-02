@@ -14,6 +14,12 @@ Route::middleware('throttle:share-sign-in')->group(function () {
     Route::post('/oauth/token', [ShareDeviceController::class, 'token'])->name('share.api.token');
 });
 
+// Counts a download, from the site's buttons and from clients; no sign-in.
+Route::post('/listings/{type}/{id}/downloads', [ShareListingController::class, 'download'])
+    ->whereIn('type', ['vehicle', 'save'])
+    ->middleware('throttle:share-downloads')
+    ->name('share.api.downloads');
+
 Route::middleware(['auth:api', 'throttle:share-uploads'])->group(function () {
     Route::post('/uploads', [ShareUploadController::class, 'store'])->name('share.api.uploads');
     Route::post('/uploads/{upload}/publish', [ShareUploadController::class, 'publish'])->name('share.api.publish');

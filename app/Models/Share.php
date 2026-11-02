@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * A vehicle or save listing on ksamods.gg as a share host (RFC 0094).
@@ -29,6 +30,7 @@ use Illuminate\Support\Collection;
  * @property string|null $pull_request_url
  * @property 'open'|'merged'|'closed'|null $pull_request_state
  * @property string|null $branch
+ * @property int $downloads
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read User|null $user
@@ -92,6 +94,19 @@ class Share extends Model
     public function notifyOwner(string $kind, ?string $version = null, ?string $url = null): void
     {
         $this->user?->notify(new SiteActivity($kind, $this->name, $url ?? $this->url(), $version));
+    }
+
+    /**
+     * Counts a download by the player at this IP address, once a day. Only a hash of the address
+     * is kept, in the cache, until the day ends. The listing's updated_at stays as it is.
+     */
+    public function countDownload(string $ip): void
+    {
+        $key = 'share-download:'.$this->id.':'.hash_hmac('sha256', $ip, (string) config('app.key'));
+
+        if (Cache::add($key, true, now()->endOfDay())) {
+            $this->newQuery()->whereKey($this->id)->toBase()->increment('downloads');
+        }
     }
 
     /**

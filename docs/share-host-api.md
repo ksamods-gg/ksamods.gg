@@ -382,6 +382,17 @@ or answers `410 Gone` once the release was taken down. It sets no cookies and ma
 minutes, so fetching many of them, such as small vehicles for thumbnails, is cheap; a takedown can
 take up to 10 minutes to show there.
 
+Fetching a release's `url` does not count as a download, so thumbnails and retries don't inflate
+the count. When a player installs a listing, report it:
+
+```http
+POST /api/share/v1/listings/{type}/{id}/downloads
+```
+
+No sign-in and no body; it answers `204 No Content`, or `404` for a listing with no release still up.
+A player counts once a day per listing, however often this is called, so report every install and
+leave deduplication to the host. The count shows on the listing's page and orders "Most downloaded".
+
 ## Errors
 
 Every error is JSON with a 4xx or 5xx status (rule 16):

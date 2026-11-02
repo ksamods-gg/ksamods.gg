@@ -30,14 +30,17 @@ class ShareController extends Controller
     {
         $type = array_search($types, Share::FOLDERS, true);
         $search = trim((string) $request->query('q'));
+        $sort = $request->query('sort') === 'downloads' ? 'downloads' : 'updated';
 
         return Inertia::render('Shares/Index', [
             'types' => $types,
             'search' => $search,
+            'sort' => $sort,
             'shares' => Share::where('type', $type)
                 ->whereHas('releases', fn ($query) => $query->whereNull('taken_down_at'))
                 ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))
                 ->with(['releases' => fn ($query) => $query->whereNull('taken_down_at')])
+                ->when($sort === 'downloads', fn ($query) => $query->orderByDesc('downloads'))
                 ->latest('updated_at')
                 ->paginate(24)
                 ->withQueryString()
@@ -344,6 +347,7 @@ class ShareController extends Controller
             // The cover's square crop, for rows and headers.
             'icon' => $share->icon['url'] ?? null,
             'download_url' => $latest?->url(),
+            'downloads' => $share->downloads,
             'updated_at' => $share->updated_at->toIso8601String(),
             'updated_ago' => $share->updated_at->diffForHumans(),
         ];
