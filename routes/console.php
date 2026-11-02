@@ -58,18 +58,11 @@ Schedule::command('passport:purge')->daily();
  */
 Schedule::command('shares:publish-downloads')->dailyAt('00:10');
 
-Artisan::command('shares:publish-downloads', function () {
-    $count = 0;
-
-    Share::whereColumn('downloads', '!=', 'published_downloads')
-        ->whereHas('releases', fn ($query) => $query->whereNull('taken_down_at')->whereNotNull('listed_at'))
-        ->each(function (Share $share) use (&$count) {
-            DataFiles::writeReleaseList($share);
-            $count++;
-        });
+Artisan::command('shares:publish-downloads {--all : Sign every release list again, even those whose total did not change}', function () {
+    $count = DataFiles::publishDownloads((bool) $this->option('all'));
 
     $this->info("Published the download counts of {$count} listings.");
-})->purpose('Write the download counts into the release lists whose total changed');
+})->purpose('Write the download counts into the release lists whose total changed'); // Also a button in the admin share panel.
 
 /*
  * Following: a new release of a followed mod shows up in its followers' bell, and an email digest

@@ -52,6 +52,25 @@ class DataFiles
     }
 
     /**
+     * Writes the download counts into the release lists: those whose total changed since they were
+     * last written, or with $all every list that has a release up. Returns how many it wrote.
+     */
+    public static function publishDownloads(bool $all = false): int
+    {
+        $count = 0;
+
+        Share::query()
+            ->when(! $all, fn ($query) => $query->whereColumn('downloads', '!=', 'published_downloads'))
+            ->whereHas('releases', fn ($query) => $query->whereNull('taken_down_at')->whereNotNull('listed_at'))
+            ->each(function (Share $share) use (&$count) {
+                self::writeReleaseList($share);
+                $count++;
+            });
+
+        return $count;
+    }
+
+    /**
      * owners/<type>/<id>.json: the opaque account, and the GitHub id the owner signed in with,
      * which an erasure drops (rule 32).
      */

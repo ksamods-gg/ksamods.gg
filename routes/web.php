@@ -132,6 +132,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/jobs/{uuid}/retry', [AdminShareController::class, 'retryJob'])->name('jobs.retry');
             Route::delete('/jobs/{uuid}', [AdminShareController::class, 'forgetJob'])->name('jobs.forget');
             Route::post('/releases/{release}/mirror', [AdminShareController::class, 'mirror'])->name('mirror');
+            Route::post('/downloads', [AdminShareController::class, 'publishDownloads'])->name('downloads');
             Route::post('/{share}/propose', [AdminShareController::class, 'propose'])->name('propose');
             Route::delete('/{share}', [AdminShareController::class, 'purge'])->name('purge');
         });

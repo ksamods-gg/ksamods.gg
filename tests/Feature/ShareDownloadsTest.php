@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Share;
+use App\Models\User;
 use App\Support\Share\Signer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -101,6 +103,26 @@ it('publishes the counts in the signed release list once a day, only for lists w
         ->and(json_decode($bytes, true)['downloads'])->toBe(['total' => 1, 'versions' => ['1.0.0' => 1], 'updated' => now()->utc()->format('Y-m-d\TH:i:s\Z')])
         ->and(Storage::disk('public')->exists("releases/{$quiet->type}/Quiet.json"))->toBeFalse();
 
-    // Nothing new: nothing to sign again.
+    // Nothing new: nothing to sign again, unless asked to sign every list.
     $this->artisan('shares:publish-downloads')->expectsOutput('Published the download counts of 0 listings.');
+    $this->artisan('shares:publish-downloads --all')->expectsOutput('Published the download counts of 2 listings.');
+    expect(Storage::disk('public')->exists("releases/{$quiet->type}/Quiet.json"))->toBeTrue();
+});
+
+it('publishes the counts from the admin share panel, for admins only', function () {
+    Storage::fake('public');
+    config(['share.disk' => 'public', 'share.signing_key' => Signer::generate()]);
+    $share = downloadableShare(['downloads' => 4], ['listed_at' => now()]);
+    downloadableShare(['listing_id' => 'Quiet'], ['listed_at' => now()]);
+
+    $this->actingAs(User::factory()->create(['role' => Role::Moderator]))->post(route('admin.shares.downloads'))->assertForbidden();
+
+    $admin = User::factory()->create(['role' => Role::Admin]);
+    $this->actingAs($admin)->post(route('admin.shares.downloads'))
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('status', 'Published the download counts of 1 listing.');
+    expect($share->fresh()->published_downloads)->toBe(4);
+
+    $this->actingAs($admin)->post(route('admin.shares.downloads'), ['all' => true])
+        ->assertInertiaFlash('status', 'Published the download counts of 2 listings.');
 });

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AdminNav from '@/components/admin/AdminNav.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { mirror, propose, purge } from '@/routes/admin/shares';
+import { downloads, mirror, propose, purge } from '@/routes/admin/shares';
 import jobs from '@/routes/admin/shares/jobs';
 
 defineProps<{
@@ -15,6 +15,7 @@ defineProps<{
         failed_at: string;
         error: string;
     }[];
+    unpublishedDownloads: number;
     mirroring: boolean;
     waitingMirrors: {
         id: number;
@@ -49,6 +50,22 @@ function confirmPurge(id: number, name: string) {
     ) {
         router.delete(purge(id).url, { preserveScroll: true });
     }
+}
+
+// Does now what the nightly shares:publish-downloads does; "all" signs every list again.
+const publishAll = ref(false);
+const publishing = ref(false);
+
+function publishDownloads() {
+    router.post(
+        downloads().url,
+        { all: publishAll.value },
+        {
+            preserveScroll: true,
+            onStart: () => (publishing.value = true),
+            onFinish: () => (publishing.value = false),
+        },
+    );
 }
 
 const states = computed(() => ({
@@ -86,6 +103,32 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
         </p>
 
         <div class="flex flex-col gap-6">
+            <section :class="card">
+                <h2 class="font-semibold">{{ $t('Download counts') }}</h2>
+                <p :class="['mt-1 text-sm', muted]">
+                    {{
+                        $t(
+                            "The release lists carry each listing's download counts, signed again every night for the lists whose total changed. :count waiting now.",
+                            { count: String(unpublishedDownloads) },
+                        )
+                    }}
+                </p>
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <button
+                        type="button"
+                        :disabled="publishing"
+                        class="rounded-md bg-[#1b1b18] px-3 py-1.5 text-sm font-medium text-white hover:bg-black disabled:opacity-50 dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
+                        @click="publishDownloads"
+                    >
+                        {{ $t('Publish download counts') }}
+                    </button>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input v-model="publishAll" type="checkbox" />
+                        {{ $t('Sign every list again, even unchanged ones') }}
+                    </label>
+                </div>
+            </section>
+
             <section :class="card">
                 <h2 class="font-semibold">
                     {{ $t('Failed jobs') }}

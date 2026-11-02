@@ -6,8 +6,10 @@ use App\Jobs\MirrorShareRelease;
 use App\Models\Share;
 use App\Models\ShareRelease;
 use App\Support\Share\ArchiveMirror;
+use App\Support\Share\DataFiles;
 use App\Support\Share\ShareHost;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -32,6 +34,8 @@ class AdminShareController extends Controller
                 'failed_at' => $job->failed_at,
                 'error' => Str::limit(Str::before((string) $job->exception, "\n"), 300),
             ]),
+            // Release lists whose download total changed since they were last signed.
+            'unpublishedDownloads' => Share::whereColumn('downloads', '!=', 'published_downloads')->count(),
             'mirroring' => ArchiveMirror::enabled(),
             'waitingMirrors' => ArchiveMirror::enabled()
                 ? ShareRelease::with('share')->whereNull('mirror_url')->whereNull('taken_down_at')->latest('id')->get()->map(fn (ShareRelease $release) => [
@@ -76,6 +80,20 @@ class AdminShareController extends Controller
             fn () => ShareHost::propose($share, $share->pull_request_state !== 'merged') ?? throw new RuntimeException(__('GitHub could not be reached; a retry is queued.')),
             __('Proposed :name.', ['name' => $share->name]),
         );
+    }
+
+    /**
+     * What the nightly shares:publish-downloads does, now: the changed release lists, or all of them.
+     */
+    public function publishDownloads(Request $request): RedirectResponse
+    {
+        try {
+            $count = DataFiles::publishDownloads($request->boolean('all'));
+        } catch (Throwable $error) {
+            return back()->withErrors(['shares' => $error->getMessage()]);
+        }
+
+        return $this->done(trans_choice('Published the download counts of :count listing.|Published the download counts of :count listings.', $count));
     }
 
     public function mirror(ShareRelease $release): RedirectResponse
