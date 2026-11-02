@@ -102,11 +102,22 @@ class Share extends Model
      */
     public function countDownload(string $ip): void
     {
-        $key = 'share-download:'.$this->id.':'.hash_hmac('sha256', $ip, (string) config('app.key'));
+        $key = 'share-download:'.$this->id.':'.hash_hmac('sha256', self::downloader($ip), (string) config('app.key'));
 
         if (Cache::add($key, true, now()->endOfDay())) {
             $this->newQuery()->whereKey($this->id)->toBase()->increment('downloads');
         }
+    }
+
+    /**
+     * Who is downloading, for counting and rate limits: an IPv4 address, or an IPv6 address's /64,
+     * since one connection usually gets a whole /64 and could otherwise count again from each address.
+     */
+    public static function downloader(string $ip): string
+    {
+        $bytes = @inet_pton($ip);
+
+        return $bytes !== false && strlen($bytes) === 16 ? bin2hex(substr($bytes, 0, 8)).'::/64' : $ip;
     }
 
     /**

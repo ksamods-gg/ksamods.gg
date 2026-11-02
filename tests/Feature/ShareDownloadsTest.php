@@ -55,3 +55,14 @@ it('orders the list by downloads when asked', function () {
     $this->get(route('shares.index', 'vehicles'))
         ->assertInertia(fn ($page) => $page->where('shares.data.0.id', 'Quiet'));
 });
+
+it('counts an IPv6 connection once, whichever address of its /64 it uses', function () {
+    $share = downloadableShare();
+    $url = route('share.api.downloads', ['type' => $share->type, 'id' => $share->listing_id]);
+
+    foreach (['2001:db8:1:2::1', '2001:db8:1:2:ffff::9', '2001:db8:1:3::1'] as $ip) {
+        $this->withServerVariables(['REMOTE_ADDR' => $ip])->post($url)->assertNoContent();
+    }
+
+    expect($share->fresh()->downloads)->toBe(2);
+});
