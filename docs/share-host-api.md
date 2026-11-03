@@ -405,8 +405,9 @@ downloads:
 ```
 
 `total` counts every download of the listing, including versions taken down since; `versions` has
-each version in the list. Counts only go up. The host rewrites a list whose total changed once a day,
-just after midnight UTC, and whenever the list changes for another reason.
+each version in the list. Counts only go up. The host rewrites a list whose total changed every six
+hours (at 00:10, 06:10, 12:10 and 18:10 UTC), and whenever the list changes for another reason; the
+listing's page on ksamods.gg shows the count live.
 
 ## Errors
 

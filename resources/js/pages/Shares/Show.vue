@@ -9,6 +9,7 @@ import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { isMobileDevice } from '@/lib/device';
 import { formatBytes, formatDate, formatNumber } from '@/lib/format';
+import { liveDownloads } from '@/lib/liveDownloads';
 import { t } from '@/lib/i18n';
 import { create, destroy, edit, index, takeDown } from '@/routes/shares';
 import {
@@ -621,7 +622,15 @@ const card =
                         <dd>{{ formatDate(share.updated_at) }}</dd>
                         <dt :class="muted">{{ $t('Downloads') }}</dt>
                         <dd class="tabular-nums">
-                            {{ formatNumber(share.downloads) }}
+                            {{
+                                formatNumber(
+                                    liveDownloads(
+                                        share.type,
+                                        share.id,
+                                        share.downloads,
+                                    ),
+                                )
+                            }}
                         </dd>
                         <template v-if="share.game_version">
                             <dt :class="muted">{{ $t('Game') }}</dt>

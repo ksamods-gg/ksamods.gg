@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { useEchoNotification } from '@laravel/echo-vue';
+import { useEchoNotification, useEchoPublic } from '@laravel/echo-vue';
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
 import CookieConsent from '@/components/CookieConsent.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import { consentOpen } from '@/lib/consent';
+import { noteDownloads, type DownloadsChanged } from '@/lib/liveDownloads';
 import {
     notificationChannel,
     notificationExcerpt,
@@ -81,6 +82,9 @@ watch(
 // The newest notification, shown briefly in a corner as it arrives.
 const toast = ref<(NotificationData & { id: string }) | null>(null);
 let hideToast: ReturnType<typeof setTimeout> | undefined;
+
+// Vehicle and save download counts, live on every page that shows them.
+useEchoPublic<DownloadsChanged>('share-downloads', '.downloads', noteDownloads);
 
 if (page.props.auth.user) {
     useEchoNotification<NotificationData>(

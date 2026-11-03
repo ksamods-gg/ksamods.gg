@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import ModIcon from '@/components/ModIcon.vue';
 import { formatNumber } from '@/lib/format';
+import { liveDownloads } from '@/lib/liveDownloads';
 import { show } from '@/routes/shares';
 import type { ShareSummary } from '@/types';
 
@@ -95,7 +96,15 @@ const chip =
                     <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
                 </svg>
                 <dd class="tabular-nums">
-                    {{ formatNumber(share.downloads) }}
+                    {{
+                        formatNumber(
+                            liveDownloads(
+                                share.type,
+                                share.id,
+                                share.downloads,
+                            ),
+                        )
+                    }}
                 </dd>
             </div>
             <div class="flex items-center gap-1.5">

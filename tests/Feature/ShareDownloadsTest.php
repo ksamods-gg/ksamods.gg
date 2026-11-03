@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\Role;
+use App\Events\ShareDownloadsChanged;
 use App\Models\Share;
 use App\Models\User;
 use App\Support\Share\Signer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -125,4 +127,17 @@ it('publishes the counts from the admin share panel, for admins only', function 
 
     $this->actingAs($admin)->post(route('admin.shares.downloads'), ['all' => true])
         ->assertInertiaFlash('status', 'Published the download counts of 2 listings.');
+});
+
+it('sends open pages the new total of each counted download, and nothing for a repeat', function () {
+    Event::fake([ShareDownloadsChanged::class]);
+    $share = downloadableShare(['downloads' => 6]);
+    $url = route('share.api.downloads', ['type' => $share->type, 'id' => $share->listing_id]);
+
+    $this->post($url);
+    $this->post($url);
+
+    Event::assertDispatchedTimes(ShareDownloadsChanged::class, 1);
+    Event::assertDispatched(fn (ShareDownloadsChanged $event) => $event->type === 'vehicle' && $event->id === $share->listing_id && $event->downloads === 7
+        && $event->broadcastOn()->name === 'share-downloads');
 });

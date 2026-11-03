@@ -18,8 +18,8 @@ class DataFiles
      * releases/<type>/<id>.json: every release not taken down, oldest first. The list only grows,
      * except that a takedown removes its entry (rules 10 and 18). `downloads` gives the listing's
      * total and each listed version's count as of `updated`; counts only go up, and the total
-     * keeps the downloads of versions taken down since. The daily shares:publish-downloads
-     * rewrites lists whose total changed.
+     * keeps the downloads of versions taken down since. shares:publish-downloads rewrites the
+     * lists whose total changed every six hours.
      */
     public static function writeReleaseList(Share $share): void
     {

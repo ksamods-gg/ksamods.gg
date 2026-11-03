@@ -53,10 +53,10 @@ Schedule::command('model:prune', ['--model' => [ShareUpload::class]])->hourly();
 Schedule::command('passport:purge')->daily();
 
 /*
- * Download counts go into each release list, which the index reads about once a day; the lists
- * whose total changed are signed again just after the day's counting ends.
+ * Download counts go into each release list, which the index reads about once a day; every six
+ * hours the lists whose total changed are signed again. The site shows each count live.
  */
-Schedule::command('shares:publish-downloads')->dailyAt('00:10');
+Schedule::command('shares:publish-downloads')->cron('10 */6 * * *');
 
 Artisan::command('shares:publish-downloads {--all : Sign every release list again, even those whose total did not change}', function () {
     $count = DataFiles::publishDownloads((bool) $this->option('all'));

@@ -83,7 +83,7 @@ class AdminShareController extends Controller
     }
 
     /**
-     * What the nightly shares:publish-downloads does, now: the changed release lists, or all of them.
+     * What the six-hourly shares:publish-downloads does, now: the changed release lists, or all of them.
      */
     public function publishDownloads(Request $request): RedirectResponse
     {

@@ -52,7 +52,7 @@ function confirmPurge(id: number, name: string) {
     }
 }
 
-// Does now what the nightly shares:publish-downloads does; "all" signs every list again.
+// Does now what the six-hourly shares:publish-downloads does; "all" signs every list again.
 const publishAll = ref(false);
 const publishing = ref(false);
 
@@ -108,7 +108,7 @@ const danger = 'text-xs text-[#f53003] hover:underline dark:text-[#FF4433]';
                 <p :class="['mt-1 text-sm', muted]">
                     {{
                         $t(
-                            "The release lists carry each listing's download counts, signed again every night for the lists whose total changed. :count waiting now.",
+                            "The release lists carry each listing's download counts, signed again every six hours for the lists whose total changed. :count waiting now.",
                             { count: String(unpublishedDownloads) },
                         )
                     }}

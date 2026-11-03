@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\ShareDownloadsChanged;
 use App\Notifications\SiteActivity;
 use Database\Factories\ShareFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -101,7 +102,8 @@ class Share extends Model
     /**
      * Counts a download of the release by the player at this IP address, once a day per listing.
      * Only a hash of the address is kept, in the cache, until the day ends. The listing's total
-     * and the release's own count go up together; updated_at stays as it is on both.
+     * and the release's own count go up together; updated_at stays as it is on both. Open pages
+     * get the new total at once; the release list publishes it every six hours.
      */
     public function countDownload(string $ip, ShareRelease $release): void
     {
@@ -112,6 +114,8 @@ class Share extends Model
                 $this->newQuery()->whereKey($this->id)->toBase()->increment('downloads');
                 $release->newQuery()->whereKey($release->id)->toBase()->increment('downloads');
             });
+
+            ShareDownloadsChanged::dispatch($this->type, $this->listing_id, (int) $this->newQuery()->whereKey($this->id)->value('downloads'));
         }
     }
 
