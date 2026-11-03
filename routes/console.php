@@ -53,7 +53,7 @@ Schedule::command('model:prune', ['--model' => [ShareUpload::class]])->hourly();
 Schedule::command('passport:purge')->daily();
 
 /*
- * Download counts go into each release list, which the index reads about once a day; every six
+ * Download counts go into each release list, which the index reads every six hours; every six
  * hours the lists whose total changed are signed again. The site shows each count live.
  */
 Schedule::command('shares:publish-downloads')->cron('10 */6 * * *');
