@@ -11,7 +11,6 @@ use App\Support\ContentIndex;
 use App\Support\Share\ArchiveMirror;
 use App\Support\Share\Attestation;
 use App\Support\Share\Signer;
-use Carbon\CarbonInterval;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
@@ -68,6 +67,7 @@ beforeEach(function () {
     $this->mirrored = [];
     $this->unmirrored = [];
     $this->notServedYet = 0;
+    $this->uploads = 0;
 
     Http::fake(function (HttpRequest $request) {
         $url = $request->url();
@@ -85,9 +85,12 @@ beforeEach(function () {
 
         if (str_starts_with($url, 'https://s3.us.archive.org/')) {
             $item = substr($url, strlen('https://s3.us.archive.org/'));
-            $request->method() === 'DELETE'
-                ? $this->unmirrored[] = $item
-                : $this->mirrored[$item] = ['headers' => $request->headers(), 'size' => (int) $request->header('x-archive-size-hint')[0]];
+            if ($request->method() === 'DELETE') {
+                $this->unmirrored[] = $item;
+            } else {
+                $this->uploads++;
+                $this->mirrored[$item] = ['headers' => $request->headers(), 'size' => (int) $request->header('x-archive-size-hint')[0]];
+            }
 
             return Http::response('', 200);
         }
@@ -547,14 +550,21 @@ describe('Internet Archive mirrors', function () {
             ->and($this->pulls)->toHaveCount(1);
     });
 
-    it('adds the mirror only once archive.org serves it', function () {
+    it('uploads once, and adds the mirror only once archive.org serves it', function () {
+        Queue::fake();
+        // Not served before the upload, right after it, nor at the next look.
         $this->notServedYet = 3;
 
         publishVehicle(User::factory()->create())->assertCreated();
+        $job = Queue::pushed(MirrorShareRelease::class)->sole();
 
-        // Three waits of 15 seconds for archive.org, then it served the file.
-        Sleep::assertSlept(fn (CarbonInterval $duration) => (int) $duration->totalSeconds === 15, 3);
-        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->toHaveKey('mirrors');
+        $job->handle();
+        $job->handle();
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->not->toHaveKey('mirrors');
+
+        $job->handle();
+        expect(signedFile('releases/vehicle/ExampleRover.json')['releases'][0])->toHaveKey('mirrors')
+            ->and($this->uploads)->toBe(1);
     });
 
     it('deletes the mirror when a release is taken down', function () {

@@ -8,7 +8,6 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -53,11 +52,12 @@ class ArchiveMirror
     }
 
     /**
-     * Uploads the release's archive, and returns its download URL once archive.org serves it.
+     * Uploads the release's archive. archive.org accepts it before it serves it, which can take
+     * minutes or, when it is busy, hours: see served().
      *
      * @throws RequestException|RuntimeException
      */
-    public static function upload(ShareRelease $release): string
+    public static function upload(ShareRelease $release): void
     {
         $share = $release->share;
         $stream = DataFiles::disk()->readStream($release->path) ?? throw new RuntimeException("The archive {$release->path} is gone.");
@@ -103,10 +103,17 @@ class ArchiveMirror
         } finally {
             $body->close();
         }
+    }
 
-        self::waitUntilServed($release);
+    /**
+     * Whether archive.org serves the whole archive yet. The release list only names the mirror
+     * once a download works, since the watcher remembers a mirror whose bytes differ.
+     */
+    public static function served(ShareRelease $release): bool
+    {
+        $response = self::client()->head(self::url($release));
 
-        return self::url($release);
+        return $response->successful() && (int) $response->header('Content-Length') === $release->size;
     }
 
     /**
@@ -122,25 +129,6 @@ class ArchiveMirror
         if (! $response->notFound()) {
             $response->throw();
         }
-    }
-
-    /**
-     * archive.org accepts an upload before it serves it. The release list only names the mirror
-     * once a download works, since the watcher remembers a mirror whose bytes differ.
-     */
-    private static function waitUntilServed(ShareRelease $release): void
-    {
-        for ($attempt = 1; $attempt <= 40; $attempt++) {
-            $response = self::client()->head(self::url($release));
-
-            if ($response->successful() && (int) $response->header('Content-Length') === $release->size) {
-                return;
-            }
-
-            Sleep::for(15)->seconds();
-        }
-
-        throw new RuntimeException('archive.org has not served '.self::url($release).' after 10 minutes.');
     }
 
     /**
