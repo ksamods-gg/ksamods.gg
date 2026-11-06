@@ -4,6 +4,7 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
 
 /**
  * A listing's new download total, so open pages show it at once. Public: the total is public on
@@ -11,6 +12,8 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
  */
 class ShareDownloadsChanged implements ShouldBroadcast
 {
+    use Dispatchable;
+
     public function __construct(public string $type, public string $id, public int $downloads) {}
 
     public function broadcastOn(): Channel
