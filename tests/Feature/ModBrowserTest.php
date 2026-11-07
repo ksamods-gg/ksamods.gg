@@ -173,3 +173,20 @@ it('handles a dependency on any one of several mods, on both sides', function ()
     $this->get(route('mods.show', 'Wheels'))->assertOk()->assertInertia(fn (Assert $page) => $page
         ->where('dependents', [['id' => 'Rover', 'name' => 'Rover', 'icon' => null, 'kind' => 'required', 'min' => '0.5.0', 'max' => null]]));
 });
+
+it('keeps working when a listing comes without a date or a name', function () {
+    Http::swap(new Factory);
+    Http::fake([ContentIndex::URL => Http::response(['tags' => ['mod' => []], 'listings' => [
+        ['id' => 'NoUpdate', 'published_at' => '2026-01-01T00:00:00Z', 'authored' => ['type' => 'mod', 'name' => 'No Update'], 'releases' => []],
+        ['id' => 'NoName', 'published_at' => '2026-01-01T00:00:00Z', 'updated_at' => '2026-01-01T00:00:00Z', 'authored' => ['type' => 'mod'], 'releases' => []],
+        ['id' => 'NoDates', 'authored' => ['type' => 'mod', 'name' => 'No Dates'], 'releases' => []],
+    ]])]);
+
+    foreach ([route('home'), route('mods.index'), route('mods.show', 'NoUpdate'), '/sitemap.xml'] as $url) {
+        $this->get($url)->assertOk();
+    }
+
+    $this->get(route('mods.index'))->assertInertia(fn (Assert $page) => $page
+        ->has('mods', 2)
+        ->where('mods.0.updated_at', '2026-01-01T00:00:00Z'));
+});

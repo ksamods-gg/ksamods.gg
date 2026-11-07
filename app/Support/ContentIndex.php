@@ -12,7 +12,7 @@ use Throwable;
  * The KSA content index snapshot. Shape of the parts this app reads (RFC 0033):
  *
  * @phpstan-type Release array{version: string, release_status: string, release_date: string, game_min?: string, game_min_revision?: int, download: array{url: string, size?: int, mirrors?: list<string>}, loader?: array{id: string, min?: string}, dependencies?: list<array{id?: string, any_of?: list<array{id: string, min?: string, max?: string}>, kind: string, min?: string, max?: string}>, changelog?: string, changelog_text?: string}
- * @phpstan-type Listing array{id: string, published_at: string, updated_at: string, authored: array{type: string, name: string, authors?: list<string>, abstract?: string, description?: string, license?: string, tags?: list<string>, links?: array<string, string>, images?: array{icon?: array{url: string}, description?: list<array{id: string, url: string}>}}, releases?: list<Release>, downloads?: array{total: int}}
+ * @phpstan-type Listing array{id: string, published_at: string|null, updated_at: string|null, authored: array{type: string, name: string, authors?: list<string>, abstract?: string, description?: string, license?: string, tags?: list<string>, links?: array<string, string>, images?: array{icon?: array{url: string}, description?: list<array{id: string, url: string}>}}, releases?: list<Release>, downloads?: array{total: int}}
  * @phpstan-type Snapshot array{listings: list<Listing>, tags: array{mod?: list<array{tag: string, name: string}>}, game_versions?: array{versions: list<string>}}
  */
 class ContentIndex
@@ -33,7 +33,32 @@ class ContentIndex
      */
     public static function snapshot(): array
     {
-        return self::cache()->flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => self::fetch());
+        return self::normalize(self::cache()->flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => self::fetch()));
+    }
+
+    /**
+     * One listing the index publishes without what every page reads must not take the site down:
+     * a missing date takes the other one, or none, and a listing without an id, name or type is
+     * left out. On read, so a copy cached before this still works.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @return Snapshot
+     */
+    private static function normalize(array $snapshot): array
+    {
+        $snapshot['listings'] = array_values(array_filter(array_map(function (mixed $listing) {
+            if (! is_array($listing) || ! isset($listing['id'], $listing['authored']['type'], $listing['authored']['name'])) {
+                return null;
+            }
+
+            $listing['updated_at'] ??= $listing['published_at'] ?? null;
+            $listing['published_at'] ??= $listing['updated_at'];
+
+            return $listing;
+        }, (array) ($snapshot['listings'] ?? []))));
+
+        /** @var Snapshot $snapshot */
+        return $snapshot;
     }
 
     /**
@@ -46,7 +71,7 @@ class ContentIndex
         $snapshot = self::fetch();
         self::cache()->forget(self::CACHE_KEY);
 
-        return self::cache()->flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => $snapshot);
+        return self::normalize(self::cache()->flexible(self::CACHE_KEY, self::CACHE_TTL, fn () => $snapshot));
     }
 
     /**
