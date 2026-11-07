@@ -69,6 +69,10 @@ class AccountController extends Controller
     {
         $user = $request->user();
 
+        // Signed out first: logging out saves a fresh remember token on the user, which would
+        // insert a deleted user again.
+        Auth::logout();
+
         DB::transaction(function () use ($user) {
             $commentIds = $user->comments()->withTrashed()->pluck('id');
             $reviewIds = $user->reviews()->pluck('id');
@@ -86,7 +90,6 @@ class AccountController extends Controller
             $user->delete();
         });
 
-        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

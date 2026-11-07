@@ -347,7 +347,10 @@ listing; a field left out stays as it is. The change goes to the index by pull r
 the listing's open one.
 
 ```json
-{ "abstract": "A sturdier six-wheel rover for the Moon.", "tags": ["rover", "moon"] }
+{
+    "abstract": "A sturdier six-wheel rover for the Moon.",
+    "tags": ["rover", "moon"]
+}
 ```
 
 `200`:
@@ -372,7 +375,12 @@ ask the player to confirm first. An unknown version answers `404 invalid_request
 `200`:
 
 ```json
-{ "id": "ExampleRover", "type": "vehicle", "version": "1.1.0", "taken_down": true }
+{
+    "id": "ExampleRover",
+    "type": "vehicle",
+    "version": "1.1.0",
+    "taken_down": true
+}
 ```
 
 ## Downloads
