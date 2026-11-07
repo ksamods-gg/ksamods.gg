@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import Pager from '@/components/admin/Pager.vue';
+import BrowseTabs from '@/components/BrowseTabs.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import ShareRow from '@/components/ShareRow.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { t } from '@/lib/i18n';
 import { shares as sharesFeed } from '@/routes/feeds';
 import { create, index } from '@/routes/shares';
 import type { Paginated, ShareSummary } from '@/types';
@@ -30,14 +30,6 @@ function apply() {
         { preserveState: true },
     );
 }
-
-const tabs = computed(
-    () =>
-        [
-            { types: 'vehicles', label: t('Vehicles') },
-            { types: 'saves', label: t('Saves') },
-        ] as const,
-);
 
 const muted = 'text-[#706f6c] dark:text-[#A1A09A]';
 const control =
@@ -71,6 +63,8 @@ const control =
     </Head>
 
     <AppLayout>
+        <BrowseTabs :current="types" />
+
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">
@@ -109,29 +103,7 @@ const control =
             {{ $page.flash.status }}
         </p>
 
-        <nav
-            class="mt-6 flex gap-6 text-sm shadow-[inset_0_-1px_0_#19140014] dark:shadow-[inset_0_-1px_0_#3E3E3A]"
-            :aria-label="$t('Type')"
-        >
-            <Link
-                v-for="tab in tabs"
-                :key="tab.types"
-                :href="index(tab.types)"
-                :aria-current="tab.types === types ? 'page' : undefined"
-                :class="[
-                    'border-b-2 pb-2 font-medium',
-                    tab.types === types
-                        ? 'border-[#1b1b18] dark:border-[#EDEDEC]'
-                        : [
-                              'border-transparent hover:text-[#1b1b18] dark:hover:text-[#EDEDEC]',
-                              muted,
-                          ],
-                ]"
-                >{{ tab.label }}</Link
-            >
-        </nav>
-
-        <form role="search" class="mt-4" @submit.prevent="apply">
+        <form role="search" class="mt-6" @submit.prevent="apply">
             <label class="block">
                 <span class="sr-only">{{
                     types === 'vehicles'

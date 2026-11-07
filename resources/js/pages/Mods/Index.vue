@@ -2,6 +2,7 @@
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, reactive, ref, useTemplateRef, watch } from 'vue';
 import ModRow from '@/components/ModRow.vue';
+import BrowseTabs from '@/components/BrowseTabs.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { tagName } from '@/lib/format';
@@ -303,6 +304,8 @@ const pageButton =
     </Head>
 
     <AppLayout>
+        <BrowseTabs current="mods" />
+
         <div class="mb-6">
             <h1 class="text-2xl font-semibold tracking-tight">
                 {{ $t('Mods for Kitten Space Agency') }}

@@ -28,7 +28,6 @@ import { index, mine } from '@/routes/mods';
 import { open as openNotification } from '@/routes/notifications';
 import { show as profileShow } from '@/routes/profiles';
 import { profile as profileSettings } from '@/routes/settings';
-import { index as sharesIndex } from '@/routes/shares';
 import { index as translateIndex } from '@/routes/translate';
 import type { NotificationData } from '@/types';
 
@@ -126,14 +125,10 @@ if (page.props.auth.user) {
                     class="ml-auto flex items-center justify-end gap-x-3 text-sm"
                 >
                     <div class="hidden sm:contents">
+                        <!-- Mods, vehicles and saves are tabs of one browse page. -->
                         <Link :href="index()" class="hover:underline">{{
-                            $t('Mods')
+                            $t('Browse')
                         }}</Link>
-                        <Link
-                            :href="sharesIndex('vehicles')"
-                            class="hover:underline"
-                            >{{ $t('Vehicles & saves') }}</Link
-                        >
                         <!-- A plain link: it may go on to GitHub to ask for pull request access. -->
                         <a :href="create().url" class="hover:underline">
                             {{ $t('Publish a mod') }}
@@ -367,14 +362,7 @@ if (page.props.auth.user) {
                         <Link
                             :href="index()"
                             class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >{{ $t('Mods') }}</Link
-                        >
-                    </li>
-                    <li>
-                        <Link
-                            :href="sharesIndex('vehicles')"
-                            class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >{{ $t('Vehicles & saves') }}</Link
+                            >{{ $t('Browse') }}</Link
                         >
                     </li>
                     <li>
