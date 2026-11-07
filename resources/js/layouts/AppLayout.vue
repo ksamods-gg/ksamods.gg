@@ -436,7 +436,7 @@ if (page.props.auth.user) {
 
         <footer class="border-t border-[#19140014] dark:border-[#3E3E3A]/60">
             <div
-                class="mx-auto flex max-w-6xl flex-wrap gap-x-4 gap-y-2 px-4 py-6 text-sm text-[#706f6c] sm:px-6 dark:text-[#A1A09A]"
+                class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-6 text-sm text-[#706f6c] sm:px-6 dark:text-[#A1A09A]"
             >
                 <Link :href="privacy()" class="hover:underline">{{
                     $t('Privacy')
