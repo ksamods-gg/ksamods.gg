@@ -2,6 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormField from '@/components/FormField.vue';
+import PublishTabs from '@/components/PublishTabs.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatBytes } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -71,6 +72,7 @@ const input =
 
     <AppLayout>
         <div class="mx-auto max-w-3xl">
+            <PublishTabs current="share" />
             <h1 class="text-2xl font-semibold tracking-tight">
                 {{ $t('Share a vehicle or save') }}
             </h1>

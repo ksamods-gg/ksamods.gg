@@ -129,9 +129,9 @@ if (page.props.auth.user) {
                         <Link :href="index()" class="hover:underline">{{
                             $t('Browse')
                         }}</Link>
-                        <!-- A plain link: it may go on to GitHub to ask for pull request access. -->
+                        <!-- A mod, a vehicle or a save are tabs of one publish page. A plain link: it may go on to GitHub to ask for pull request access. -->
                         <a :href="create().url" class="hover:underline">
-                            {{ $t('Publish a mod') }}
+                            {{ $t('Publish') }}
                         </a>
                     </div>
                     <Link
@@ -369,7 +369,7 @@ if (page.props.auth.user) {
                         <a
                             :href="create().url"
                             class="-mx-2 block rounded-md px-2 py-2.5 hover:bg-[#f4f3ef] dark:hover:bg-[#1c1c1a]"
-                            >{{ $t('Publish a mod') }}</a
+                            >{{ $t('Publish') }}</a
                         >
                     </li>
                     <template v-if="page.props.auth.user">

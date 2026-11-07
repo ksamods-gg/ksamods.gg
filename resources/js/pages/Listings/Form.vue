@@ -2,6 +2,7 @@
 import { Form, Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import FormField from '@/components/FormField.vue';
+import PublishTabs from '@/components/PublishTabs.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { t } from '@/lib/i18n';
 import { pullRequests } from '@/routes/github';
@@ -41,6 +42,7 @@ const action = props.listing ? update.form(props.listing.id) : store.form();
 
     <AppLayout>
         <div class="mx-auto max-w-3xl">
+            <PublishTabs v-if="!listing" current="mod" />
             <a
                 v-if="listing"
                 :href="show(listing.id).url"
