@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import ModCard from '@/components/ModCard.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import PageMeta from '@/components/PageMeta.vue';
+import ShareRow from '@/components/ShareRow.vue';
 import Stars from '@/components/Stars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import {
@@ -14,7 +15,8 @@ import { isMobileDevice } from '@/lib/device';
 import { formatNumber } from '@/lib/format';
 import { create } from '@/routes/listings';
 import { index, show } from '@/routes/mods';
-import type { ModSummary } from '@/types';
+import { create as shareCreate, index as sharesIndex } from '@/routes/shares';
+import type { ModSummary, ShareSummary } from '@/types';
 
 type LogRelease = {
     mod: { id: string; name: string; icon: string | null };
@@ -41,7 +43,14 @@ defineProps<{
     releases: LogRelease[];
     popular: ModSummary[];
     topRated: ModSummary[];
-    counts: { mods: number; downloads: number };
+    // The newest vehicles and saves.
+    shares: ShareSummary[];
+    counts: {
+        mods: number;
+        downloads: number;
+        vehicles: number;
+        saves: number;
+    };
     community: CommunityPost[];
 }>();
 
@@ -68,7 +77,7 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
         :title="$t('Kitten Space Agency mods')"
         :description="
             $t(
-                'Find, install and publish Kitten Space Agency mods. Every mod in the KSA content index, with reviews and one-click installs through Borea.',
+                'Find, install and publish Kitten Space Agency mods, and share vehicles and save games. Every mod in the KSA content index, with reviews and one-click installs through Borea.',
             )
         "
         :json-ld="{
@@ -93,9 +102,7 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                     class="text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.5rem]"
                 >
                     {{
-                        $t(
-                            'Find, install and publish Kitten Space Agency mods.',
-                        )
+                        $t('Mods, vehicles and saves for Kitten Space Agency.')
                     }}
                 </h1>
                 <p
@@ -106,12 +113,12 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                 >
                     {{
                         $t(
-                            'Every mod in the community KSA content index, with reviews, dependencies and one-click installs through Borea.',
+                            'Every mod in the community KSA content index, with reviews, dependencies and one-click installs through Borea. Rockets, rovers and whole save games shared by players, with the mods each one needs.',
                         )
                     }}
                 </p>
 
-                <!-- Two equal paths: players and authors weigh the same. -->
+                <!-- Equal paths: getting things on top, sharing your own below; players and authors weigh the same. -->
                 <div class="mt-8 grid gap-3 sm:grid-cols-2">
                     <Link :href="index()" :class="[card, pathTile]">
                         <span class="font-semibold">{{
@@ -121,6 +128,20 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                             $t('Search, read reviews, install')
                         }}</span>
                     </Link>
+                    <Link
+                        :href="sharesIndex('vehicles')"
+                        :class="[card, pathTile]"
+                    >
+                        <span class="font-semibold">{{
+                            $t('Vehicles & saves')
+                        }}</span>
+                        <span :class="['mt-0.5 text-sm', muted]">{{
+                            $t(':vehicles vehicles, :saves saves', {
+                                vehicles: counts.vehicles,
+                                saves: counts.saves,
+                            })
+                        }}</span>
+                    </Link>
                     <!-- A plain link: it may go on to GitHub to sign in. -->
                     <a :href="create().url" :class="[card, pathTile]">
                         <span class="font-semibold">{{
@@ -128,6 +149,15 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                         }}</span>
                         <span :class="['mt-0.5 text-sm', muted]">{{
                             $t('List it in the index from GitHub')
+                        }}</span>
+                    </a>
+                    <!-- A plain link: it may go on to sign in. -->
+                    <a :href="shareCreate().url" :class="[card, pathTile]">
+                        <span class="font-semibold">{{
+                            $t('Share a vehicle or save')
+                        }}</span>
+                        <span :class="['mt-0.5 text-sm', muted]">{{
+                            $t('Upload the zip, we host it')
                         }}</span>
                     </a>
                 </div>
@@ -344,6 +374,44 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
             </ul>
         </section>
 
+        <!-- What players share: the newest vehicles and saves, and how to share yours. -->
+        <section class="mt-20">
+            <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 :class="sectionHeading">
+                        {{ $t('New vehicles and saves') }}
+                    </h2>
+                    <p :class="['mt-1 max-w-prose text-sm', muted]">
+                        {{
+                            $t(
+                                'Hosted here, checked on upload, listed in the KSA content index and copied to the Internet Archive.',
+                            )
+                        }}
+                    </p>
+                </div>
+                <div class="flex flex-wrap gap-x-5 gap-y-2">
+                    <Link :href="sharesIndex('vehicles')" :class="textLink">{{
+                        $t('All vehicles')
+                    }}</Link>
+                    <Link :href="sharesIndex('saves')" :class="textLink">{{
+                        $t('All saves')
+                    }}</Link>
+                </div>
+            </div>
+            <ul v-if="shares.length" class="grid gap-3 lg:grid-cols-2">
+                <li v-for="share in shares" :key="`${share.type}-${share.id}`">
+                    <ShareRow :share="share" />
+                </li>
+            </ul>
+            <p v-else :class="muted">
+                {{ $t('Nothing shared yet. Be the first.') }}
+            </p>
+            <!-- A plain link: it may go on to sign in. -->
+            <a :href="shareCreate().url" :class="[button, 'mt-6']">
+                {{ $t('Share a vehicle or save') }}
+            </a>
+        </section>
+
         <!-- How each path works, side by side: installing and publishing. -->
         <section class="mt-24 grid gap-4 lg:grid-cols-2">
             <div :class="[card, 'p-6 sm:p-8']">
@@ -510,7 +578,7 @@ const textLink = 'text-sm underline underline-offset-4 hover:text-accent';
                     <p :class="['mt-2 max-w-2xl', muted]">
                         {{
                             $t(
-                                'ksamods.gg is an independent site. Every listing comes from KSAModding’s content index, and installs go through their Borea.',
+                                'ksamods.gg is an independent site. Every mod listing comes from KSAModding’s content index, and installs go through their Borea. Vehicles and saves are hosted here and listed in the same index.',
                             )
                         }}
                     </p>

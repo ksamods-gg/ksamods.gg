@@ -2,6 +2,7 @@
 
 use App\Models\Comment;
 use App\Models\Review;
+use App\Models\Share;
 use App\Support\ContentIndex;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
@@ -55,7 +56,7 @@ it('shows a log of the newest stable releases, with a plain-text summary of each
         ->where('releases.1.day', 'Oct 9')
         ->where('releases.0.summary', 'Boostback: now steers to the pad.')
         ->where('releases.1.summary', 'Fixed the axle.')
-        ->where('counts', ['mods' => 2, 'downloads' => 9500])
+        ->where('counts', ['mods' => 2, 'downloads' => 9500, 'vehicles' => 0, 'saves' => 0])
         ->where('popular.0.id', 'Wheels'));
 });
 
@@ -101,4 +102,20 @@ it('keeps characters whole in a summary, so the page encodes as JSON', function 
 
     // The page data in the HTML, which was empty when it failed to encode.
     $this->get(route('home'))->assertSee('"component":"Home"', false);
+});
+
+it('shows the newest vehicles and saves, and counts only those still up', function () {
+    $share = fn (string $id, string $type, ?string $takenDown = null) => Share::factory()->create(['listing_id' => $id, 'name' => $id, 'type' => $type])
+        ->releases()->create([
+            'version' => '1.0.0', 'status' => 'stable', 'path' => 'archives/x.zip', 'size' => 1, 'sha256' => str_repeat('0', 64),
+            'folder' => $id, 'game_version' => '2026.10.10.5554', 'dependencies' => [], 'taken_down_at' => $takenDown,
+        ]);
+    $share('Rover', 'vehicle');
+    $share('Moonbase', 'save');
+    $share('Gone', 'vehicle', now()->toDateTimeString());
+
+    $this->get(route('home'))->assertInertia(fn (Assert $page) => $page
+        ->has('shares', 2)
+        ->where('counts.vehicles', 1)
+        ->where('counts.saves', 1));
 });

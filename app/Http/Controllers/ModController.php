@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Review;
+use App\Models\Share;
 use App\Support\ContentIndex;
 use App\Support\ListingOwnership;
 use App\Support\ModSocial;
@@ -24,7 +25,8 @@ use Inertia\Response;
 class ModController extends Controller
 {
     /**
-     * The landing page: what ships, what people install and rate, and how to install or publish.
+     * The landing page: what ships, what people install and rate, the newest vehicles and saves,
+     * and how to install, publish or share.
      */
     public function home(): Response
     {
@@ -55,6 +57,8 @@ class ModController extends Controller
             ->take(6)
             ->values();
         $popular = $summaries->sortByDesc('downloads')->take(6)->values();
+        // Vehicles and saves with a release still up, as their lists show them.
+        $shares = Share::whereHas('releases', fn ($query) => $query->whereNull('taken_down_at'));
 
         return Inertia::render('Home', [
             'releases' => $releases,
@@ -66,9 +70,17 @@ class ModController extends Controller
                 ->sortBy([['rating.average', 'desc'], ['rating.count', 'desc']])
                 ->take(3)
                 ->values(),
+            'shares' => (clone $shares)
+                ->with(['releases' => fn ($query) => $query->whereNull('taken_down_at')])
+                ->latest('updated_at')
+                ->take(4)
+                ->get()
+                ->map(fn (Share $share) => app(ShareController::class)->summary($share)),
             'counts' => [
                 'mods' => $listings->count(),
                 'downloads' => $listings->sum(fn (array $listing) => $listing['downloads']['total'] ?? 0),
+                'vehicles' => (clone $shares)->where('type', 'vehicle')->count(),
+                'saves' => (clone $shares)->where('type', 'save')->count(),
             ],
             'community' => ModSocial::recent(4, $listings->mapWithKeys(fn (array $listing) => [$listing['id'] => $listing['authored']['name']])->all()),
         ]);
