@@ -69,6 +69,8 @@ class ShareController extends Controller
                     'size' => $release->size,
                     'sha256' => $release->sha256,
                     'game_version' => $release->game_version,
+                    'game_max' => $gameMax = ContentIndex::gameMax($share->type, $share->listing_id, $release->version),
+                    'outdated' => ContentIndex::beforeCurrentGame($gameMax),
                     'date' => $release->created_at->toIso8601String(),
                     'url' => $release->taken_down_at ? null : $release->url(),
                     'taken_down' => $release->taken_down_at !== null,
@@ -334,6 +336,7 @@ class ShareController extends Controller
     public function summary(Share $share): array
     {
         $latest = $share->releases->whereNull('taken_down_at')->last();
+        $gameMax = $latest ? ContentIndex::gameMax($share->type, $share->listing_id, $latest->version) : null;
 
         return [
             'id' => $share->listing_id,
@@ -344,6 +347,10 @@ class ShareController extends Controller
             'tags' => $share->tags,
             'version' => $latest?->version,
             'game_version' => $latest?->game_version,
+            // The newest build it works on, when the index caps it, and whether that is older
+            // than the game players have now.
+            'game_max' => $gameMax,
+            'outdated' => ContentIndex::beforeCurrentGame($gameMax),
             // The cover's square crop, for rows and headers.
             'icon' => $share->icon['url'] ?? null,
             'download_url' => $latest?->url(),

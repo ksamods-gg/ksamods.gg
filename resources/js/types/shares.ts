@@ -21,6 +21,10 @@ export type ShareSummary = {
     tags: string[];
     version: string | null;
     game_version: string | null;
+    // The newest game build it works on, when the index caps it, and whether that is older
+    // than the current build.
+    game_max: string | null;
+    outdated: boolean;
     download_url: string | null;
     // Players who downloaded it, each counted once a day.
     downloads: number;
@@ -38,6 +42,8 @@ export type ShareReleaseItem = {
     size: number;
     sha256: string;
     game_version: string;
+    game_max: string | null;
+    outdated: boolean;
     date: string;
     // Null once taken down.
     url: string | null;

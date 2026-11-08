@@ -11,7 +11,7 @@ use Throwable;
 /**
  * The KSA content index snapshot. Shape of the parts this app reads (RFC 0033):
  *
- * @phpstan-type Release array{version: string, release_status: string, release_date: string, game_min?: string, game_min_revision?: int, download: array{url: string, size?: int, mirrors?: list<string>}, loader?: array{id: string, min?: string}, dependencies?: list<array{id?: string, any_of?: list<array{id: string, min?: string, max?: string}>, kind: string, min?: string, max?: string}>, changelog?: string, changelog_text?: string}
+ * @phpstan-type Release array{version: string, release_status: string, release_date: string, game_min?: string, game_min_revision?: int, game_max?: string, game_max_revision?: int, download: array{url: string, size?: int, mirrors?: list<string>}, loader?: array{id: string, min?: string}, dependencies?: list<array{id?: string, any_of?: list<array{id: string, min?: string, max?: string}>, kind: string, min?: string, max?: string}>, changelog?: string, changelog_text?: string}
  * @phpstan-type Listing array{id: string, published_at: string|null, updated_at: string|null, authored: array{type: string, name: string, authors?: list<string>, abstract?: string, description?: string, license?: string, tags?: list<string>, links?: array<string, string>, images?: array{icon?: array{url: string}, description?: list<array{id: string, url: string}>}}, releases?: list<Release>, downloads?: array{total: int}}
  * @phpstan-type Snapshot array{listings: list<Listing>, tags: array{mod?: list<array{tag: string, name: string}>}, game_versions?: array{versions: list<string>}}
  */
@@ -101,6 +101,41 @@ class ContentIndex
 
             return $response->notFound() ? [] : ($response->throw()->json($file) ?? []);
         });
+    }
+
+    /**
+     * The newest game build a shared release works on, as the index stamped it: stewards cap
+     * releases when a game build breaks them (KSA 2026.11.10.5801 renamed part ids). Null when
+     * the index sets no cap, or has not stamped the release yet.
+     *
+     * @param  'vehicle'|'save'  $type
+     */
+    public static function gameMax(string $type, string $id, string $version): ?string
+    {
+        foreach (self::shared($type) as $listing) {
+            if ($listing['id'] === $id) {
+                foreach ($listing['releases'] ?? [] as $release) {
+                    if ($release['version'] === $version) {
+                        return $release['game_max'] ?? null;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a release capped at this build does not work on the newest build the index knows.
+     * Builds compare by their revision, the last number (2026.11.10.5801 is 5801).
+     */
+    public static function beforeCurrentGame(?string $gameMax): bool
+    {
+        $versions = self::snapshot()['game_versions']['versions'] ?? [];
+        $current = end($versions);
+        $revision = fn (string $build) => (int) substr((string) strrchr('.'.$build, '.'), 1);
+
+        return $gameMax !== null && $current !== false && $revision($gameMax) < $revision($current);
     }
 
     /**

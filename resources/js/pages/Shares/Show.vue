@@ -333,9 +333,27 @@ const card =
                         >{{ formatBytes(latest.size) }} ·
                     </template>
                     {{
-                        $t('Game :version or newer', {
-                            version: latest.game_version,
-                        })
+                        latest.game_max
+                            ? $t('Game :min to :max', {
+                                  min: latest.game_version,
+                                  max: latest.game_max,
+                              })
+                            : $t('Game :version or newer', {
+                                  version: latest.game_version,
+                              })
+                    }}
+                </p>
+                <!-- Capped by the index when a game build broke it, such as 5801 renaming part ids. -->
+                <p
+                    v-if="latest.outdated"
+                    role="note"
+                    class="mt-2 max-w-72 rounded-md bg-accent-wash px-3 py-2 text-xs text-accent sm:text-right"
+                >
+                    {{
+                        $t(
+                            'Does not work on the current game build. It needs KSA :max or older.',
+                            { max: latest.game_max ?? '' },
+                        )
                     }}
                 </p>
                 <p
@@ -566,10 +584,20 @@ const card =
                             <span :class="['text-xs', muted]"
                                 >{{ formatDate(release.date) }} ·
                                 {{
-                                    $t('game :version', {
-                                        version: release.game_version,
-                                    })
+                                    release.game_max
+                                        ? $t('game :min to :max', {
+                                              min: release.game_version,
+                                              max: release.game_max,
+                                          })
+                                        : $t('game :version', {
+                                              version: release.game_version,
+                                          })
                                 }}</span
+                            >
+                            <span
+                                v-if="release.outdated"
+                                class="rounded bg-accent-wash px-1.5 py-0.5 text-xs text-accent"
+                                >{{ $t('Older game build') }}</span
                             >
                             <span
                                 class="ml-auto flex items-center gap-3 text-xs"
@@ -636,9 +664,14 @@ const card =
                             <dt :class="muted">{{ $t('Game') }}</dt>
                             <dd>
                                 {{
-                                    $t(':version or newer', {
-                                        version: share.game_version,
-                                    })
+                                    share.game_max
+                                        ? $t(':min to :max', {
+                                              min: share.game_version,
+                                              max: share.game_max,
+                                          })
+                                        : $t(':version or newer', {
+                                              version: share.game_version,
+                                          })
                                 }}
                             </dd>
                         </template>

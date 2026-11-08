@@ -78,7 +78,10 @@ const chip =
                 <dd
                     class="font-medium text-[#1b1b18] tabular-nums dark:text-[#EDEDEC]"
                 >
-                    {{ share.game_version }}
+                    {{ share.game_version
+                    }}<template v-if="share.game_max">
+                        – {{ share.game_max }}</template
+                    >
                 </dd>
             </div>
             <div class="flex items-center gap-1.5">
@@ -135,6 +138,18 @@ const chip =
         >
             <li :class="[chip, 'text-accent']">
                 {{ share.type === 'vehicle' ? $t('Vehicle') : $t('Save') }}
+            </li>
+            <!-- Capped by the index below the current game build, which no longer loads it. -->
+            <li
+                v-if="share.outdated"
+                class="inline-flex items-center gap-1 rounded-full bg-accent-wash px-2 py-0.5 text-xs text-accent"
+                :title="
+                    $t('Works up to game build :max', {
+                        max: share.game_max ?? '',
+                    })
+                "
+            >
+                {{ $t('Older game build') }}
             </li>
             <li v-for="tag in share.tags" :key="tag" :class="chip">
                 {{ tag }}
