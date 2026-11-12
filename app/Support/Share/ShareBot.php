@@ -125,6 +125,24 @@ class ShareBot
     }
 
     /**
+     * The state of the listing's pull request as GitHub has it now.
+     *
+     * @return 'open'|'merged'|'closed'
+     *
+     * @throws RequestException
+     */
+    public static function pullState(Share $share): string
+    {
+        $pull = self::github()->get(self::pullPath($share))->throw();
+
+        return match (true) {
+            (bool) $pull->json('merged') => 'merged',
+            $pull->json('state') === 'open' => 'open',
+            default => 'closed',
+        };
+    }
+
+    /**
      * Closes the listing's pull request and deletes its branch from the fork.
      *
      * @throws RequestException

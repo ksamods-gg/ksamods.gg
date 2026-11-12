@@ -9,12 +9,14 @@ use App\Models\ShareUpload;
 use App\Models\User;
 use App\Support\ContentIndex;
 use App\Support\Share\DataFiles;
+use App\Support\Share\ShareBot;
 use App\Support\Share\ShareHost;
 use App\Support\Share\Signer;
 use App\Support\Toml;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
@@ -63,6 +65,54 @@ Artisan::command('shares:publish-downloads {--all : Sign every release list agai
 
     $this->info("Published the download counts of {$count} listings.");
 })->purpose('Write the download counts into the release lists whose total changed'); // Also a button in the admin share panel.
+
+/*
+ * The webhook tells the site when a listing's pull request closes. This catches what it did not
+ * see: pull requests opened before the state was tracked, and a missed webhook. Gently: at most
+ * 20 a run, each at most once in six hours, and it stops at GitHub's first error.
+ */
+Schedule::command('shares:sync-pull-requests')->hourly()->withoutOverlapping();
+
+Artisan::command('shares:sync-pull-requests', function () {
+    $checked = 0;
+    $changed = 0;
+
+    foreach (Share::whereNotNull('pull_request_url')->where(fn ($query) => $query->whereNull('pull_request_state')->orWhere('pull_request_state', 'open'))->oldest('id')->cursor() as $share) {
+        if ($checked >= 20) {
+            break;
+        }
+
+        if (! Cache::add("share:pull-request-checked:{$share->id}", true, now()->addHours(6))) {
+            continue;
+        }
+
+        $checked++;
+
+        try {
+            $state = ShareBot::pullState($share);
+        } catch (Throwable $error) {
+            report($error);
+            $this->error("GitHub could not be asked about {$share->listing_id}; trying again next run.");
+
+            break;
+        }
+
+        if ($state === $share->pull_request_state) {
+            continue;
+        }
+
+        $was = $share->pull_request_state;
+        $share->forceFill(['pull_request_state' => $state])->save();
+        $changed++;
+
+        // As the webhook would have; a listing whose state was never known merged long ago, so its owner hears nothing.
+        if ($was === 'open') {
+            $state === 'merged' ? $share->notifyOwner('share_merged') : $share->notifyOwner('share_closed', url: $share->pull_request_url);
+        }
+    }
+
+    $this->info("Checked {$checked} pull requests; {$changed} changed.");
+})->purpose('Ask GitHub for the state of listing pull requests the webhook has not settled');
 
 /*
  * Following: a new release of a followed mod shows up in its followers' bell, and an email digest

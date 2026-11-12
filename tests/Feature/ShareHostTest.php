@@ -150,7 +150,7 @@ beforeEach(function () {
                     $this->closed[] = $request['state'];
                 }
 
-                return Http::response(['merged' => $this->merged]);
+                return Http::response(['merged' => $this->merged, 'state' => $this->merged || $this->closed !== [] ? 'closed' : 'open']);
             })(),
             // Open pull requests: by head, the listing's own; otherwise none that add ids.
             $path === '/repos/ksamods-test/content-index/pulls' => Http::response(
@@ -680,6 +680,32 @@ describe('owner notifications', function () {
         $webhook(['action' => 'closed', 'pull_request' => ['html_url' => Share::sole()->pull_request_url, 'merged' => true]], 'wrong')->assertUnauthorized();
 
         expect(Share::sole()->pull_request_state)->toBe('open');
+    });
+
+    it('settles a pull request opened before its state was tracked, once in six hours and without telling the owner', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        Share::sole()->forceFill(['pull_request_state' => null])->save();
+        $this->merged = true;
+        $asked = fn () => Http::recorded(fn ($request) => $request->method() === 'GET' && str_ends_with($request->url(), '/pulls/1'))->count();
+
+        $this->artisan('shares:sync-pull-requests')->assertSuccessful();
+        $this->artisan('shares:sync-pull-requests')->assertSuccessful();
+
+        expect(Share::sole()->pull_request_state)->toBe('merged')
+            ->and($asked())->toBe(1)
+            ->and($owner->notifications()->count())->toBe(0);
+    });
+
+    it('catches a merge the webhook missed, and tells the owner as the webhook would', function () {
+        $owner = User::factory()->create();
+        publishVehicle($owner)->assertCreated();
+        $this->merged = true;
+
+        $this->artisan('shares:sync-pull-requests')->assertSuccessful();
+
+        expect(Share::sole()->pull_request_state)->toBe('merged')
+            ->and($owner->notifications()->sole()->data)->toMatchArray(['kind' => 'share_merged']);
     });
 
     it('tells the owner when a moderator takes a release down', function () {
