@@ -14,6 +14,7 @@ use App\Http\Controllers\LegalController;
 use App\Http\Controllers\ListingController;
 use App\Http\Controllers\ModController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PackController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReviewController;
@@ -26,6 +27,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [ModController::class, 'home'])->name('home');
 Route::get('/mods', [ModController::class, 'index'])->name('mods.index');
 Route::get('/mods/{id}', [ModController::class, 'show'])->name('mods.show');
+// Mod packs from the content index: sets of mods at pinned versions.
+Route::get('/packs', [PackController::class, 'index'])->name('packs.index');
+Route::get('/packs/{id}', [PackController::class, 'show'])->name('packs.show');
 Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LegalController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');

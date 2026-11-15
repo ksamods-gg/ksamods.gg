@@ -13,7 +13,9 @@ use Throwable;
  *
  * @phpstan-type Release array{version: string, release_status: string, release_date: string, game_min?: string, game_min_revision?: int, game_max?: string, game_max_revision?: int, download: array{url: string, size?: int, mirrors?: list<string>}, loader?: array{id: string, min?: string}, dependencies?: list<array{id?: string, any_of?: list<array{id: string, min?: string, max?: string}>, kind: string, min?: string, max?: string}>, changelog?: string, changelog_text?: string}
  * @phpstan-type Listing array{id: string, published_at: string|null, updated_at: string|null, authored: array{type: string, name: string, authors?: list<string>, abstract?: string, description?: string, license?: string, tags?: list<string>, links?: array<string, string>, images?: array{icon?: array{url: string}, description?: list<array{id: string, url: string}>}}, releases?: list<Release>, downloads?: array{total: int}}
- * @phpstan-type Snapshot array{listings: list<Listing>, tags: array{mod?: list<array{tag: string, name: string}>}, game_versions?: array{versions: list<string>}}
+ * @phpstan-type PackVersion array{authored: array{name: string, version: string, authors?: list<string>, abstract?: string, description?: string, license?: string, tags?: list<string>, links?: array<string, string>, released_at?: string, compatibility?: array{game_min?: string}, images?: array{icon?: array{url: string}}, mods?: list<array{id: string, version: string}>}}
+ * @phpstan-type Pack array{id: string, published_at?: string, updated_at?: string, versions: non-empty-list<PackVersion>}
+ * @phpstan-type Snapshot array{listings: list<Listing>, packs: list<Pack>, tags: array{mod?: list<array{tag: string, name: string}>}, game_versions?: array{versions: list<string>}}
  */
 class ContentIndex
 {
@@ -56,6 +58,10 @@ class ContentIndex
 
             return $listing;
         }, (array) ($snapshot['listings'] ?? []))));
+
+        // A pack shows its newest version, which needs a name and a version number.
+        $snapshot['packs'] = array_values(array_filter((array) ($snapshot['packs'] ?? []), fn (mixed $pack) => is_array($pack)
+            && isset($pack['id'], $pack['versions'][0]['authored']['name'], $pack['versions'][0]['authored']['version'])));
 
         /** @var Snapshot $snapshot */
         return $snapshot;

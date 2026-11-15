@@ -14,7 +14,7 @@ class SitemapController extends Controller
     public function __invoke(): Response
     {
         $pages = [
-            route('home'), route('mods.index'), route('shares.index', 'vehicles'), route('shares.index', 'saves'),
+            route('home'), route('mods.index'), route('packs.index'), route('shares.index', 'vehicles'), route('shares.index', 'saves'),
             route('policy'), route('privacy'), route('terms'),
         ];
 
@@ -23,6 +23,10 @@ class SitemapController extends Controller
             ->concat(collect(ContentIndex::snapshot()['listings'])->map(fn (array $listing) => [
                 'loc' => route('mods.show', $listing['id']),
                 'lastmod' => $listing['updated_at'],
+            ]))
+            ->concat(collect(ContentIndex::snapshot()['packs'])->map(fn (array $pack) => [
+                'loc' => route('packs.show', $pack['id']),
+                'lastmod' => $pack['updated_at'] ?? null,
             ]))
             // Vehicles and saves with a release that is still up, as their pages list them.
             ->concat(Share::whereHas('releases', fn ($query) => $query->whereNull('taken_down_at'))

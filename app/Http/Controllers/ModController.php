@@ -501,7 +501,7 @@ class ModController extends Controller
      *
      * @param  Collection<string, string>  $images
      */
-    private function markdown(string $text, Collection $images): string
+    public function markdown(string $text, Collection $images): string
     {
         $text = preg_replace_callback(
             '/ksa-image:([\w.-]+)/',

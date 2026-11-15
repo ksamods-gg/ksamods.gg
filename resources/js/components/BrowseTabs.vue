@@ -3,18 +3,20 @@ import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { t } from '@/lib/i18n';
 import { index as modsIndex } from '@/routes/mods';
+import { index as packsIndex } from '@/routes/packs';
 import { index as sharesIndex } from '@/routes/shares';
 
 /**
  * The tabs of the one browse page: mods, vehicles and saves. Each tab keeps its own URL, so
  * links and search results to /mods, /vehicles and /saves still land on the right tab.
  */
-defineProps<{ current: 'mods' | 'vehicles' | 'saves' }>();
+defineProps<{ current: 'mods' | 'packs' | 'vehicles' | 'saves' }>();
 
 const tabs = computed(
     () =>
         [
             { key: 'mods', label: t('Mods'), href: modsIndex() },
+            { key: 'packs', label: t('Packs'), href: packsIndex() },
             {
                 key: 'vehicles',
                 label: t('Vehicles'),

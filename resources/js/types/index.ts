@@ -3,3 +3,4 @@ export * from './mods';
 export * from './admin';
 export * from './legal';
 export * from './shares';
+export * from './packs';
