@@ -4,7 +4,7 @@ import BrowseTabs from '@/components/BrowseTabs.vue';
 import ModIcon from '@/components/ModIcon.vue';
 import PageMeta from '@/components/PageMeta.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { show } from '@/routes/packs';
+import { create, show } from '@/routes/packs';
 import type { PackSummary } from '@/types';
 
 defineProps<{ packs: PackSummary[] }>();
@@ -27,9 +27,17 @@ const chip =
     <AppLayout>
         <BrowseTabs current="packs" />
 
-        <h1 class="text-2xl font-semibold tracking-tight">
-            {{ $t('Mod packs for Kitten Space Agency') }}
-        </h1>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <h1 class="text-2xl font-semibold tracking-tight">
+                {{ $t('Mod packs for Kitten Space Agency') }}
+            </h1>
+            <!-- A plain link: it may go on to GitHub to ask for pull request access. -->
+            <a
+                :href="create().url"
+                class="rounded-md bg-[#1b1b18] px-4 py-2 text-sm font-medium text-white hover:bg-black dark:bg-[#EDEDEC] dark:text-[#0a0a0a] dark:hover:bg-white"
+                >{{ $t('Publish a pack') }}</a
+            >
+        </div>
         <p :class="['mt-1 text-sm', muted]">
             {{
                 $t(

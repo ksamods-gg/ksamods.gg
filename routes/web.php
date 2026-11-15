@@ -29,6 +29,13 @@ Route::get('/mods', [ModController::class, 'index'])->name('mods.index');
 Route::get('/mods/{id}', [ModController::class, 'show'])->name('mods.show');
 // Mod packs from the content index: sets of mods at pinned versions.
 Route::get('/packs', [PackController::class, 'index'])->name('packs.index');
+// Before /packs/{id}, which would take their names as ids. Making a pack opens a pull request from the player's GitHub account.
+Route::middleware('auth')->group(function () {
+    Route::get('/packs/create', [PackController::class, 'create'])->name('packs.create');
+    Route::get('/packs/check', [PackController::class, 'check'])->middleware('throttle:60,1')->name('packs.check');
+    Route::post('/packs', [PackController::class, 'store'])->name('packs.store');
+    Route::get('/packs/{id}/new-version', [PackController::class, 'newVersion'])->name('packs.new-version');
+});
 Route::get('/packs/{id}', [PackController::class, 'show'])->name('packs.show');
 Route::get('/privacy', [LegalController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LegalController::class, 'terms'])->name('terms');

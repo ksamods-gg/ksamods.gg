@@ -107,21 +107,61 @@ class Screenshots
 
         // Without a readable cover there is no icon to cut.
         if ($source instanceof GdImage) {
-            $side = min(imagesx($source), imagesy($source));
-            $square = imagecreatetruecolor(512, 512);
-            imagecopyresampled($square, $source, 0, 0, intdiv(imagesx($source) - $side, 2), intdiv(imagesy($source) - $side, 2), 512, 512, $side, $side);
-            $webp = self::webp($square, self::MAX_ICON_BYTES);
-
-            if ($webp !== null) {
-                // A new name each time: the index keeps reading the old icon until the change merges.
-                $path = "images/{$share->type}/{$share->listing_id}/icon-".Str::random(16).'.webp';
-                DataFiles::disk()->put($path, $webp, ['visibility' => 'public', 'ContentType' => 'image/webp']);
-                $icon = ['url' => DataFiles::url($path), 'sha256' => hash('sha256', $webp), 'width' => 512, 'height' => 512, 'size' => strlen($webp)];
-            }
+            $icon = self::squareIcon($source, "images/{$share->type}/{$share->listing_id}");
         }
 
         $share->forceFill(['icon' => $icon])->save();
         ShareHost::propose($share, ! ShareHost::listed($share));
+    }
+
+    /**
+     * An uploaded image as a listing icon in $directory on the share disk, such as a mod pack's.
+     *
+     * @return array{url: string, sha256: string, width: int, height: int, size: int}
+     *
+     * @throws ShareError
+     */
+    public static function icon(string $bytes, string $directory): array
+    {
+        if (strlen($bytes) > self::MAX_UPLOAD_BYTES) {
+            throw new ShareError('too_large', 'An icon can be at most 10 MB.', 413);
+        }
+
+        $image = @imagecreatefromstring($bytes);
+
+        if (! $image instanceof GdImage) {
+            throw new ShareError('invalid_request', 'The icon must be a PNG, JPEG or WebP image.', 422);
+        }
+
+        if (min(imagesx($image), imagesy($image)) < 256) {
+            throw new ShareError('invalid_request', 'The icon must be at least 256 pixels on its shorter side.', 422);
+        }
+
+        return self::squareIcon($image, $directory)
+            ?? throw new ShareError('invalid_request', 'The icon is too detailed to fit 256 KB as WebP. Try a simpler one.', 422);
+    }
+
+    /**
+     * The image's center square at 512px as WebP, stored under a new name each time: the index
+     * keeps reading the old icon until the change merges. Null when it cannot fit RFC 0058's size.
+     *
+     * @return array{url: string, sha256: string, width: int, height: int, size: int}|null
+     */
+    private static function squareIcon(GdImage $source, string $directory): ?array
+    {
+        $side = min(imagesx($source), imagesy($source));
+        $square = imagecreatetruecolor(512, 512);
+        imagecopyresampled($square, $source, 0, 0, intdiv(imagesx($source) - $side, 2), intdiv(imagesy($source) - $side, 2), 512, 512, $side, $side);
+        $webp = self::webp($square, self::MAX_ICON_BYTES);
+
+        if ($webp === null) {
+            return null;
+        }
+
+        $path = "{$directory}/icon-".Str::random(16).'.webp';
+        DataFiles::disk()->put($path, $webp, ['visibility' => 'public', 'ContentType' => 'image/webp']);
+
+        return ['url' => DataFiles::url($path), 'sha256' => hash('sha256', $webp), 'width' => 512, 'height' => 512, 'size' => strlen($webp)];
     }
 
     /**

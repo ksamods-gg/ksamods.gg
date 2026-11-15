@@ -7,7 +7,7 @@ import { BOREA_RELEASES_URL, boreaPackLink, boreaSupported } from '@/lib/borea';
 import { isMobileDevice } from '@/lib/device';
 import { formatDate } from '@/lib/format';
 import { show as modShow } from '@/routes/mods';
-import { index } from '@/routes/packs';
+import { index, newVersion } from '@/routes/packs';
 import type { PackDetail } from '@/types';
 
 const props = defineProps<{ pack: PackDetail }>();
@@ -82,8 +82,23 @@ const primaryButton =
                         >{{ $t('Get Borea') }}</a
                     >
                 </p>
+                <!-- For the pack's owner; the form checks the owner record on GitHub. A plain link: it may go on to GitHub. -->
+                <a
+                    v-if="page.props.auth.user"
+                    :href="newVersion(pack.id).url"
+                    class="mt-3 text-sm underline underline-offset-4"
+                    >{{ $t('Publish a new version') }}</a
+                >
             </div>
         </div>
+
+        <p
+            v-if="page.flash.status"
+            role="status"
+            class="mt-4 rounded-md bg-accent-wash p-3 text-sm text-accent"
+        >
+            {{ page.flash.status }}
+        </p>
 
         <div
             class="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]"

@@ -2,18 +2,20 @@
 import { computed } from 'vue';
 import { t } from '@/lib/i18n';
 import { create as listingCreate } from '@/routes/listings';
+import { create as packCreate } from '@/routes/packs';
 import { create as shareCreate } from '@/routes/shares';
 
 /**
- * The tabs of the one publish page: a mod, or a vehicle or save. Each keeps its own URL. Plain
+ * The tabs of the one publish page: a mod, a pack, or a vehicle or save. Each keeps its own URL. Plain
  * links, since a mod's form may go on to GitHub to ask for pull request access.
  */
-defineProps<{ current: 'mod' | 'share' }>();
+defineProps<{ current: 'mod' | 'pack' | 'share' }>();
 
 const tabs = computed(
     () =>
         [
             { key: 'mod', label: t('A mod'), href: listingCreate().url },
+            { key: 'pack', label: t('A pack'), href: packCreate().url },
             {
                 key: 'share',
                 label: t('A vehicle or save'),

@@ -55,6 +55,21 @@ class ListingPullRequest
             self::proveOwnership($github, $user, $releaseRepository);
         }
 
+        return self::openFiles($user, "listing/{$id}", ["listings/{$id}.toml" => $toml], ($update ? 'Update ' : 'Add ').$id, $title, $body);
+    }
+
+    /**
+     * Writes the files, by their path in the content index, onto a new branch of the user's fork
+     * and opens a pull request from it. A file that exists on main is replaced.
+     *
+     * @param  array<string, string>  $files
+     * @return string The pull request's URL.
+     *
+     * @throws RequestException
+     */
+    public static function openFiles(User $user, string $branchPrefix, array $files, string $message, string $title, string $body): string
+    {
+        $github = self::github($user);
         $fork = $github->post('/repos/'.ContentIndex::REPOSITORY.'/forks', ['default_branch_only' => true])
             ->throw()
             ->json('full_name');
@@ -62,17 +77,22 @@ class ListingPullRequest
         self::syncFork($github, $fork);
 
         $base = $github->get('/repos/'.ContentIndex::REPOSITORY.'/git/ref/heads/main')->throw()->json('object.sha');
-        $branch = "listing/{$id}-".now()->format('YmdHis');
+        $branch = "{$branchPrefix}-".now()->format('YmdHis');
 
         $github->post("/repos/{$fork}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $base])->throw();
 
-        $github->put(str_replace(ContentIndex::REPOSITORY, $fork, self::path($id)), array_filter([
-            'message' => ($update ? 'Update ' : 'Add ').$id,
-            'content' => base64_encode($toml),
-            'branch' => $branch,
-            // GitHub only replaces a file when given the blob it replaces, here the one on the branch's commit.
-            'sha' => $update ? $github->get(self::path($id), ['ref' => $base])->throw()->json('sha') : null,
-        ]))->throw();
+        foreach ($files as $path => $content) {
+            $upstream = '/repos/'.ContentIndex::REPOSITORY.'/contents/'.implode('/', array_map('rawurlencode', explode('/', $path)));
+            $existing = $github->get($upstream, ['ref' => $base]);
+
+            $github->put(str_replace(ContentIndex::REPOSITORY, $fork, $upstream), array_filter([
+                'message' => $message,
+                'content' => base64_encode($content),
+                'branch' => $branch,
+                // GitHub only replaces a file when given the blob it replaces, here the one on the branch's commit.
+                'sha' => $existing->successful() ? $existing->json('sha') : null,
+            ]))->throw();
+        }
 
         return $github->post('/repos/'.ContentIndex::REPOSITORY.'/pulls', [
             'title' => $title,
