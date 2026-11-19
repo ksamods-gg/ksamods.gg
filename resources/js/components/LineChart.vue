@@ -23,10 +23,25 @@ const PAD = { top: 12, right: 12, bottom: 24, left: 52 };
 const show = (value: number) =>
     props.format ? props.format(value) : formatNumber(value);
 
+// The smallest round step at least this big, and at least 1 since the charts count whole
+// things, so the axis reads 0, 2,500, 5,000, 7,500 rather than thirds of the highest value.
+function roundStep(raw: number): number {
+    const power = 10 ** Math.floor(Math.log10(Math.max(1, raw)));
+
+    return Math.ceil(
+        [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+            .map((n) => n * power)
+            .find((step) => step >= raw) ?? 10 * power,
+    );
+}
+
 const scale = computed(() => {
     const values = props.points.map((p) => p.value);
     const low = props.min ?? 0;
-    const high = props.max ?? Math.max(1, ...values) * 1.1;
+    // A little headroom over the highest value, rounded up to three round steps.
+    const high =
+        props.max ??
+        low + 3 * roundStep((Math.max(1, ...values) * 1.05 - low) / 3);
     const times = props.points.map((p) => new Date(p.date).getTime());
     const first = Math.min(...times);
     const last = Math.max(...times);
